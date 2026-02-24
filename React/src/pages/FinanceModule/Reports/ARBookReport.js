@@ -14,8 +14,8 @@ import { toast } from "react-toastify";
 
 // --- API IMPORTS ---
 import { getARBook, GetCustomerFilter } from "../service/financeapi";
-import { GetAllCurrencies, GetBankList } from "../../../common/data/mastersapi";
 import { GetInvoiceDetails, GetSalesDetails, GetItemFilter } from "../../../common/data/invoiceapi";
+import { getDebitNoteById, getCreditNoteById } from "../../../common/data/mastersapi";
 
 // --- HELPER: Date Formatter (dd-mm-yyyy) ---
 const formatDate = (dateInput) => {
@@ -60,6 +60,11 @@ const ARBookReport = () => {
   // --- RECEIPT MODAL STATE ---
   const [showReceiptDialog, setShowReceiptDialog] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState(null);
+
+  // --- NOTE MODAL STATE ---
+  const [showNoteDialog, setShowNoteDialog] = useState(false);
+  const [noteDetails, setNoteDetails] = useState(null);
+  const [loadingNote, setLoadingNote] = useState(false);
 
   const [loadingData, setLoadingData] = useState(false);
 
@@ -263,6 +268,40 @@ const ARBookReport = () => {
     setShowReceiptDialog(true);
   };
 
+  const handleNoteClick = async (rowData, type) => {
+    const noteId = rowData.transaction_id || rowData.id || rowData.real_invoice_id;
+    if (!noteId) {
+      toast.warning("No ID available for this Note.");
+      return;
+    }
+
+    setLoadingNote(true);
+    setShowNoteDialog(true);
+    setNoteDetails(null);
+
+    try {
+      let response;
+      if (type === 'DN') {
+        response = await getDebitNoteById(noteId);
+      } else {
+        response = await getCreditNoteById(noteId);
+      }
+
+      const data = response?.data;
+      if (data) {
+        setNoteDetails({ ...data, type });
+      } else {
+        toast.warning(`No details returned for this ${type === 'DN' ? 'Debit' : 'Credit'} Note.`);
+        setShowNoteDialog(false);
+      }
+    } catch (err) {
+      console.error("API Fetch Error:", err);
+      toast.error(`Failed to fetch ${type} details.`);
+    } finally {
+      setLoadingNote(false);
+    }
+  };
+
   const getBankName = (record) => {
     if (!record) return "";
     const bId = record.deposit_bank_id || record.bank_id;
@@ -330,7 +369,36 @@ const ARBookReport = () => {
         </span>
       );
     }
-    // Else it is likely an Invoice or Note
+
+    // Check if Debit Note (Amount > 0)
+    if (row.convertedDebitNote > 0 && !row.convertedInvoiceAmount && !row.convertedCreditNote) {
+      return (
+        <span
+          className="text-danger fw-bold"
+          style={{ cursor: "pointer", textDecoration: "underline" }}
+          onClick={() => handleNoteClick(row, 'DN')}
+          title="View Debit Note Details"
+        >
+          {row.invoice_no || row.ar_no || "DN"}
+        </span>
+      );
+    }
+
+    // Check if Credit Note (Amount > 0)
+    if (row.convertedCreditNote > 0 && !row.convertedInvoiceAmount && !row.convertedDebitNote) {
+      return (
+        <span
+          className="text-warning fw-bold"
+          style={{ cursor: "pointer", textDecoration: "underline" }}
+          onClick={() => handleNoteClick(row, 'CN')}
+          title="View Credit Note Details"
+        >
+          {row.invoice_no || row.ar_no || "CN"}
+        </span>
+      );
+    }
+
+    // Else it is likely an Invoice
     return (
       <span
         className="text-primary fw-bold"
@@ -608,6 +676,69 @@ const ARBookReport = () => {
             </div>
           ) : (
             <div className="text-center p-3 text-muted">No details found for this receipt.</div>
+          )}
+        </Dialog>
+
+        {/* --- NOTE (DN/CN) VIEW POPUP --- */}
+        <Dialog
+          header={`${noteDetails?.type === 'DN' ? 'Debit Note' : 'Credit Note'} View: ${noteDetails?.DebitNoteNumber || noteDetails?.DebitNoteNo || noteDetails?.CreditNoteNumber || noteDetails?.CreditNoteNo || ''}`}
+          visible={showNoteDialog}
+          style={{ width: '50vw' }}
+          onHide={() => setShowNoteDialog(false)}
+          draggable={false}
+          resizable={false}
+        >
+          {loadingNote ? (
+            <div className="d-flex justify-content-center p-4">
+              <div className="spinner-border text-primary" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </div>
+            </div>
+          ) : noteDetails ? (
+            <div>
+              <div className="mb-4">
+                <Row className="mb-2">
+                  <Col md={12} className="d-flex">
+                    <span style={popupLabelStyle}>Customer</span>
+                    <span>: {selectedCustomer?.label || noteDetails.CustomerId}</span>
+                  </Col>
+                </Row>
+                <Row className="mb-2">
+                  <Col md={12} className="d-flex">
+                    <span style={popupLabelStyle}>Date</span>
+                    <span>: {noteDetails.TransactionDate || noteDetails.Date ? format(new Date(noteDetails.TransactionDate || noteDetails.Date), "dd-MMM-yyyy") : ''}</span>
+                  </Col>
+                </Row>
+                <Row className="mb-2">
+                  <Col md={12} className="d-flex">
+                    <span style={popupLabelStyle}>Amount</span>
+                    <span>: <span className="fw-bold fs-6">{(noteDetails.Amount || noteDetails.DebitAmount || noteDetails.CreditAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span> {noteDetails.CurrencyCode || 'IDR'}</span>
+                  </Col>
+                </Row>
+                <Row className="mb-2">
+                  <Col md={12} className="d-flex">
+                    <span style={popupLabelStyle}>Linked Invoice ID</span>
+                    <span>: {noteDetails.InvoiceId || noteDetails.InvoiceNo || '-'}</span>
+                  </Col>
+                </Row>
+                <Row className="mb-2">
+                  <Col md={12} className="d-flex align-items-baseline">
+                    <span style={popupLabelStyle}>Description</span>
+                    <span className="me-1">:</span>
+                    <div className="flex-grow-1 text-muted">
+                      {noteDetails.Description || '-'}
+                    </div>
+                  </Col>
+                </Row>
+              </div>
+              <div className="text-end mt-3 border-top pt-3">
+                <button className="btn btn-secondary btn-sm" onClick={() => setShowNoteDialog(false)}>Close</button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center p-3 text-muted">
+              No details found for this Note.
+            </div>
           )}
         </Dialog>
 

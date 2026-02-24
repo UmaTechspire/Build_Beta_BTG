@@ -366,8 +366,8 @@ async def get_pending_list(
     db: AsyncSession = Depends(database.get_db)
 ):
     try:
-        # Base WHERE clause
-        where_clause = "WHERE r.pending_verification = 1 AND r.is_active = 1"
+        # Base WHERE clause (Only fetch Receipts, meaning positive amounts)
+        where_clause = "WHERE r.pending_verification = 1 AND r.is_active = 1 AND (IFNULL(r.bank_amount, 0) > 0 OR IFNULL(r.cash_amount, 0) > 0)"
         query_params = {}
 
         # LOGIC: If Department is '9' (Sales), filter by sales_person_id
@@ -378,11 +378,16 @@ async def get_pending_list(
         query = text(f"""
             SELECT 
                 r.*, 
+                ABS(CASE WHEN r.bank_amount != 0 THEN r.bank_amount ELSE r.cash_amount END) as display_amount,
+                CASE 
+                    WHEN r.deposit_bank_id IS NULL OR r.deposit_bank_id = '0' OR r.deposit_bank_id = '' THEN 'Cashbook'
+                    ELSE 'Bankbook'
+                END as payment_type,
                 COALESCE(mc.CurrencyCode, 'IDR') as CurrencyCode,
                 c.CustomerName
             FROM tbl_ar_receipt r
             LEFT JOIN {DB_NAME_USER_NEW}.master_customer c ON r.customer_id = c.Id
-            LEFT JOIN {DB_NAME_MASTER}.master_bank b ON r.deposit_bank_id = b.BankId
+            LEFT JOIN {DB_NAME_MASTER}.master_bank b ON CAST(NULLIF(r.deposit_bank_id, '') AS UNSIGNED) = b.BankId
             LEFT JOIN {DB_NAME_USER}.master_currency mc ON b.CurrencyId = mc.CurrencyId
             {where_clause}
             ORDER BY r.receipt_id DESC
@@ -588,7 +593,7 @@ async def create_book_entries_from_claim(
                 cash_amount=-abs(entry.amount) if is_cash else 0,
                 bank_amount=0 if is_cash else -abs(entry.amount),
                 bank_charges=0,
-                deposit_bank_id="0" if is_cash else str(entry.bank_id or 0),
+                deposit_bank_id=str(entry.bank_id or 0),
 
                 # Reference = claim number for traceability
                 reference_no=f"{entry.claim_no} - {entry.supplier_name or entry.applicant_name}".strip(" -"),

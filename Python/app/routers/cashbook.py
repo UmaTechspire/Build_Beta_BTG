@@ -58,6 +58,7 @@ async def get_daily_cash_entries(db: AsyncSession = Depends(get_db)):
                 END as customerName,
                 
                 r.cash_amount,
+                r.deposit_bank_id,
                 r.reference_no,
                 r.sales_person_id,
                 r.send_notification,
@@ -78,7 +79,6 @@ async def get_daily_cash_entries(db: AsyncSession = Depends(get_db)):
             
             WHERE r.cash_amount != 0
               AND r.is_active = 1
-              AND (r.deposit_bank_id IS NULL OR r.deposit_bank_id = '' OR r.deposit_bank_id = '0')
             
             ORDER BY r.receipt_id DESC
         """)
@@ -118,6 +118,9 @@ async def get_cash_book_report(
                     ELSE COALESCE(c.CustomerName, 'Unknown Customer') 
                 END as Party,
                 
+                COALESCE(b.BankName, '-') as BankName,
+                r.deposit_bank_id,
+                
                 r.reference_no as Description,
                 COALESCE(mc.CurrencyCode, 'IDR') as Currency, 
                 
@@ -129,13 +132,13 @@ async def get_cash_book_report(
             FROM tbl_ar_receipt r
             LEFT JOIN {DB_NAME_USER_NEW}.master_customer c ON r.customer_id = c.Id
             LEFT JOIN {DB_NAME_MASTER}.master_supplier s ON r.customer_id = s.SupplierId
-            LEFT JOIN {DB_NAME_USER}.master_currency mc ON c.CurrencyId = mc.CurrencyId
+            LEFT JOIN {DB_NAME_USER}.master_currency mc ON r.currencyid = mc.CurrencyId
+            LEFT JOIN {DB_NAME_MASTER}.master_bank b ON CAST(NULLIF(r.deposit_bank_id, '') AS UNSIGNED) = b.BankId
             
             WHERE DATE(COALESCE(r.receipt_date, r.created_date)) BETWEEN :from_date AND :to_date
               AND r.is_active = 1
               AND r.is_submitted = 1
               AND r.cash_amount != 0
-              AND (r.deposit_bank_id IS NULL OR r.deposit_bank_id = '' OR r.deposit_bank_id = '0')
         """
         
         params = {"from_date": from_date, "to_date": to_date}

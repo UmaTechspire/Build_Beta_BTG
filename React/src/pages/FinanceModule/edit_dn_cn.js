@@ -283,6 +283,13 @@ const EditDnCn = () => {
         }
     };
 
+    const formatAmount = (val) => {
+        if (val === null || val === undefined || val === "") return "";
+        const parts = val.toString().split(".");
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        return parts.join(".");
+    };
+
     return (
         <div className="page-content">
             <Container fluid>
@@ -337,10 +344,15 @@ const EditDnCn = () => {
                                                     </td>
                                                     <td className="p-1">
                                                         <Input
-                                                            type="number"
+                                                            type="text"
                                                             bsSize="sm"
-                                                            value={row.amount}
-                                                            onChange={(e) => handleDebitChange(index, "amount", e.target.value)}
+                                                            value={formatAmount(row.amount)}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value.replace(/,/g, "");
+                                                                if (/^\d*\.?\d*$/.test(val)) {
+                                                                    handleDebitChange(index, "amount", val);
+                                                                }
+                                                            }}
                                                         />
                                                     </td>
                                                     <td className="p-1">
@@ -459,10 +471,15 @@ const EditDnCn = () => {
                                                     </td>
                                                     <td className="p-1">
                                                         <Input
-                                                            type="number"
+                                                            type="text"
                                                             bsSize="sm"
-                                                            value={row.amount}
-                                                            onChange={(e) => handleCreditChange(index, "amount", e.target.value)}
+                                                            value={formatAmount(row.amount)}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value.replace(/,/g, "");
+                                                                if (/^\d*\.?\d*$/.test(val)) {
+                                                                    handleCreditChange(index, "amount", val);
+                                                                }
+                                                            }}
                                                         />
                                                     </td>
                                                     <td className="p-1">

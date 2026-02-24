@@ -52,7 +52,8 @@ async def get_daily_entries(db: AsyncSession = Depends(get_db)):
                     ELSE COALESCE(c.CustomerName, 'Unknown Customer')
                 END as customerName,
                 
-                r.bank_amount,
+                -- Fallback to cash_amount if it's a cash transaction linked to a bank
+                CASE WHEN r.bank_amount != 0 THEN r.bank_amount ELSE r.cash_amount END as bank_amount,
                 r.bank_charges,
                 r.deposit_bank_id,
                 r.reference_no,
@@ -138,7 +139,7 @@ async def get_bank_book_report(
                 r.reference_no as VoucherNo,
                 
                 CASE 
-                    WHEN r.bank_amount < 0 THEN 'Payment' 
+                    WHEN COALESCE(NULLIF(r.bank_amount, 0), r.cash_amount) < 0 THEN 'Payment' 
                     ELSE 'Receipt' 
                 END as TransactionType, 
                 
@@ -146,18 +147,18 @@ async def get_bank_book_report(
                 
                 -- 🟢 FIX: Dynamic Party Name for Report (Use s.SupplierName)
                 CASE 
-                    WHEN r.bank_amount < 0 AND r.customer_id != 0 THEN COALESCE(s.SupplierName, 'Unknown Supplier')
-                    WHEN r.bank_amount < 0 AND r.customer_id = 0 THEN 'Bank Charges'
+                    WHEN COALESCE(NULLIF(r.bank_amount, 0), r.cash_amount) < 0 AND r.customer_id != 0 THEN COALESCE(s.SupplierName, 'Unknown Supplier')
+                    WHEN COALESCE(NULLIF(r.bank_amount, 0), r.cash_amount) < 0 AND r.customer_id = 0 THEN 'Bank Charges'
                     ELSE COALESCE(c.CustomerName, 'Unknown Customer') 
                 END as Party,
                 
                 r.reference_no as Description,
                 COALESCE(mc.CurrencyCode, 'IDR') as Currency, 
                 
-                CASE WHEN r.bank_amount >= 0 THEN r.bank_amount ELSE 0 END as DebitOut,
-                CASE WHEN r.bank_amount < 0 THEN ABS(r.bank_amount) ELSE 0 END as CreditIn,
+                CASE WHEN COALESCE(NULLIF(r.bank_amount, 0), r.cash_amount) >= 0 THEN COALESCE(NULLIF(r.bank_amount, 0), r.cash_amount) ELSE 0 END as DebitOut,
+                CASE WHEN COALESCE(NULLIF(r.bank_amount, 0), r.cash_amount) < 0 THEN ABS(COALESCE(NULLIF(r.bank_amount, 0), r.cash_amount)) ELSE 0 END as CreditIn,
                 
-                r.bank_amount as NetAmount
+                COALESCE(NULLIF(r.bank_amount, 0), r.cash_amount) as NetAmount
             FROM tbl_ar_receipt r
             LEFT JOIN {DB_NAME_USER}.master_customer c ON r.customer_id = c.Id
             -- 🟢 FIX: Join on SupplierId

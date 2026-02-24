@@ -96,6 +96,7 @@ const CashBook = () => {
                 transactionType: item.TransactionType || "-",
                 party: item.Party || "-",
                 description: item.Description || "-",
+                bankName: item.BankName || "-",
 
                 actamount: item.NetAmount,
                 cashIn: parseFloat(item.CashIn || 0),
@@ -135,6 +136,7 @@ const CashBook = () => {
             "Voucher No": ex.voucherNo,
             "Transaction Type": ex.transactionType,
             "Party / Account": ex.party,
+            "Bank Name": ex.bankName,
 
             "Cash In (IDR)": ex.cashIn,
             "Cash Out (IDR)": ex.cashOut,
@@ -282,7 +284,7 @@ const CashBook = () => {
                                     filters={filters}
                                     onFilter={(e) => setFilters(e.filters)}
                                     globalFilter={globalFilter}
-                                    globalFilterFields={["date", "GLcode", "description", "voucherNo", "party", "transactionType", "cashIn", "cashOut", "balance"]}
+                                    globalFilterFields={["date", "description", "voucherNo", "party", "bankName", "transactionType", "cashIn", "cashOut", "balance"]}
                                     emptyMessage="No records found."
                                     showGridlines
                                     filterDisplay="menu"
@@ -292,6 +294,7 @@ const CashBook = () => {
                                     <Column field="voucherNo" header="Voucher No" filter filterPlaceholder="Search Voucher" />
                                     <Column field="transactionType" header="Transaction Type" filter filterPlaceholder="Search Type" />
                                     <Column field="party" header="Party / Account" filter filterPlaceholder="Search Party" />
+                                    <Column field="bankName" header="Bank Name" filter filterPlaceholder="Search Bank" />
                                     <Column field="description" header="Description" filter filterPlaceholder="Search Description" />
 
 
@@ -318,6 +321,7 @@ const CashBook = () => {
                                                 <th>Voucher No</th>
                                                 <th>Transaction Type</th>
                                                 <th>Party / Account</th>
+                                                <th>Bank Name</th>
                                                 <th>Description</th>
                                                 <th>Cash In (IDR)</th>
                                                 <th>Cash Out (IDR)</th>
@@ -332,6 +336,7 @@ const CashBook = () => {
                                                     <td>{item.voucherNo}</td>
                                                     <td>{item.transactionType}</td>
                                                     <td>{item.party}</td>
+                                                    <td>{item.bankName}</td>
                                                     <td>{item.description}</td>
                                                     <td className="text-end">{item.cashIn.toLocaleString('en-US', {
                                                         style: 'decimal',

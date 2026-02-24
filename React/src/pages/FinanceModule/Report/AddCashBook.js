@@ -29,7 +29,7 @@ import jsPDF from "jspdf";
 
 // Configuration
 import { GetCustomerFilter } from "../../FinanceModule/service/financeapi";
-import { GetAllCurrencies } from "common/data/mastersapi";
+import { GetBankList, GetAllCurrencies } from "common/data/mastersapi";
 import { PYTHON_API_URL } from "common/pyapiconfig";
 
 // --- IMPORT LOGO FOR PRINT ---
@@ -89,6 +89,7 @@ const AddCashBook = () => {
     const [loading, setLoading] = useState(false);
 
     // --- DATA STATES ---
+    const [bankList, setBankList] = useState([]);
     const [customerList, setCustomerList] = useState([]);
     const [supplierList, setSupplierList] = useState([]);
     const [entryList, setEntryList] = useState([]);
@@ -129,6 +130,10 @@ const AddCashBook = () => {
                 }
             } catch (err) { console.error("Failed to load currencies", err); }
 
+            // Load Banks First for Lookup
+            const banks = await GetBankList(1, 1);
+            setBankList(banks.map(item => ({ value: item.value, label: item.BankName, currencyId: item.CurrencyId })));
+
             // Load Customers
             const customers = await GetCustomerFilter(1, "%");
             setCustomerList(Array.isArray(customers) ? customers.map(c => ({
@@ -154,10 +159,10 @@ const AddCashBook = () => {
     }, []);
 
     useEffect(() => {
-        if (customerList.length > 0) {
+        if (bankList.length > 0 && customerList.length > 0) {
             loadEntryList();
         }
-    }, [customerList]);
+    }, [bankList, customerList]);
 
     // --- CALCULATE TOTALS ---
     useEffect(() => {
@@ -192,9 +197,11 @@ const AddCashBook = () => {
         setLoading(true);
         try {
             const response = await axios.get(`${PYTHON_API_URL}/AR/cash/get-daily-entries`);
+            console.log("CASHBOOK API RESPONSE DATA:", response.data); // Added for debugging
             if (response.data?.status === "success" && Array.isArray(response.data.data)) {
                 const mapped = response.data.data.map(item => ({
                     ...item,
+                    bankName: bankList.find(b => b.value === parseInt(item.deposit_bank_id))?.label || "-",
                     customerName: customerList.find(c => c.value === item.customer_id)?.label || item.customerName || item.customer_id,
                     displayDate: item.date ? format(new Date(item.date), "dd-MMM-yyyy") : "-",
                     verificationStatus: item.verification_status,
@@ -606,6 +613,7 @@ const AddCashBook = () => {
                             emptyMessage="No records found."
                         >
                             <Column field="displayDate" header="Date" sortable filter filterPlaceholder="Search Date" style={{ width: '10%' }} />
+                            <Column field="bankName" header="Bank" sortable filter filterPlaceholder="Search Bank" style={{ width: '15%' }} />
                             <Column field="customerName" header="Party" sortable filter filterPlaceholder="Search Party" style={{ width: '25%' }} />
                             <Column field="reference_no" header="Reference" sortable filter filterPlaceholder="Search Ref" style={{ width: '10%' }} />
                             <Column field="cash_amount" header="Amount" className="text-end" body={(d) => parseFloat(d.cash_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} style={{ width: '10%' }} />
