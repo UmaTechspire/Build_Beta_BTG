@@ -43,6 +43,7 @@ const ManageBankMaster = () => {
       createdDate: "2025-09-01",
       modifiedBy: "Admin",
       modifiedDate: "2025-09-05",
+      overdraftLimit: 7000000000,
     },
     {
       id: 2,
@@ -58,6 +59,7 @@ const ManageBankMaster = () => {
       createdDate: "2025-08-20",
       modifiedBy: "Admin",
       modifiedDate: "2025-09-03",
+      overdraftLimit: 0,
     },
   ]);
 
@@ -122,6 +124,7 @@ const ManageBankMaster = () => {
       "Account Number": a.accountNumber,
       "Branch": a.branch,
       "Address": a.address,
+      "Overdraft Limit": a.overdraftLimit ? new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(a.overdraftLimit) : "Rp 0,00",
       "Is Active": a.isActive ? "Yes" : "No",
       "Created By / Date": `${a.createdBy} / ${a.createdDate}`,
       "Modified By / Date": `${a.modifiedBy} / ${a.modifiedDate}`,
@@ -130,7 +133,7 @@ const ManageBankMaster = () => {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "BankMaster");
     const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-    saveAs(new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `BankMaster-${new Date().toISOString().slice(0,10)}.xlsx`);
+    saveAs(new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `BankMaster-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   const statusBodyTemplate = (rowData) => (rowData.isActive ? "Yes" : "No");
@@ -203,7 +206,7 @@ const ManageBankMaster = () => {
                     rows={5}
                     dataKey="id"
                     filters={filters}
-                    globalFilterFields={["systemNumber","bankName","bankAccountType"]}
+                    globalFilterFields={["systemNumber", "bankName", "bankAccountType"]}
                     header={header}
                     emptyMessage="No Bank records found."
                     showGridlines
@@ -216,6 +219,7 @@ const ManageBankMaster = () => {
                     <Column field="accountNumber" header="Account Number" sortable />
                     <Column field="branch" header="Branch" sortable />
                     <Column field="address" header="Address" sortable />
+                    <Column field="overdraftLimit" header="Overdraft Limit" body={(rowData) => rowData.overdraftLimit ? new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(rowData.overdraftLimit) : "Rp 0,00"} sortable />
                     <Column field="isActive" header="IsActive" body={statusBodyTemplate} sortable />
                     <Column field="createdBy" header="Created By / Date" body={(row) => `${row.createdBy} / ${row.createdDate}`} />
                     <Column field="modifiedBy" header="Modified By / Date" body={(row) => `${row.modifiedBy} / ${row.modifiedDate}`} />

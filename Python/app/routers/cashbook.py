@@ -74,7 +74,7 @@ async def get_daily_cash_entries(db: AsyncSession = Depends(get_db)):
                 END as verification_status
 
             FROM tbl_ar_receipt r
-            LEFT JOIN {DB_NAME_USER_NEW}.master_customer c ON r.customer_id = c.Id
+            LEFT JOIN {DB_NAME_USER}.master_customer c ON r.customer_id = c.Id
             LEFT JOIN {DB_NAME_MASTER}.master_supplier s ON r.customer_id = s.SupplierId
             
             WHERE r.cash_amount != 0
@@ -130,7 +130,7 @@ async def get_cash_book_report(
                 r.cash_amount as NetAmount
                 
             FROM tbl_ar_receipt r
-            LEFT JOIN {DB_NAME_USER_NEW}.master_customer c ON r.customer_id = c.Id
+            LEFT JOIN {DB_NAME_USER}.master_customer c ON r.customer_id = c.Id
             LEFT JOIN {DB_NAME_MASTER}.master_supplier s ON r.customer_id = s.SupplierId
             LEFT JOIN {DB_NAME_USER}.master_currency mc ON r.currencyid = mc.CurrencyId
             LEFT JOIN {DB_NAME_MASTER}.master_bank b ON CAST(NULLIF(r.deposit_bank_id, '') AS UNSIGNED) = b.BankId

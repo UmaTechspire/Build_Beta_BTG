@@ -351,7 +351,7 @@ async def post_invoice_to_ar(db: AsyncSession, request: schemas.PostInvoiceToARR
                     :userId, '127.0.0.1', NOW(), 
                     1, 0
                 FROM {DB_NAME_USER_NEW}.tbl_salesinvoices_header h
-                LEFT JOIN {DB_NAME_USER_NEW}.master_customer c ON h.customerid = c.Id
+                LEFT JOIN {DB_NAME_USER}.master_customer c ON h.customerid = c.Id
                 WHERE h.id = :inv_id
             """)
             
@@ -503,7 +503,7 @@ async def get_ar_book(db: AsyncSession, customer_id: int, from_date: str = None,
         FROM {DB_NAME_FINANCE}.tbl_ar_receipt r
         LEFT JOIN {DB_NAME_USER}.master_currency mc ON r.currencyid = mc.CurrencyId
         LEFT JOIN {DB_NAME_MASTER}.master_bank b ON CAST(NULLIF(r.deposit_bank_id, '') AS UNSIGNED) = b.BankId
-        LEFT JOIN {DB_NAME_USER_NEW}.master_customer c ON r.customer_id = c.Id
+        LEFT JOIN {DB_NAME_USER}.master_customer c ON r.customer_id = c.Id
         WHERE r.customer_id = :cid AND r.is_active = 1 AND r.is_posted = 1
 
         ORDER BY ledger_date DESC, created_date DESC

@@ -619,7 +619,7 @@ const Copyclaimpayment = () => {
             totalAmount: item.IsTaxCalType == 1 ? (Number(item.amount) + (Number(item.vatRate || 0))) - Number(item.taxRate || 0) : Number(item.amount) - (Number(item.taxRate || 0)),// Number(item.amount) * (1 + Number(item.taxRate || 0)),
             expenseDate: `${item.date}T00:00:00.000Z`,
             purpose: item.purpose || "",
-            paymentId: item.description || 0,
+            paymentId: item.PaymentId || (typeof item.description === 'object' ? item.description?.value : item.description) || 0,
             taxPerc: Number(item.taxPerc || 0),
             vatPerc: Number(item.vatPerc || 0),
             taxid: Number(item.taxid || 0),

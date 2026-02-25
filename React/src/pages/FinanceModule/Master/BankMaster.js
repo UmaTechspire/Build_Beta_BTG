@@ -33,6 +33,7 @@ const BankMaster = () => {
         accountNumber: "",
         branch: "",
         address: "",
+        overdraftLimit: "",
     });
 
     const [bankList, setBankList] = useState([]);
@@ -52,6 +53,7 @@ const BankMaster = () => {
             accountNumber: formData.accountNumber,
             branch: formData.branch,
             address: formData.address,
+            overdraftLimit: formData.overdraftLimit ? parseFloat(formData.overdraftLimit) : 0,
             isActive: true,
             createdBy: "Admin",
             createdDate: new Date().toLocaleDateString(),
@@ -67,6 +69,7 @@ const BankMaster = () => {
             accountNumber: "",
             branch: "",
             address: "",
+            overdraftLimit: "",
         });
     };
 
@@ -189,13 +192,26 @@ const BankMaster = () => {
                                                 />
                                             </FormGroup>
                                         </Col>
+                                        <Col md="6">
+                                            <FormGroup>
+                                                <Label>Overdraft Limit</Label>
+                                                <Input
+                                                    type="number"
+                                                    name="overdraftLimit"
+                                                    value={formData.overdraftLimit}
+                                                    onChange={handleChange}
+                                                    placeholder="Enter Credit Facility Limit (0 if None)"
+                                                    min="0"
+                                                />
+                                            </FormGroup>
+                                        </Col>
                                     </Row>
 
                                     <Button color="primary" onClick={handleAdd}>
                                         Add Bank
                                     </Button>
 
-                                  
+
                                 </CardBody>
                             </Card>
                         </Col>

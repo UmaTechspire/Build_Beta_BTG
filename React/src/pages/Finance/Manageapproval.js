@@ -1241,6 +1241,27 @@ const ManageApproval = ({ selectedType, setSelectedType }) => {
       onClick={() => handleShowPODetails(rowData)}>{rowData.pono}</span>;
   };
 
+  const actionprBodyTemplate = (rowData) => {
+    const prNo = rowData.prnumber || rowData.PR_NUMBER;
+    if (!prNo || prNo === 'NA') return <span>{prNo || 'NA'}</span>;
+
+    return (
+      <span
+        style={{ cursor: "pointer", color: "blue" }}
+        className="btn-rounded btn btn-link"
+        onClick={() => {
+          if (rowData.prid) {
+            handlePRClick(rowData.prid);
+          } else {
+            console.warn("No PR ID found for", prNo);
+          }
+        }}
+      >
+        {prNo}
+      </span>
+    );
+  };
+
   const handlePRClick = async (prid) => {
     if (!prid || prid <= 0) {
       Swal.fire("Invalid", "No valid PR found", "warning");
@@ -1421,10 +1442,61 @@ const ManageApproval = ({ selectedType, setSelectedType }) => {
     console.log("Response data.details:", res.data?.details);
 
     if (res.status) {
+      let details = res.data?.details || [];
+
+      // Extract unique PO IDs that are valid
+      const uniquePOIds = [...new Set(details.map(d => d.poid).filter(id => id && id > 0))];
+
+      if (uniquePOIds.length > 0) {
+        // Create a map to store PO ID -> PR Info
+        const poToPrMap = {};
+
+        // Fetch PO details for each unique PO
+        await Promise.all(uniquePOIds.map(async (poid) => {
+          try {
+            const poRes = await GetByIdPurchaseOrder(poid, 1, 1);
+
+            if (poRes?.status && poRes.data?.Requisition) {
+              const prNumbers = poRes.data.Requisition
+                .map(req => req.prnumber)
+                .filter(Boolean); // Filter out null/undefined/empty strings
+
+              // Join unique PR numbers
+              const prConcat = [...new Set(prNumbers)].join(", ");
+
+              // Also store the first PRID found for clicking purposes
+              const firstPrId = poRes.data.Requisition.find(req => req.prid > 0)?.prid;
+
+              poToPrMap[poid] = {
+                prnumber: prConcat || "NA",
+                prid: firstPrId
+              };
+            }
+          } catch (err) {
+            console.error(`Failed to fetch details for PO ${poid}`, err);
+          }
+        }));
+
+        // Enrich details with PR info
+        details = details.map(d => {
+          if (d.poid && poToPrMap[d.poid]) {
+            return {
+              ...d,
+              prnumber: poToPrMap[d.poid].prnumber,
+              prid: poToPrMap[d.poid].prid
+            };
+          }
+          return { ...d, prnumber: "NA" };
+        });
+      }
+
       if (res.data && res.data.header) {
         res.data.header.paymentmethodname = row.PaymentMethod;
       }
-      setSelectedDetail(res.data);
+      setSelectedDetail({
+        ...res.data,
+        details: details
+      });
       setDetailVisible(true);
       setPreviewUrl(res.data?.header?.AttachmentPath || "");
       setFileName(res.data?.header?.AttachmentName || "");
@@ -3017,6 +3089,15 @@ word-break: break-word;
                     body={actionpoBodyTemplate}
                   />
                 )}
+                {(selectedDetail.header?.ClaimCategoryId === 3) && (
+                  <Column
+                    field="prnumber"
+                    header="PR No"
+                    className="text-left"
+                    style={{ width: "10%" }}
+                    body={actionprBodyTemplate}
+                  />
+                )}
 
                 <Column headerStyle={{ textAlign: 'center' }} field="claimtype" header="Claim Type" />
                 <Column headerStyle={{ textAlign: 'center' }} field="PaymentDescription" header="Claim & Payment Description" />
@@ -3171,25 +3252,7 @@ word-break: break-word;
 
                                 return (
                                   <span key={index}>
-                                    {prid ? (
-                                      <a
-                                        href="#"
-                                        style={{
-                                          color: "#007bff",
-                                          textDecoration: "underline",
-                                          cursor: "pointer",
-                                        }}
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          handlePRClick(prid); // Opens correct PR
-                                        }}
-                                        title={`View ${cleanPR}`}
-                                      >
-                                        {cleanPR}
-                                      </a>
-                                    ) : (
-                                      <span style={{ color: "#666" }}>{cleanPR}</span>
-                                    )}
+                                    <span style={{ color: "#666" }}>{cleanPR}</span>
                                     {!isLast && ", "}
                                   </span>
                                 );

@@ -646,22 +646,36 @@ const ManageClaimsPayment = () => {
         return (
             <div className="actions" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 {/* Edit Button */}
-                {canEdit ? (
-                    <span
-                        onClick={() => editRow(rowData)}
-                        title="Edit"
-                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                    >
-                        <i className="mdi mdi-square-edit-outline" style={{ fontSize: '1.5rem' }}></i>
-                    </span>
-                ) : (
-                    <span
-                        style={{ color: "gray", display: 'flex', alignItems: 'center' }}
-                        title="Edit (Disabled)"
-                    >
-                        <i className="mdi mdi-square-edit-outline" style={{ fontSize: '1.5rem' }}></i>
-                    </span>
-                )}
+                {
+                    // Logic: If user is a Super Admin (or user 158) AND the record is not cancelled
+                    !isCancelled && (UserData?.superAdmin || String(UserData?.u_id) === '158') ? (
+                        <span
+                            onClick={() => editRow(rowData)}
+                            title="Edit"
+                            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                        >
+                            <i className="mdi mdi-square-edit-outline" style={{ fontSize: '1.5rem' }}></i>
+                        </span>
+                    ) :
+                        // Logic: Regular user can only edit if status is NOT 'Posted'
+                        !isCancelled && rowData.Status !== 'Posted' ? (
+                            <span
+                                onClick={() => editRow(rowData)}
+                                title="Edit"
+                                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                            >
+                                <i className="mdi mdi-square-edit-outline" style={{ fontSize: '1.5rem' }}></i>
+                            </span>
+                        ) : (
+                            // Logic: Disable edit icon for regular users on Posted claims
+                            <span
+                                style={{ color: "gray", display: 'flex', alignItems: 'center' }}
+                                title="Edit"
+                            >
+                                <i className="mdi mdi-square-edit-outline" style={{ fontSize: '1.5rem' }}></i>
+                            </span>
+                        )
+                }
 
                 {/* Delete Button */}
                 {canDelete ? (

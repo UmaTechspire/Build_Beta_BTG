@@ -144,6 +144,7 @@ async def get_bank_book_report(
                 END as TransactionType, 
                 
                 b.BankName as Account,
+                COALESCE(b.OverdraftLimit, 0) as OverdraftLimit,
                 
                 -- 🟢 FIX: Dynamic Party Name for Report (Use s.SupplierName)
                 CASE 
@@ -324,7 +325,7 @@ async def get_sales_persons(db: AsyncSession = Depends(get_db)):
                   Department = '9' 
                   OR Id IN (
                       SELECT DISTINCT SalesPersonId 
-                      FROM {DB_NAME_USER_NEW}.master_customer 
+                      FROM {DB_NAME_USER}.master_customer 
                       WHERE SalesPersonId IS NOT NULL
                   )
               )
@@ -345,7 +346,7 @@ async def get_customer_defaults(db: AsyncSession = Depends(get_db)):
     try:
         query = text(f"""
             SELECT Id, SalesPersonId 
-            FROM {DB_NAME_USER_NEW}.master_customer 
+            FROM {DB_NAME_USER}.master_customer 
             WHERE IsActive = 1 AND SalesPersonId IS NOT NULL
         """)
         

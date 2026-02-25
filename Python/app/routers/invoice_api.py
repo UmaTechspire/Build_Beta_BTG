@@ -366,7 +366,7 @@ async def get_all_invoices(filter_data: InvoiceFilter):
             (SELECT d.uomid FROM {DB_NAME_USER_NEW}.tbl_salesinvoices_details d 
              WHERE d.salesinvoicesheaderid = h.id LIMIT 1) AS uomid
         FROM {DB_NAME_USER_NEW}.tbl_salesinvoices_header h
-        LEFT JOIN {DB_NAME_USER_NEW}.master_customer c ON h.customerid = c.Id
+        LEFT JOIN {DB_NAME_USER}.master_customer c ON h.customerid = c.Id
         WHERE h.Salesinvoicesdate BETWEEN :from_date AND :to_date
           AND (:customer_id = 0 OR h.customerid = :customer_id)
           AND h.isactive = 1 
@@ -393,8 +393,7 @@ async def get_all_invoices(filter_data: InvoiceFilter):
 async def get_invoice_details(invoiceid: str):
     try:
         async with engine.connect() as conn:
-            # 1. Fetch Headers
-            # 🟢 FIX: Added 'AND h.isactive = 1' to prevent fetching duplicates/history
+            # 1. Fetch Headers from BOTH Old and New schemas using UNION
             header_query = text(f"""
                 SELECT 
                     h.id AS RealHeaderId, 
@@ -406,7 +405,23 @@ async def get_invoice_details(invoiceid: str):
                     COALESCE(h.CalculatedPrice, h.TotalAmount, 0) AS CalculatedPrice,
                     CASE WHEN h.IsSubmitted = 1 THEN 'Posted' ELSE 'Saved' END AS Status
                 FROM {DB_NAME_USER_NEW}.tbl_salesinvoices_header h
-                LEFT JOIN {DB_NAME_USER_NEW}.master_customer c ON h.customerid = c.Id
+                LEFT JOIN {DB_NAME_USER}.master_customer c ON h.customerid = c.Id
+                WHERE (h.salesinvoicenbr = :input_val OR h.id = :input_val)
+                  AND h.isactive = 1 
+                  
+                UNION ALL 
+                
+                SELECT 
+                    h.id AS RealHeaderId, 
+                    h.salesinvoicenbr AS InvoiceNbr,
+                    COALESCE(DATE_FORMAT(h.Salesinvoicesdate, '%Y-%m-%d'), '') AS Salesinvoicesdate,
+                    h.customerid,
+                    COALESCE(c.CustomerName, 'Unknown') AS CustomerName,
+                    COALESCE(h.TotalAmount, 0) AS TotalAmount,
+                    COALESCE(h.CalculatedPrice, h.TotalAmount, 0) AS CalculatedPrice,
+                    CASE WHEN h.IsSubmitted = 1 THEN 'Posted' ELSE 'Saved' END AS Status
+                FROM {DB_NAME_USER}.tbl_salesinvoices_header h
+                LEFT JOIN {DB_NAME_USER}.master_customer c ON h.customerid = c.Id
                 WHERE (h.salesinvoicenbr = :input_val OR h.id = :input_val)
                   AND h.isactive = 1 
             """)
@@ -435,6 +450,7 @@ async def get_invoice_details(invoiceid: str):
             header_dict["CalculatedPrice"] = aggregated_calc_price
 
             if all_header_ids:
+                # 2. Fetch Details from BOTH Old and New schemas using UNION
                 detail_query = text(f"""
                     SELECT 
                         d.id AS Id,
@@ -449,7 +465,25 @@ async def get_invoice_details(invoiceid: str):
                         COALESCE(d.PONumber, '') AS PONumber,
                         COALESCE(d.uomid, 0) AS uomid
                     FROM {DB_NAME_USER_NEW}.tbl_salesinvoices_details d
-                    LEFT JOIN {DB_NAME_USER_NEW}.master_gascode g ON d.gascodeid = g.Id
+                    LEFT JOIN {DB_NAME_USER}.master_gascode g ON d.gascodeid = g.Id
+                    WHERE d.salesinvoicesheaderid IN :hids
+                    
+                    UNION ALL 
+                    
+                    SELECT 
+                        d.id AS Id,
+                        COALESCE(d.gascodeid, 0) AS gascodeid,
+                        COALESCE(g.GasName, 'Item') AS GasName,
+                        COALESCE(d.PickedQty, 0) AS PickedQty,
+                        COALESCE(d.UnitPrice, 0) AS UnitPrice,
+                        COALESCE(d.TotalPrice, 0) AS TotalPrice,
+                        COALESCE(d.Currencyid, 1) AS Currencyid,
+                        1 AS ExchangeRate, 
+                        COALESCE(d.DOnumber, '') AS DOnumber,
+                        COALESCE(d.PONumber, '') AS PONumber,
+                        0 AS uomid
+                    FROM {DB_NAME_USER}.tbl_salesinvoices_details d
+                    LEFT JOIN {DB_NAME_USER}.master_gascode g ON d.gascodeid = g.Id
                     WHERE d.salesinvoicesheaderid IN :hids
                 """)
                 
@@ -491,7 +525,7 @@ async def get_available_dos(filter_data: DOFilter):
                     MAX(g.GasName) as GasName
                 FROM {DB_NAME_USER_NEW}.tbl_salesinvoices_header h
                 LEFT JOIN {DB_NAME_USER_NEW}.tbl_salesinvoices_details det ON h.id = det.salesinvoicesheaderid
-                LEFT JOIN {DB_NAME_USER_NEW}.master_gascode g ON det.gascodeid = g.Id
+                LEFT JOIN {DB_NAME_USER}.master_gascode g ON det.gascodeid = g.Id
                 WHERE h.customerid = :cust_id
                   AND h.isactive = 1 
                 GROUP BY h.id, h.salesinvoicenbr, h.Salesinvoicesdate, h.TotalQty, h.TotalAmount
@@ -628,7 +662,7 @@ async def get_gas_items():
         async with engine.connect() as conn:
             query = text(f"""
                 SELECT Id, GasName 
-                FROM {DB_NAME_USER_NEW}.master_gascode 
+                FROM {DB_NAME_USER}.master_gascode 
                 WHERE IsActive = 1 
                 ORDER BY GasName ASC
             """)
@@ -659,8 +693,8 @@ async def get_sales_details(filter_data: InvoiceFilter):
             (d.TotalPrice * COALESCE(mc.ExchangeRate, 1)) as ConvertedTotal
         FROM {DB_NAME_USER_NEW}.tbl_salesinvoices_header h
         JOIN {DB_NAME_USER_NEW}.tbl_salesinvoices_details d ON h.id = d.salesinvoicesheaderid
-        LEFT JOIN {DB_NAME_USER_NEW}.master_customer c ON h.customerid = c.Id
-        LEFT JOIN {DB_NAME_USER_NEW}.master_gascode g ON d.gascodeid = g.Id
+        LEFT JOIN {DB_NAME_USER}.master_customer c ON h.customerid = c.Id
+        LEFT JOIN {DB_NAME_USER}.master_gascode g ON d.gascodeid = g.Id
         LEFT JOIN {DB_NAME_USER}.master_currency mc ON d.Currencyid = mc.CurrencyId
         WHERE DATE(h.Salesinvoicesdate) BETWEEN :from_date AND :to_date 
           AND h.isactive = 1 
@@ -688,7 +722,7 @@ async def get_sales_details(filter_data: InvoiceFilter):
 @router.get("/GetItemFilter")
 async def get_item_filter():
     try:
-        sql = text(f"SELECT Id as value, GasName as label FROM {DB_NAME_USER_NEW}.master_gascode WHERE IsActive = 1 ORDER BY GasName")
+        sql = text(f"SELECT Id as value, GasName as label FROM {DB_NAME_USER}.master_gascode WHERE IsActive = 1 ORDER BY GasName")
         async with engine.connect() as conn:
             result = await conn.execute(sql)
             return [dict(row._mapping) for row in result.fetchall()]

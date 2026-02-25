@@ -123,7 +123,7 @@ const BankBook = () => {
 
             const transformed = resultData.map((item) => ({
                 date: item.Date ? new Date(item.Date) : null,
-                voucherNo: item.VoucherNo || "-",
+                voucherNo: item.VoucherNo ? item.VoucherNo.split(" - ")[0] : "-",
                 transactionType: item.TransactionType || "-",
                 glcode: "",
                 // account removed from mapping
@@ -134,6 +134,7 @@ const BankBook = () => {
                 creditIn: parseFloat(item.CreditIn || 0),
                 debitOut: parseFloat(item.DebitOut || 0),
                 balance: parseFloat(item.Balance || 0),
+                overdraftLimit: parseFloat(item.OverdraftLimit || 0),
             }));
 
             setBankBook(transformed);
@@ -159,17 +160,26 @@ const BankBook = () => {
         : bankBook;
 
     const exportToExcel = () => {
-        const exportData = filtered.map((ex) => ({
-            Date: ex.date ? ex.date.toLocaleDateString() : "",
-            "Voucher No": ex.voucherNo,
-            "Transaction Type": ex.transactionType,
-            // "Account" removed
-            "Party": ex.party,
-            Description: ex.description,
-            "Debit Out (IDR)": ex.debitOut,
-            "Credit In (IDR)": ex.creditIn,
-            "Balance (IDR)": ex.balance,
-        }));
+        const hasOverdraft = filtered.some(ex => ex.overdraftLimit > 0);
+
+        const exportData = filtered.map((ex) => {
+            const row = {
+                Date: ex.date ? ex.date.toLocaleDateString() : "",
+                "Reference No": ex.voucherNo,
+                "Transaction Type": ex.transactionType,
+                "Party": ex.party,
+                "Debit Out (IDR)": ex.debitOut,
+                "Credit In (IDR)": ex.creditIn,
+                "Balance (IDR)": ex.balance,
+            };
+
+            if (hasOverdraft) {
+                const owe = ex.overdraftLimit - ex.balance;
+                row["Kredit (Owe Bank)"] = owe < 0 ? `(${Math.abs(owe).toLocaleString('en-US', { minimumFractionDigits: 2 })})` : owe;
+            }
+
+            return row;
+        });
 
         const worksheet = XLSX.utils.json_to_sheet(exportData);
         const workbook = XLSX.utils.book_new();
@@ -186,6 +196,9 @@ const BankBook = () => {
         const from = formatPrintDate(fromDate);
         const to = formatPrintDate(toDate);
 
+        const hasOverdraft = filtered.some(ex => ex.overdraftLimit > 0);
+        const overDraftHeader = hasOverdraft ? "<th>Kredit (Owe Bank)</th>" : "";
+
         const printWindow = window.open("", "_blank");
 
         printWindow.document.write(`
@@ -200,6 +213,7 @@ const BankBook = () => {
                         th, td { padding: 5px; border: 1px solid #ccc; text-align: left; }
                         th { background-color: #f8f8f8; }
                         .text-end { text-align: right; }
+                        .text-red { color: red; }
                     </style>
                 </head>
                 <body>
@@ -322,8 +336,7 @@ const BankBook = () => {
                                     rows={20}
                                     filters={filters}
                                     onFilter={(e) => setFilters(e.filters)}
-                                    // "account" removed from global filter fields
-                                    globalFilterFields={["glcode", "currency", "actamount", "date", "creditIn", "debitOut", "balance", "description", "voucherNo", "party", "transactionType"]}
+                                    globalFilterFields={["glcode", "currency", "actamount", "date", "creditIn", "debitOut", "balance", "voucherNo", "party", "transactionType"]}
                                     globalFilter={globalFilter}
                                     emptyMessage="No records found."
                                     showGridlines
@@ -331,11 +344,9 @@ const BankBook = () => {
                                     filter
                                 >
                                     <Column field="date" header="Date" body={dateBodyTemplate} style={{ width: '120px' }} />
-                                    <Column field="voucherNo" header="Voucher No" filter filterPlaceholder="Search Voucher" />
+                                    <Column field="voucherNo" header="Reference No" filter filterPlaceholder="Search Reference" />
                                     <Column field="transactionType" header="Transaction Type" filter filterPlaceholder="Search Type" />
-                                    {/* Account Column Removed Here */}
                                     <Column field="party" header="Party" filter filterPlaceholder="Search Party" />
-                                    <Column field="description" header="Description" filter filterPlaceholder="Search Description" />
 
                                     {/* Debit First */}
                                     <Column field="debitOut" header="Debit" body={(d) => d.debitOut.toLocaleString('en-US', {
@@ -353,6 +364,16 @@ const BankBook = () => {
                                         style: 'decimal',
                                         minimumFractionDigits: 2
                                     })} className="text-end" />
+
+                                    {filtered.some(ex => ex.overdraftLimit > 0) && (
+                                        <Column field="overdraftLimit" header="Kredit (Owe Bank)" body={(d) => {
+                                            if (d.overdraftLimit > 0) {
+                                                const owe = d.overdraftLimit - d.balance;
+                                                return owe < 0 ? `(${Math.abs(owe).toLocaleString('en-US', { minimumFractionDigits: 2 })})` : <span style={{ color: 'red' }}>{owe.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>;
+                                            }
+                                            return "";
+                                        }} className="text-end fw-bold" />
+                                    )}
                                 </DataTable>
 
                                 {/* Print Section - Account Column Removed */}
@@ -362,40 +383,48 @@ const BankBook = () => {
                                             <tr>
                                                 <th>S.No.</th>
                                                 <th>Date</th>
-                                                <th>Voucher No</th>
+                                                <th>Reference No</th>
                                                 <th>Transaction Type</th>
-                                                {/* Account Removed */}
                                                 <th>Party</th>
-                                                <th>Description</th>
                                                 <th>D</th>
                                                 <th>C</th>
                                                 <th>Balance (IDR)</th>
+                                                {filtered.some(ex => ex.overdraftLimit > 0) && (
+                                                    <th>Kredit (Owe Bank)</th>
+                                                )}
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {filtered.map((item, index) => (
-                                                <tr key={index}>
-                                                    <td>{index + 1}</td>
-                                                    <td>{formatPrintDate(item.date)}</td>
-                                                    <td>{item.voucherNo}</td>
-                                                    <td>{item.transactionType}</td>
-                                                    {/* Account Value Removed */}
-                                                    <td>{item.party}</td>
-                                                    <td>{item.description}</td>
-                                                    <td className="text-end">{item.debitOut.toLocaleString('en-US', {
-                                                        style: 'decimal',
-                                                        minimumFractionDigits: 2
-                                                    })}</td>
-                                                    <td className="text-end">{item.creditIn.toLocaleString('en-US', {
-                                                        style: 'decimal',
-                                                        minimumFractionDigits: 2
-                                                    })}</td>
-                                                    <td className="text-end">{item.balance.toLocaleString('en-US', {
-                                                        style: 'decimal',
-                                                        minimumFractionDigits: 2
-                                                    })}</td>
-                                                </tr>
-                                            ))}
+                                            {filtered.map((item, index) => {
+                                                const owe = item.overdraftLimit - item.balance;
+                                                const showKredit = item.overdraftLimit > 0;
+                                                return (
+                                                    <tr key={index}>
+                                                        <td>{index + 1}</td>
+                                                        <td>{formatPrintDate(item.date)}</td>
+                                                        <td>{item.voucherNo}</td>
+                                                        <td>{item.transactionType}</td>
+                                                        <td>{item.party}</td>
+                                                        <td className="text-end">{item.debitOut.toLocaleString('en-US', {
+                                                            style: 'decimal',
+                                                            minimumFractionDigits: 2
+                                                        })}</td>
+                                                        <td className="text-end">{item.creditIn.toLocaleString('en-US', {
+                                                            style: 'decimal',
+                                                            minimumFractionDigits: 2
+                                                        })}</td>
+                                                        <td className="text-end">{item.balance.toLocaleString('en-US', {
+                                                            style: 'decimal',
+                                                            minimumFractionDigits: 2
+                                                        })}</td>
+                                                        {filtered.some(ex => ex.overdraftLimit > 0) && (
+                                                            <td className={`text-end ${owe < 0 ? '' : 'text-red'}`}>
+                                                                {showKredit ? (owe < 0 ? `(${Math.abs(owe).toLocaleString('en-US', { minimumFractionDigits: 2 })})` : owe.toLocaleString('en-US', { minimumFractionDigits: 2 })) : ""}
+                                                            </td>
+                                                        )}
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>

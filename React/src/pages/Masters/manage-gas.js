@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardBody, Col, Container, Row, Modal, ModalHeader, ModalBody, Label, FormGroup, InputGroup, Input } from "reactstrap";
 import Breadcrumbs from "../../components/Common/Breadcrumb";
@@ -62,7 +61,7 @@ const ManageGas = () => {
     }, []);
     const [gasid, setGasid] = useState();
     const [gasDetails, setGasDetails] = useState({
-        gasid : 0,
+        gasid: 0,
         gasCode: "",
         gasName: "",
         volume: "",
@@ -123,7 +122,7 @@ const ManageGas = () => {
             setSelectedGas(selectedGasData);
             setGasfilter({
                 ...gasfilter,
-                gasid : selectedGasData.id || 0,
+                gasid: selectedGasData.id || 0,
                 gasname: selectedGasData.label || "",
                 volume: selectedGasData.volume || "",
                 pressure: selectedGasData.pressure || "",
@@ -188,7 +187,8 @@ const ManageGas = () => {
     };
 
     const getgasid = async (gasid) => {
-        try { debugger
+        try {
+            debugger
             const data = await GetgasbyId(gasid);
             console.log(data)
             if (data) {
@@ -211,45 +211,45 @@ const ManageGas = () => {
     const validationSchema = Yup.object().shape({
 
         gasCode: Yup.string()
-        .trim()
-        .required('Gas Code is required')
-        .max(10, "Gas Code must be atmost 10 Characters")
-        .test("unique-gas-code", "Gas Code Should Be Unique", async function(value){
-            debugger
-         if(!value) return true;
-         try{
-              const existGCode = gas.find(
-                gc => gc.GasCode && 
-                gc.GasCode.toLowerCase() === value.toLowerCase() &&
-                gc.Id !== (this.parent.gasid || 0)
-              );
-              return !existGCode;           
-         }
-         catch (error) {
-                console.error("Error validating gas code:", error);
-                return true;
-         }
-        }),
+            .trim()
+            .required('Gas Code is required')
+            .max(10, "Gas Code must be atmost 10 Characters")
+            .test("unique-gas-code", "Gas Code Should Be Unique", async function (value) {
+                debugger
+                if (!value) return true;
+                try {
+                    const existGCode = gas.find(
+                        gc => gc.GasCode &&
+                            gc.GasCode.toLowerCase() === value.toLowerCase() &&
+                            gc.Id !== (this.parent.gasid || 0)
+                    );
+                    return !existGCode;
+                }
+                catch (error) {
+                    console.error("Error validating gas code:", error);
+                    return true;
+                }
+            }),
         gasName: Yup.string()
-        .trim()
-        .required('Gas Name is required')
-        .max(50, "Gas Name must be atmost 50 Characters")
-        .test("unique-gas-name", "Gas Name Should Be Unique", async function(value){
-            debugger
-         if(!value) return true;
-         try{
-              const existGCode = gas.find(
-                gc => gc.GasName && 
-                gc.GasName.toLowerCase() === value.toLowerCase() &&
-                gc.Id !== (this.parent.gasid || 0)
-              );
-              return !existGCode;           
-         }
-         catch (error) {
-                console.error("Error validating gas code:", error);
-                return true;
-         }
-        }),
+            .trim()
+            .required('Gas Name is required')
+            .max(50, "Gas Name must be atmost 50 Characters")
+            .test("unique-gas-name", "Gas Name Should Be Unique", async function (value) {
+                debugger
+                if (!value) return true;
+                try {
+                    const existGCode = gas.find(
+                        gc => gc.GasName &&
+                            gc.GasName.toLowerCase() === value.toLowerCase() &&
+                            gc.Id !== (this.parent.gasid || 0)
+                    );
+                    return !existGCode;
+                }
+                catch (error) {
+                    console.error("Error validating gas code:", error);
+                    return true;
+                }
+            }),
         volumeid: Yup.string().required('Volume is required'),
         pressureid: Yup.string().required('Pressure is required'),
         // unitPrice: Yup.string().required('Unit price is required'),
@@ -257,16 +257,16 @@ const ManageGas = () => {
         // effectivetodate: Yup.date().required('To date is required').typeError('Invalid date format').min(Yup.ref('effectivefromdate'), 'To date must be greater than From date'),
         gasTypeId: Yup.string().required('Gas Type is required'),
         descriptions: Yup.string()
-        .trim()
-        .required('Gas description is required')
-        .max(100, "Descriptions must be atmost 100 Characters")
+            .trim()
+            .required('Gas description is required')
+            .max(100, "Descriptions must be atmost 100 Characters")
     });
 
     const getAllList = async () => {
         setLoading(true);
         console.log("gasfilter", gasfilter)
         try {
-            debugger            
+            debugger
             const response = await GetAllGasListing(gasfilter.gasname, gasfilter.volume, gasfilter.pressure);
             if (response?.status) {
                 console.log("Selected Gas:", gas);
@@ -317,7 +317,7 @@ const ManageGas = () => {
         };
         setFilters(initFilters());
         setGlobalFilterValue("");
-        
+
         setGasfilter(resetFilter);
         setGas(fullGasList);
         setSearchTerm("");
@@ -325,7 +325,7 @@ const ManageGas = () => {
         setSelectedGas(null);
         setVolumeOptions([]);
         setPressureOptions([]);
-        
+
     };
 
     const onGlobalFilterChange = (e) => {
@@ -403,7 +403,7 @@ const ManageGas = () => {
                 const data = await GetgasbyId(gid);
                 if (data) {
                     setGasDetails({
-                        gasid : data.id || 0,
+                        gasid: data.id || 0,
                         gasCode: data.gasCode || "",
                         gasName: data.gasName || "",
                         volumeid: data.volumeid || data.volumeId || "",
@@ -436,7 +436,7 @@ const ManageGas = () => {
                         editRow(rowData);
                         console.log("onClick :", rowData);
                     }}
- 
+
                         title={"Edit"}>
                         <i className="mdi mdi-square-edit-outline" style={{ fontSize: '1.5rem' }}></i>
                     </span>
@@ -446,7 +446,7 @@ const ManageGas = () => {
         else {
             return (
                 <div className="actions">
- 
+
                     <span
                         style={{
                             cursor: 'not-allowed',
@@ -461,7 +461,7 @@ const ManageGas = () => {
                 </div>
             )
         }
- 
+
     };
 
     const onSwitchChange = async () => {
@@ -538,28 +538,26 @@ const ManageGas = () => {
         try {
             debugger;
             const payload = {
-                gas: {
-                    id: values.gasid || 0,
-                    gasCode: values.gasCode,
-                    gasName: values.gasName,
-                    volume: values.volume,
-                    volumeId: values.volumeid,
-                    pressure: values.pressure,
-                    pressureId: values.pressureid,
-                    descriptions: values.descriptions,
-                    gasTypeId: values.gasTypeId,
-                    isActive: true,
-                    userId: 1,
-                    userIP: "127.0.0.1",
-                    orgId: 1,
-                    branchId: 1,
-                }
+                Id: values.gasid || 0,
+                GasCode: values.gasCode,
+                GasName: values.gasName,
+                Volume: values.volume,
+                VolumeId: parseInt(values.volumeid) || 0,
+                Pressure: values.pressure,
+                PressureId: parseInt(values.pressureid) || 0,
+                Descriptions: values.descriptions,
+                GasTypeId: parseInt(values.gasTypeId) || 0,
+                IsActive: true,
+                UserId: 1,
+                UserIp: "127.0.0.1",
+                OrgId: 1,
+                BranchId: 1,
             };
-            if (values.gasid > 0) {              
+            if (values.gasid > 0) {
                 const response = await UpdateGascode(payload);
                 setSuccessmsg(response.message);
             }
-            else {               
+            else {
                 const response = await AddGascode(payload);
                 setSuccessmsg(response.message);
             }
@@ -588,14 +586,14 @@ const ManageGas = () => {
             pressure: "",
             BranchId: 1,
         };
-        
+
         setGasfilter(resetFilter);
         setGas(fullGasList);
         setSearchTerm("");
         setIsfilter(!isfilter)
         setSelectedGas(null);
         setVolumeOptions([]);
-        setPressureOptions([]);        
+        setPressureOptions([]);
 
     };
 
@@ -638,12 +636,12 @@ const ManageGas = () => {
                                                             pressure: ""
                                                         }));
                                                     } else {
-                                                         setGasfilter(prev =>({
+                                                        setGasfilter(prev => ({
                                                             ...prev,
-                                                            gasname : e.value,
+                                                            gasname: e.value,
                                                             volume: "",
                                                             pressure: ""
-                                                         }));
+                                                        }));
                                                         setSelectedGas(null);
                                                     }
                                                 }}
@@ -718,7 +716,7 @@ const ManageGas = () => {
                         <Col lg="12">
                             <Card>
                                 <DataTable value={fullGasList} paginator showGridlines rows={15} loading={loading} dataKey="Id" filters={filters} globalFilterFields={["GasCode", "GasName", "Descriptions", "Volume", "Pressure"]} header={header} emptyMessage="No gas found." onFilter={(e) => setFilters(e.filters)}  >
-                                    <Column field="GasCode" header="Gas Code" filter filterPlaceholder="Search by code"  />
+                                    <Column field="GasCode" header="Gas Code" filter filterPlaceholder="Search by code" />
                                     <Column field="GasName" header="Gas Name" filter filterPlaceholder="Search by name" />
                                     <Column field="Volume" header="Gas Volume" filter filterPlaceholder="Search by volume" />
                                     <Column field="Pressure" header="Gas Pressure" filter filterPlaceholder="Search by pressure" />
@@ -902,7 +900,7 @@ const ManageGas = () => {
                                                         <div className="col-md-12 text-end button-items">
                                                             <Button type="submit" className="btn btn-info">
                                                                 <i className="bx bxs-save label-icon font-size-16 align-middle me-2"></i>
-                                                                {values?.gasid && values.gasid >0 ? "Update" : "Save"}
+                                                                {values?.gasid && values.gasid > 0 ? "Update" : "Save"}
                                                             </Button>
                                                             <Button type="button" className="btn btn-danger" onClick={toggleModal2}>
                                                                 <i className="bx bx-window-close label-icon font-size-14 align-middle me-2"></i>Cancel

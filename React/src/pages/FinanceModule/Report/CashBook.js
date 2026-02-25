@@ -92,7 +92,7 @@ const CashBook = () => {
 
             const transformed = resultData.map((item) => ({
                 date: item.Date ? new Date(item.Date) : null,
-                voucherNo: item.VoucherNo || "-",
+                voucherNo: item.VoucherNo ? item.VoucherNo.split(" - ")[0] : "-",
                 transactionType: item.TransactionType || "-",
                 party: item.Party || "-",
                 description: item.Description || "-",
@@ -133,7 +133,7 @@ const CashBook = () => {
     const exportToExcel = () => {
         const exportData = cashBook.map((ex) => ({
             Date: ex.date ? ex.date.toLocaleDateString() : "",
-            "Voucher No": ex.voucherNo,
+            "Reference No": ex.voucherNo,
             "Transaction Type": ex.transactionType,
             "Party / Account": ex.party,
             "Bank Name": ex.bankName,
@@ -284,19 +284,17 @@ const CashBook = () => {
                                     filters={filters}
                                     onFilter={(e) => setFilters(e.filters)}
                                     globalFilter={globalFilter}
-                                    globalFilterFields={["date", "description", "voucherNo", "party", "bankName", "transactionType", "cashIn", "cashOut", "balance"]}
+                                    globalFilterFields={["date", "voucherNo", "party", "bankName", "transactionType", "cashIn", "cashOut", "balance"]}
                                     emptyMessage="No records found."
                                     showGridlines
                                     filterDisplay="menu"
                                     filter
                                 >
                                     <Column field="date" header="Date" body={dateBodyTemplate} />
-                                    <Column field="voucherNo" header="Voucher No" filter filterPlaceholder="Search Voucher" />
+                                    <Column field="voucherNo" header="Reference No" filter filterPlaceholder="Search Reference" />
                                     <Column field="transactionType" header="Transaction Type" filter filterPlaceholder="Search Type" />
                                     <Column field="party" header="Party / Account" filter filterPlaceholder="Search Party" />
                                     <Column field="bankName" header="Bank Name" filter filterPlaceholder="Search Bank" />
-                                    <Column field="description" header="Description" filter filterPlaceholder="Search Description" />
-
 
                                     <Column field="cashIn" header="Cash In (IDR)" body={(d) => d.cashIn.toLocaleString('en-US', {
                                         style: 'decimal',
@@ -318,11 +316,10 @@ const CashBook = () => {
                                             <tr>
                                                 <th>S.No.</th>
                                                 <th>Date</th>
-                                                <th>Voucher No</th>
+                                                <th>Reference No</th>
                                                 <th>Transaction Type</th>
                                                 <th>Party / Account</th>
                                                 <th>Bank Name</th>
-                                                <th>Description</th>
                                                 <th>Cash In (IDR)</th>
                                                 <th>Cash Out (IDR)</th>
                                                 <th>Balance (IDR)</th>
@@ -337,7 +334,6 @@ const CashBook = () => {
                                                     <td>{item.transactionType}</td>
                                                     <td>{item.party}</td>
                                                     <td>{item.bankName}</td>
-                                                    <td>{item.description}</td>
                                                     <td className="text-end">{item.cashIn.toLocaleString('en-US', {
                                                         style: 'decimal',
                                                         minimumFractionDigits: 2

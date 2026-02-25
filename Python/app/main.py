@@ -67,6 +67,9 @@ app.include_router(dn_cn.router)
 from .routers import journal
 app.include_router(journal.router)
 
+from .routers import petty_cash
+app.include_router(petty_cash.router)
+
 @app.get("/")
 def read_root():
     return {"message": "Finance API is running"}
