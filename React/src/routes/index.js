@@ -329,10 +329,11 @@ import ProfitLoss from '../pages/FinanceModule/Report/ProfitLoss';
 
 import LedgerReport from '../pages/FinanceModule/Reports/LedgerReport';
 import TrialBalanceReport from '../pages/FinanceModule/Reports/TrialBalanceReport';
+import TrialBalanceDetailed from '../pages/FinanceModule/Report/TrialBalance/TrialBalanceDetailed';
 import BalanceSheetReport from '../pages/FinanceModule/Reports/BalanceSheetReport';
 import ARBookReport from '../pages/FinanceModule/Reports/ARBookReport';
 import ARBookDOReport from "../pages/FinanceModule/Reports/ARBookDOReport";
-import PCBookReport from "../pages/FinanceModule/Report/PCBookReport";
+import PCBookReport from "../pages/FinanceModule/Reports/PCBookReport";
 import AP from "../pages/FinanceModule/AP";
 
 // --- ADDED NEW REPORT IMPORTS HERE ---
@@ -428,6 +429,7 @@ const authProtectedRoutes = [
 
     { path: "/LedgerReport", component: LedgerReport },
     { path: "/TrialBalanceReport", component: TrialBalanceReport },
+    { path: "/add-trial-balance", component: TrialBalanceDetailed },
     { path: "/BalanceSheetReport", component: BalanceSheetReport },
     { path: "/ARBookReport", component: ARBookReport },
     { path: "/ar-book-do", component: ARBookDOReport },

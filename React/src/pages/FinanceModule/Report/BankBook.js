@@ -451,14 +451,18 @@ const BankBook = () => {
                                         // Hide exchange rate box on Opening Balance
                                         if (rowData.transactionType === "OPENING BALANCE") return "-";
 
+                                        // Disable for base currency IDR
+                                        const isIDR = rowData.currency === "IDR";
+
                                         return (
                                             <input
                                                 type="number"
-                                                className="form-control form-control-sm text-end"
+                                                className={`form-control form-control-sm text-end ${isIDR ? 'bg-light text-muted' : ''}`}
                                                 style={{ width: '80px', display: 'inline-block' }}
-                                                value={rates[rowData.rowKey] !== undefined ? rates[rowData.rowKey] : 1}
+                                                value={isIDR ? 1 : (rates[rowData.rowKey] !== undefined ? rates[rowData.rowKey] : 1)}
                                                 step="0.01"
                                                 min="0.01"
+                                                disabled={isIDR}
                                                 onChange={(e) => handleRateChange(rowData.rowKey, e.target.value)}
                                             />
                                         );

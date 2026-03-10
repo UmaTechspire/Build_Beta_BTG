@@ -29,6 +29,22 @@ class SidebarContent extends Component {
             menuData = { menus: [] };
         }
 
+        // --- GLOBAL OVERRIDE FOR OLD DB/LOCAL STORAGE CACHES ---
+        // Ensure any screen named Trial Balance or with the detailed URL points to the new list report page.
+        if (menuData.menus) {
+            menuData.menus.forEach(mod => {
+                if (mod.screen) {
+                    mod.screen.forEach(s => {
+                        if (s.screenName && (s.screenName.includes("Trial Balance") || s.screenName === "TrialBalance" || s.url === "/trial-balance-detailed")) {
+                            s.url = "/TrialBalanceReport";
+                            s.screenName = "Trial Balance";
+                        }
+                    });
+                }
+            });
+        }
+        // -------------------------------------------------------
+
         // ---------------------------------------------------------
         // 2. INJECT ENTRIES INTO FINANCE
         // ---------------------------------------------------------
@@ -362,8 +378,8 @@ class SidebarContent extends Component {
             },
             {
                 screenId: 99924,
-                screenName: "Trial Balance (Detailed)",
-                url: "/trial-balance-detailed",
+                screenName: "Trial Balance",
+                url: "/TrialBalanceReport",
                 icon: "bx bx-list-check",
                 module: []
             }
