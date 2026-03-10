@@ -1472,16 +1472,38 @@ const AddInvoiceReceipt = () => {
                                 <td>{item.pono}</td>
                                 {/* GRN No → Link */}
                                 <td>
-                                  <a
-                                    href="#"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      handleShowDetails(item);
-                                    }}
-                                    style={{ textDecoration: "underline", cursor: "pointer" }}
-                                  >
-                                    {item.grnNo}
-                                  </a>
+                                  {item.grnNo && typeof item.grnNo === 'string' && item.grnNo.includes(',') ? (
+                                    item.grnNo.split(',').map((gn, i) => {
+                                      const ids = item.grnId ? String(item.grnId).split(',') : [];
+                                      const gId = ids[i] ? ids[i].trim() : item.grnId;
+                                      return (
+                                        <React.Fragment key={i}>
+                                          {i > 0 && ", "}
+                                          <a
+                                            href="#"
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              handleShowDetails({ ...item, grnId: gId, grnNo: gn.trim() });
+                                            }}
+                                            style={{ textDecoration: "underline", cursor: "pointer" }}
+                                          >
+                                            {gn.trim()}
+                                          </a>
+                                        </React.Fragment>
+                                      );
+                                    })
+                                  ) : (
+                                    <a
+                                      href="#"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        handleShowDetails(item);
+                                      }}
+                                      style={{ textDecoration: "underline", cursor: "pointer" }}
+                                    >
+                                      {item.grnNo}
+                                    </a>
+                                  )}
                                 </td>
 
                                 {/* Invoice No */}

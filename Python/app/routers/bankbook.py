@@ -243,23 +243,32 @@ async def get_bank_book_report(
                     }]
                 }
             else:
-                # Group exists, sum the amounts
                 existing = grouped_dict[group_key]
-                existing["CreditIn"] += float(row["CreditIn"] or 0)
-                existing["DebitOut"] += float(row["DebitOut"] or 0)
-                existing["NetAmount"] += float(row["NetAmount"] or 0)
-                
-                # Append Voucher No for the global search string
                 new_voucher = str(row["VoucherNo"]) if row["VoucherNo"] else ""
-                if new_voucher and new_voucher not in existing["VoucherNo"]:
-                    existing["VoucherNo"] += f", {new_voucher}"
+                net_amount = float(row["NetAmount"] or 0)
+                
+                # Check for identical VoucherNo and Amount to prevent duplicates
+                is_duplicate = False
+                for gc in existing["GroupedClaims"]:
+                    if gc["VoucherNo"] == new_voucher and gc["Amount"] == net_amount:
+                        is_duplicate = True
+                        break
+                
+                if not is_duplicate:
+                    # Group exists and is not duplicate, sum the amounts
+                    existing["CreditIn"] += float(row["CreditIn"] or 0)
+                    existing["DebitOut"] += float(row["DebitOut"] or 0)
+                    existing["NetAmount"] += net_amount
                     
-                # Append to GroupedClaims array
-                existing["GroupedClaims"].append({
-                    "VoucherNo": new_voucher,
-                    "Amount": float(row["NetAmount"] or 0)
-                })
-
+                    # Append Voucher No for the global search string
+                    if new_voucher and new_voucher not in existing["VoucherNo"]:
+                        existing["VoucherNo"] += f", {new_voucher}"
+                        
+                    # Append to GroupedClaims array
+                    existing["GroupedClaims"].append({
+                        "VoucherNo": new_voucher,
+                        "Amount": net_amount
+                    })
         
         # Calculate moving balance on the grouped array
         for item in grouped_dict.values():

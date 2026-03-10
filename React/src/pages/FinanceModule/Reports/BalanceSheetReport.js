@@ -1,208 +1,180 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect } from "react";
+import {
+  Card,
+  CardBody,
+  Col,
+  Container,
+  Row,
+  UncontrolledAlert,
+  Label,
+} from "reactstrap";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
-import { Container, Row, Col, Button } from "reactstrap";
-import "primereact/resources/themes/bootstrap4-light-blue/theme.css";
-import "primereact/resources/primereact.min.css";
-import "primereact/resources/primereact.css";
+import Breadcrumbs from "../../../components/Common/Breadcrumb";
+import axios from "axios";
+import { PYTHON_API_URL } from "../../../common/pyapiconfig";
 
-// ===== Breadcrumb Component =====
-const Breadcrumbs = ({ title, breadcrumbItem }) => (
-  <div className="page-title-box d-sm-flex align-items-center justify-content-between mb-3">
-    <h4 className="mb-0">{breadcrumbItem}</h4>
-    <div className="page-title-right">
-      <ol className="breadcrumb m-0">
-        <li className="breadcrumb-item"><a href="/#">{title}</a></li>
-        <li className="breadcrumb-item active">{breadcrumbItem}</li>
-      </ol>
-    </div>
-  </div>
-);
+const BalanceSheetReport = () => {
+  const [reportData, setReportData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [errormsg, setErrormsg] = useState("");
 
-// ===== Sample Data =====
-const sampleData = [
-  {
-    id: 1,
-    account: "Cash & Bank",
-    type: "Asset",
-    currency: "IDR",
-    openingBalance: 15000000,
-    debit: 5000000,
-    credit: 2000000,
-    closingBalance: 18000000,
-    transactions: [
-      { id: "TX001", date: "2025-09-01", description: "Deposit", debit: 5000000, credit: 0 },
-      { id: "TX002", date: "2025-09-05", description: "Withdrawal", debit: 0, credit: 2000000 },
-    ],
-  },
-  {
-    id: 2,
-    account: "Accounts Receivable",
-    type: "Asset",
-    currency: "IDR",
-    openingBalance: 10000000,
-    debit: 3000000,
-    credit: 1000000,
-    closingBalance: 12000000,
-    transactions: [
-      { id: "TX003", date: "2025-09-03", description: "Invoice Received", debit: 3000000, credit: 0 },
-      { id: "TX004", date: "2025-09-07", description: "Payment Received", debit: 0, credit: 1000000 },
-    ],
-  },
-  {
-    id: 3,
-    account: "Accounts Payable",
-    type: "Liability",
-    currency: "IDR",
-    openingBalance: 8000000,
-    debit: 1000000,
-    credit: 4000000,
-    closingBalance: 5000000,
-    transactions: [
-      { id: "TX005", date: "2025-09-02", description: "Purchase", debit: 1000000, credit: 0 },
-      { id: "TX006", date: "2025-09-08", description: "Payment Made", debit: 0, credit: 4000000 },
-    ],
-  },
-  {
-    id: 4,
-    account: "Capital",
-    type: "Equity",
-    currency: "IDR",
-    openingBalance: 20000000,
-    debit: 0,
-    credit: 0,
-    closingBalance: 20000000,
-    transactions: [],
-  },
-];
+  const currentYear = new Date().getFullYear();
+  const [baseYear, setBaseYear] = useState(currentYear);
+  const [compareYear, setCompareYear] = useState(currentYear - 1);
+  const [isComparing, setIsComparing] = useState(false);
 
-// ===== Number formatting =====
-const numFmt = (value) => value.toLocaleString();
-
-export default function BalanceSheetPrime() {
-  const [typeFilter, setTypeFilter] = useState("All");
-  const [search, setSearch] = useState("");
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalTx, setModalTx] = useState([]);
-  const [modalAccount, setModalAccount] = useState("");
-
-  // Filtered Data
-  const filteredData = useMemo(() => {
-    return sampleData.filter((d) => {
-      const typeMatch = typeFilter === "All" || d.type === typeFilter;
-      const searchMatch = d.account.toLowerCase().includes(search.toLowerCase());
-      return typeMatch && searchMatch;
-    });
-  }, [typeFilter, search]);
-
-  // Open transaction modal
-  const openModal = (account) => {
-    setModalTx(account.transactions);
-    setModalAccount(account.account);
-    setModalOpen(true);
+  const fetchBalanceSheetData = async () => {
+    setLoading(true);
+    setErrormsg("");
+    try {
+      const yearsParam = isComparing ? `${baseYear},${compareYear}` : `${baseYear}`;
+      const response = await axios.get(
+        `${PYTHON_API_URL}/AR/reports/comparative-balance-sheet?years=${yearsParam}`
+      );
+      if (response.data?.status === "success") {
+        setReportData(response.data.data || []);
+      } else {
+        setErrormsg("Failed to load Balance Sheet data.");
+      }
+    } catch (error) {
+      console.error("Error fetching Balance Sheet data:", error);
+      setErrormsg("Error loading report data.");
+    } finally {
+      setLoading(false);
+    }
   };
 
+  useEffect(() => {
+    fetchBalanceSheetData();
+  }, [baseYear, isComparing]);
+
+  const numBody = (val) =>
+    val !== null && val !== undefined ? val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00";
+
+  const rowClassName = (data) => {
+    if (data.isHeader) return "bg-light font-weight-bold text-primary";
+    if (data.isTotal) return "bg-soft-primary font-weight-bold";
+    return "";
+  };
+
+  const particularBody = (rowData) => {
+    return (
+      <span style={{ paddingLeft: `${rowData.level * 20}px` }}>
+        {rowData.accountName}
+      </span>
+    );
+  };
+
+  const displayedYears = isComparing ? [baseYear, compareYear] : [baseYear];
+  const yearOptions = [2023, 2024, 2025, 2026];
+
   return (
-    <div className="page-content">
+    <React.Fragment>
+      <div className="page-content">
+        <Container fluid>
+          <Breadcrumbs title="Reports" breadcrumbItem="Balance Sheet (Comparative)" />
+          <Row>
+            {errormsg && (
+              <UncontrolledAlert color="danger">{errormsg}</UncontrolledAlert>
+            )}
 
-    <Container fluid className="mt-3">
-      {/* Breadcrumb */}
-      <Breadcrumbs title="Report" breadcrumbItem="Balance Sheet" />
- 
+            <Card className="search-top mb-2">
+              <CardBody className="p-2">
+                <Row className="align-items-center g-3 justify-content-start">
+                  <Col lg="auto">
+                    <div className="d-flex align-items-center gap-2">
+                      <Label className="mb-0 text-nowrap">Year</Label>
+                      <select
+                        className="form-select"
+                        value={baseYear}
+                        onChange={(e) => setBaseYear(parseInt(e.target.value))}
+                        style={{ width: "100px" }}
+                      >
+                        {yearOptions.map(y => (
+                          <option key={y} value={y}>{y}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </Col>
 
-      {/* Filters & Actions */}
-      <Row className="mb-3 align-items-center">
-        <Col md={3}>
-          <select className="form-control" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-            <option value="All">All Types</option>
-            <option value="Asset">Asset</option>
-            <option value="Liability">Liability</option>
-            <option value="Equity">Equity</option>
-          </select>
-        </Col>
-        <Col md={3}>
-          <input
-            type="text"
-            className="form-control"
-            placeholder="Search Account"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </Col>
-        <Col md={6} className="text-end">
-          <Button color="secondary" className="me-2">Export</Button>
-          <Button color="success">Print</Button>
-        </Col>
-      </Row>
+                  {isComparing && (
+                    <Col lg="auto">
+                      <div className="d-flex align-items-center gap-2">
+                        <Label className="mb-0 text-nowrap">Compare with</Label>
+                        <select
+                          className="form-select"
+                          value={compareYear}
+                          onChange={(e) => setCompareYear(parseInt(e.target.value))}
+                          style={{ width: "100px" }}
+                        >
+                          {yearOptions.map(y => (
+                            <option key={y} value={y}>{y}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </Col>
+                  )}
 
-      {/* DataTable */}
-      <DataTable
-        value={filteredData}
-        paginator
-        rows={5}
-        responsiveLayout="scroll"
-        rowHover
-        className="p-datatable-sm"
-      >
-        <Column
-          field="account"
-          header="Account Name"
-          sortable
-          body={(row) => (
-            <span
-              style={{ color: "#007bff", cursor: "pointer", textDecoration: "underline" }}
-              onClick={() => openModal(row)}
-            >
-              {row.account}
-            </span>
-          )}
-        />
-        <Column field="type" header="Type" sortable />
-        <Column field="currency" header="Currency" />
-        <Column field="openingBalance" header="Opening Balance" body={(row) => numFmt(row.openingBalance)} style={{ textAlign: "right" }} />
-        <Column field="debit" header="Debit" body={(row) => numFmt(row.debit)} style={{ textAlign: "right" }} />
-        <Column field="credit" header="Credit" body={(row) => numFmt(row.credit)} style={{ textAlign: "right" }} />
-        <Column field="closingBalance" header="Closing Balance" body={(row) => numFmt(row.closingBalance)} style={{ textAlign: "right", fontWeight: "600" }} />
-      </DataTable>
+                  <Col lg="auto">
+                    <button
+                      className={`btn ${isComparing ? 'btn-warning' : 'btn-info'}`}
+                      onClick={() => setIsComparing(!isComparing)}
+                    >
+                      <i className={`bx ${isComparing ? 'bx-x' : 'bx-git-compare'} me-1`}></i>
+                      {isComparing ? "Cancel Compare" : "Compare"}
+                    </button>
+                  </Col>
 
-      {/* Transaction Modal */}
-      {modalOpen && (
-        <div
-          className="modal-overlay"
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 9999,
-          }}
-        >
-          <div
-            className="modal-content"
-            style={{ background: "#fff", padding: 20, borderRadius: 8, width: "80%", maxHeight: "80%", overflowY: "auto" }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
-              <h4>{modalAccount} Transactions</h4>
-              <button onClick={() => setModalOpen(false)} style={{ cursor: "pointer" }}>
-                Close
-              </button>
-            </div>
-            <DataTable value={modalTx} showGridlines responsiveLayout="scroll">
-              <Column field="id" header="ID" />
-              <Column field="date" header="Date" />
-              <Column field="description" header="Description" />
-              <Column field="debit" header="Debit" body={(r) => numFmt(r.debit)} style={{ textAlign: "right" }} />
-              <Column field="credit" header="Credit" body={(r) => numFmt(r.credit)} style={{ textAlign: "right" }} />
-            </DataTable>
-          </div>
-        </div>
-      )}
-    </Container>
-    </div>
+                  <Col lg="auto">
+                    <button
+                      className="btn btn-primary"
+                      onClick={fetchBalanceSheetData}
+                    >
+                      <i className="bx bx-search-alt me-1"></i>Search
+                    </button>
+                  </Col>
+                </Row>
+              </CardBody>
+            </Card>
+
+            <Col lg="12">
+              <Card>
+                <CardBody>
+                  <DataTable
+                    value={reportData}
+                    loading={loading}
+                    showGridlines
+                    className="p-datatable-sm"
+                    dataKey="id"
+                    responsiveLayout="scroll"
+                    rowClassName={rowClassName}
+                    emptyMessage="No data found."
+                  >
+                    <Column
+                      field="accountName"
+                      header="Particulars"
+                      body={particularBody}
+                      style={{ width: '450px', fontWeight: '500' }}
+                    />
+                    {displayedYears.map(y => (
+                      <Column
+                        key={y}
+                        field={`year_${y}`}
+                        header={y}
+                        body={(r) => r.isHeader ? "" : numBody(r[`year_${y}`])}
+                        className="text-end"
+                      />
+                    ))}
+                  </DataTable>
+                </CardBody>
+              </Card>
+            </Col>
+          </Row>
+        </Container>
+      </div>
+    </React.Fragment>
   );
-}
+};
+
+export default BalanceSheetReport;

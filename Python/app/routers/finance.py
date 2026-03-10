@@ -23,6 +23,65 @@ router = APIRouter(
     tags=["Accounts Receivable"]
 )
 
+# --- CATEGORY MAPPING FOR COMPARATIVE REPORTS ---
+PL_CATEGORIES = [
+    {"label": "REVENUE", "id": "REV_HDR", "isHeader": True, "level": 0},
+    {"label": "LPG Cylinder Sales", "id": "REV_LPG", "codes": ["4000-001", "4100-001"], "level": 1},
+    {"label": "Industrial Gas Sales", "id": "REV_IND", "codes": ["4100-002", "4100-003", "4100-004", "4100-005"], "level": 1},
+    {"label": "Gas Refilling Charges", "id": "REV_REF", "codes": ["4110-001"], "level": 1},
+    {"label": "Cylinder Rental Income", "id": "REV_RENT", "codes": ["4120-001"], "level": 1},
+    {"label": "Transportation Charges", "id": "REV_TRANS", "codes": ["4130-001"], "level": 1},
+    {"label": "TOTAL REVENUE", "id": "REV_TOTAL", "isTotal": True, "level": 0},
+    
+    {"label": "COST OF GOODS SOLD", "id": "COGS_HDR", "isHeader": True, "level": 0},
+    {"label": "Gas Purchase Cost", "id": "COGS_PURCH", "codes": ["5900-001", "5900-002", "5900-003"], "level": 1},
+    {"label": "Gas Transportation Cost", "id": "COGS_TRANS", "codes": ["5910-001"], "level": 1},
+    {"label": "Cylinder Filling Cost", "id": "COGS_FILL", "codes": ["5826-012"], "level": 1},
+    {"label": "Cylinder Maintenance", "id": "COGS_MAINT", "codes": ["6120-015"], "level": 1},
+    {"label": "TOTAL COGS", "id": "COGS_TOTAL", "isTotal": True, "level": 0},
+    
+    {"label": "GROSS PROFIT", "id": "GROSS_PROFIT", "isTotal": True, "level": 0},
+    
+    {"label": "OPERATING EXPENSES", "id": "EXP_HDR", "isHeader": True, "level": 0},
+    {"label": "Salaries & Wages", "id": "EXP_SAL", "codes": ["6120-001"], "level": 1},
+    {"label": "Employee Benefits (BPJS)", "id": "EXP_BEN", "codes": ["6120-019"], "level": 1},
+    {"label": "Office Rent", "id": "EXP_RENT", "codes": ["6120-023"], "level": 1},
+    {"label": "Utilities", "id": "EXP_UTIL", "codes": ["6120-007", "6120-008"], "level": 1},
+    {"label": "Fuel for Delivery Vehicles", "id": "EXP_FUEL", "codes": ["6110-001"], "level": 1},
+    {"label": "Vehicle Maintenance", "id": "EXP_VMAINT", "codes": ["6110-003"], "level": 1},
+    {"label": "Marketing Expenses", "id": "EXP_MKT", "codes": ["6120-002", "6120-003"], "level": 1},
+    {"label": "Other Expenses", "id": "EXP_OTHER", "codes": ["6110", "6120", "6200"], "level": 1}, # Catch-all
+    {"label": "TOTAL OPERATING EXPENSES", "id": "EXP_TOTAL", "isTotal": True, "level": 0},
+    
+    {"label": "OPERATING PROFIT", "id": "OPER_PROFIT", "isTotal": True, "level": 0},
+    
+    {"label": "OTHER INCOME / EXPENSES", "id": "OTHER_HDR", "isHeader": True, "level": 0},
+    {"label": "Bank Interest Income", "id": "OTH_INT", "codes": ["7000-001"], "level": 1},
+    {"label": "Forex Gain / Loss", "id": "OTH_FX", "codes": ["7000-002", "6200-002"], "level": 1},
+    {"label": "NET PROFIT", "id": "NET_PROFIT", "isTotal": True, "level": 0}
+]
+
+BS_CATEGORIES = [
+    {"label": "ASSETS", "id": "ASSETS_HDR", "isHeader": True, "level": 0},
+    {"label": "Cash on Hand", "id": "AST_CASH", "codes": ["1110"], "level": 1},
+    {"label": "Cash in Bank", "id": "AST_BANK", "codes": ["1120"], "level": 1},
+    {"label": "Accounts Receivable", "id": "AST_AR", "codes": ["1130"], "level": 1},
+    {"label": "Inventories", "id": "AST_INV", "codes": ["1150", "1160", "1170", "1180"], "level": 1},
+    {"label": "Fixed Assets", "id": "AST_FIXED", "codes": ["1500"], "level": 1},
+    {"label": "TOTAL ASSETS", "id": "AST_TOTAL", "isTotal": True, "level": 0},
+    
+    {"label": "LIABILITIES", "id": "LIAB_HDR", "isHeader": True, "level": 0},
+    {"label": "Accounts Payable", "id": "LIAB_AP", "codes": ["2110"], "level": 1},
+    {"label": "Bank Loans", "id": "LIAB_LOAN", "codes": ["2160"], "level": 1},
+    {"label": "Accrued Expenses", "id": "LIAB_ACCR", "codes": ["2130"], "level": 1},
+    {"label": "TOTAL LIABILITIES", "id": "LIAB_TOTAL", "isTotal": True, "level": 0},
+    
+    {"label": "EQUITY", "id": "EQUITY_HDR", "isHeader": True, "level": 0},
+    {"label": "Capital", "id": "EQT_CAP", "codes": ["3110"], "level": 1},
+    {"label": "Retained Earnings", "id": "EQT_RE", "codes": ["3120"], "level": 1},
+    {"label": "TOTAL EQUITY", "id": "EQT_TOTAL", "isTotal": True, "level": 0},
+]
+
 # --------------------------------------------------
 # 1. NEW SCHEMA FOR AR BOOK REQUEST
 # --------------------------------------------------
@@ -603,12 +662,29 @@ async def create_book_entries_from_claim(
     """
     try:
         from ..models.finance import ARReceipt
+        from sqlalchemy import select
 
         created_ids = []
 
         for entry in payload.entries:
             # 1 = Cash mode. If Cash, it must always route to Cash Book, even if a Bank was selected in the UI.
             is_cash = entry.payment_mode_id == 1
+            
+            cash_amt = -abs(entry.amount) if is_cash else 0
+            bank_amt = 0 if is_cash else -abs(entry.amount)
+            ref_no = f"{entry.claim_no} - {entry.supplier_name or entry.applicant_name}".strip(" -")
+
+            # Check for exactly identical existing record to avoid duplication
+            check_query = select(ARReceipt).where(
+                ARReceipt.reference_no == ref_no,
+                ARReceipt.cash_amount == cash_amt,
+                ARReceipt.bank_amount == bank_amt
+            )
+            existing_record = (await db.execute(check_query)).scalars().first()
+            
+            if existing_record:
+                # Skip duplicate insertion
+                continue
 
             db_receipt = ARReceipt(
                 orgid=payload.org_id,
@@ -619,21 +695,16 @@ async def create_book_entries_from_claim(
                 receipt_date=entry.payment_date,
                 customer_id=entry.supplier_id or 0,
 
-                # Cash vs Bank (Payments out are negative)
-                cash_amount=-abs(entry.amount) if is_cash else 0,
-                bank_amount=0 if is_cash else -abs(entry.amount),
+                cash_amount=cash_amt,
+                bank_amount=bank_amt,
                 bank_charges=0,
                 deposit_bank_id=str(entry.bank_id or 0),
+                reference_no=ref_no,
 
-                # Reference = claim number for traceability
-                reference_no=f"{entry.claim_no} - {entry.supplier_name or entry.applicant_name}".strip(" -"),
-
-                # Auto-posted, no verification, fully submitted
                 is_posted=True,
                 pending_verification=False,
                 is_submitted=True,
                 send_notification=False,
-
                 flag=False,
                 is_cleared=False,
                 is_active=True,
@@ -653,3 +724,387 @@ async def create_book_entries_from_claim(
         await db.rollback()
         print(f"❌ Create from claim error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# --------------------------------------------------
+# PROFIT AND LOSS REPORT (OPTION C - DETAILED AGGREGATION)
+# --------------------------------------------------
+@router.get("/profit-and-loss")
+async def get_profit_and_loss(
+    from_date: str = None,
+    to_date: str = None,
+    db: AsyncSession = Depends(database.get_db)
+):
+    try:
+        from app.database import DB_NAME_USER_NEW, DB_NAME_PURCHASE, DB_NAME_MASTER
+        if not from_date:
+            from_date = f"{date.today().year}-01-01"
+        if not to_date:
+            to_date = date.today().strftime("%Y-%m-%d")
+
+        report_data = []
+
+        # 1. Consolidated Revenue
+        q_revenue = text(f"""
+            SELECT SUM(TotalAmount) as total
+            FROM {DB_NAME_USER_NEW}.tbl_salesinvoices_header
+            WHERE Salesinvoicesdate BETWEEN :from_date AND :to_date
+              AND IsSubmitted = 1
+        """)
+        rev_res = await db.execute(q_revenue, {"from_date": from_date, "to_date": to_date})
+        total_revenue = float(rev_res.scalar() or 0)
+        
+        report_data.append({"id": "HDR_REV", "accountCode": "4000", "accountName": "REVENUE", "amount": 0, "isHeader": True, "indentLevel": 0})
+        if total_revenue > 0:
+            report_data.append({
+                "id": "REV_MAIN",
+                "accountCode": "4000-000",
+                "accountName": "Sales",
+                "amount": total_revenue,
+                "isHeader": False,
+                "indentLevel": 1
+            })
+
+        # 2. Consolidated Purchase History / COGS
+        q_purchases = text(f"""
+            SELECT SUM(po_amount) as total
+            FROM {DB_NAME_PURCHASE}.tbl_irnreceipt_detail
+            WHERE receiptdate BETWEEN :from_date AND :to_date
+              AND isactive = 1
+        """)
+        pur_res = await db.execute(q_purchases, {"from_date": from_date, "to_date": to_date})
+        total_cogs = float(pur_res.scalar() or 0)
+
+        report_data.append({"id": "HDR_PUR", "accountCode": "5000", "accountName": "PURCHASES / COGS", "amount": 0, "isHeader": True, "indentLevel": 0})
+        if total_cogs > 0:
+            report_data.append({
+                "id": "PUR_MAIN",
+                "accountCode": "5000-000",
+                "accountName": "Purchases / COGS",
+                "amount": total_cogs,
+                "isHeader": False,
+                "indentLevel": 1
+            })
+
+        # 3. Detailed Expenses (By Claim Category)
+        q_expense = text(f"""
+            SELECT c.claimcategory, SUM(h.TotalAmountInIDR) as total
+            FROM {DB_NAME_FINANCE}.tbl_claimandpayment_header h
+            JOIN {DB_NAME_FINANCE}.master_claimcategory c ON h.ClaimCategoryId = c.Id
+            WHERE h.ApplicationDate BETWEEN :from_date AND :to_date
+              AND h.claim_director_isapproved = 1
+            GROUP BY c.claimcategory
+            HAVING total > 0
+            ORDER BY total DESC
+        """)
+        exp_res = await db.execute(q_expense, {"from_date": from_date, "to_date": to_date})
+        expense_rows = exp_res.mappings().all()
+
+        total_expense = 0
+        report_data.append({"id": "HDR_EXP", "accountCode": "6000", "accountName": "OPERATING EXPENSES", "amount": 0, "isHeader": True, "indentLevel": 0})
+        for idx, row in enumerate(expense_rows):
+            amt = float(row['total'])
+            total_expense += amt
+            report_data.append({
+                "id": f"EXP_{idx}",
+                "accountCode": f"6000-{idx+1:03}",
+                "accountName": row['claimcategory'],
+                "amount": amt,
+                "isHeader": False,
+                "indentLevel": 1
+            })
+
+        # Summary Row
+        report_data.append({
+            "id": "NP_TOT",
+            "accountCode": "",
+            "accountName": "NET PROFIT / LOSS",
+            "amount": total_revenue - total_cogs - total_expense,
+            "isHeader": False,
+            "isTotal": True,
+            "indentLevel": 0
+        })
+
+        return {"status": True, "message": "Success", "data": report_data}
+    except Exception as e:
+        print(f"Detailed P&L Error: {e}")
+        return {"status": "error", "message": str(e)}
+
+# --------------------------------------------------
+# BALANCE SHEET REPORT (OPTION C - DETAILED AGGREGATION)
+# --------------------------------------------------
+@router.get("/balance-sheet")
+async def get_balance_sheet(
+    as_of_date: str = None,
+    db: AsyncSession = Depends(database.get_db)
+):
+    try:
+        from app.database import DB_NAME_USER_NEW, DB_NAME_PURCHASE, DB_NAME_MASTER
+        if not as_of_date:
+            as_of_date = date.today().strftime("%Y-%m-%d")
+
+        report_data = []
+
+        # --- ASSETS SECTION ---
+        report_data.append({"id": "HDR_ASSETS", "accountCode": "1000", "accountName": "ASSETS", "amount": 0, "isHeader": True, "indentLevel": 0})
+        
+        # 1. Cash & Bank Breakdown
+        q_bank = text(f"""
+            SELECT bank_name, SUM(bank_amount) as total
+            FROM {DB_NAME_FINANCE}.tbl_ar_receipt
+            WHERE receipt_date <= :as_of_date AND is_active = 1
+            GROUP BY bank_name
+            HAVING total > 0
+        """)
+        q_cash = text(f"SELECT SUM(cash_amount) FROM {DB_NAME_FINANCE}.tbl_ar_receipt WHERE receipt_date <= :as_of_date AND is_active = 1")
+        
+        bank_res = await db.execute(q_bank, {"as_of_date": as_of_date})
+        cash_res = await db.execute(q_cash, {"as_of_date": as_of_date})
+        
+        total_cash_bank = 0
+        # Add Banks
+        for idx, row in enumerate(bank_res.mappings().all()):
+            amt = float(row['total'])
+            total_cash_bank += amt
+            
+            b_name = row['bank_name']
+            if not b_name or str(b_name).strip().lower() in ['none', 'null', '']:
+                display_name = "Bank"
+            else:
+                display_name = f"Bank - {b_name}"
+                
+            report_data.append({
+                "id": f"BANK_{idx}",
+                "accountCode": f"1010-{idx:02}",
+                "accountName": display_name,
+                "amount": amt,
+                "indentLevel": 1
+            })
+        # Add Cash
+        cash_amt = float(cash_res.scalar() or 0)
+        total_cash_bank += cash_amt
+        if cash_amt != 0:
+            report_data.append({
+                "id": "CASH_MAIN",
+                "accountCode": "1001",
+                "accountName": "Cash on Hand",
+                "amount": cash_amt,
+                "indentLevel": 1
+            })
+
+        # 2. Consolidated Accounts Receivable
+        q_ar = text(f"""
+            SELECT SUM(TotalAmount - PaidAmount) as balance
+            FROM {DB_NAME_USER_NEW}.tbl_salesinvoices_header
+            WHERE Salesinvoicesdate <= :as_of_date AND IsSubmitted = 1
+        """)
+        ar_res = await db.execute(q_ar, {"as_of_date": as_of_date})
+        total_ar = float(ar_res.scalar() or 0)
+        
+        if total_ar > 0:
+            report_data.append({
+                "id": "AR_MAIN",
+                "accountCode": "1130-000",
+                "accountName": "Accounts Receivable",
+                "amount": total_ar,
+                "indentLevel": 1
+            })
+
+        # --- LIABILITIES SECTION ---
+        report_data.append({"id": "HDR_LIAB", "accountCode": "2000", "accountName": "LIABILITIES", "amount": 0, "isHeader": True, "indentLevel": 0})
+        
+        # 3. Consolidated Accounts Payable
+        q_ap = text(f"""
+            SELECT SUM(balancepaymentamount) as balance
+            FROM {DB_NAME_PURCHASE}.tbl_irnreceipt_detail
+            WHERE receiptdate <= :as_of_date AND isactive = 1
+        """)
+        ap_res = await db.execute(q_ap, {"as_of_date": as_of_date})
+        total_ap = float(ap_res.scalar() or 0)
+        
+        if total_ap > 0:
+            report_data.append({
+                "id": "AP_MAIN",
+                "accountCode": "2100-000",
+                "accountName": "Accounts Payable",
+                "amount": total_ap,
+                "indentLevel": 1
+            })
+
+        # 4. Accrued Expenses (Unpaid Claims)
+        q_unpaid_claims = text(f"""
+            SELECT SUM(TotalAmountInIDR) FROM {DB_NAME_FINANCE}.tbl_claimandpayment_header
+            WHERE ApplicationDate <= :as_of_date AND claim_director_isapproved = 1 AND IsPaymentgenerated = 0
+        """)
+        claim_res = await db.execute(q_unpaid_claims, {"as_of_date": as_of_date})
+        accrued_exp = float(claim_res.scalar() or 0)
+        if accrued_exp != 0:
+            report_data.append({
+                "id": "ACCRUED_EXP",
+                "accountCode": "2110",
+                "accountName": "Accrued Expenses (Pending Claims)",
+                "amount": accrued_exp,
+                "indentLevel": 1
+            })
+
+        # --- EQUITY & VALIDATION ---
+        report_data.append({
+            "id": "BS_VAL",
+            "accountCode": "CHECK",
+            "accountName": "EQUITY (Net Assets)",
+            "amount": (total_cash_bank + total_ar) - (total_ap + accrued_exp),
+            "isHeader": False,
+            "isTotal": True,
+            "indentLevel": 0,
+            "isValidation": True,
+            "isValid": True
+        })
+
+        return {"status": "success", "data": report_data}
+    except Exception as e:
+        print(f"Detailed Balance Sheet Error: {e}")
+        return {"status": "error", "message": str(e)}
+
+# --------------------------------------------------
+# NEW COMPARATIVE REPORTS
+# --------------------------------------------------
+
+@router.get("/reports/comparative-p-and-l")
+async def get_comparative_p_and_l(year: int, db: AsyncSession = Depends(database.get_db)):
+    try:
+        # 1. Fetch data from Ledger joined with Journal Header for accurate dates
+        query = text(f"""
+            SELECT 
+                gl.GLCode,
+                MONTH(jm.journal_date) as month_num,
+                SUM(l.debit - l.credit) as balance
+            FROM {DB_NAME_FINANCE}.tbl_ledgerbook l
+            JOIN {DB_NAME_FINANCE}.tbl_glcodemaster gl ON l.gl_id = gl.id
+            JOIN {DB_NAME_FINANCE}.tbl_journal_master jm ON l.reference_no = jm.journal_no COLLATE utf8mb4_0900_ai_ci
+            WHERE YEAR(jm.journal_date) = :year
+            GROUP BY gl.GLCode, MONTH(jm.journal_date)
+        """)
+        
+        res = await db.execute(query, {"year": year})
+        db_data = res.mappings().all()
+        
+        # 2. Pivot the data into a usable format
+        pivoted = {}
+        for row in db_data:
+            code = row['GLCode']
+            m = row['month_num']
+            val = float(row['balance'])
+            if code not in pivoted: pivoted[code] = {i: 0.0 for i in range(1, 13)}
+            pivoted[code][m] = val
+            
+        # 3. Map to Categories
+        report_data = []
+        for cat in PL_CATEGORIES:
+            row = {"id": cat["id"], "accountName": cat["label"], "isHeader": cat.get("isHeader", False), "isTotal": cat.get("isTotal", False), "level": cat["level"]}
+            for m in range(1, 13): row[f"month_{m}"] = 0.0
+            
+            if "codes" in cat:
+                for gl_code, months in pivoted.items():
+                    if any(gl_code.startswith(prefix) for prefix in cat["codes"]):
+                        for m, val in months.items():
+                            row[f"month_{m}"] += val
+            report_data.append(row)
+            
+        # 4. Calculate Totals
+        def get_row(rid): return next((r for r in report_data if r["id"] == rid), None)
+        
+        # Total Revenue
+        total_rev = get_row("REV_TOTAL")
+        for m in range(1, 13):
+            total_rev[f"month_{m}"] = sum(r[f"month_{m}"] for r in report_data if r["id"].startswith("REV_") and r["level"] == 1)
+
+        # Total COGS
+        total_cogs = get_row("COGS_TOTAL")
+        for m in range(1, 13):
+            total_cogs[f"month_{m}"] = sum(r[f"month_{m}"] for r in report_data if r["id"].startswith("COGS_") and r["level"] == 1)
+
+        # Gross Profit (Revenue - COGS) - Note: Revenue is usually credit (negative in this SUM logic), so subtract
+        # Actually in P&L, we usually take Revenue as Positive for display.
+        # My balance is (debit - credit). Revenue (credit) will be negative.
+        # So display_val = -balance
+        
+        for r in report_data:
+            if r["id"].startswith("REV_"):
+                for m in range(1, 13): r[f"month_{m}"] = -r[f"month_{m}"]
+        
+        # Now Revenue is positive. COGS (debit) is positive.
+        gross_profit = get_row("GROSS_PROFIT")
+        for m in range(1, 13):
+            gross_profit[f"month_{m}"] = total_rev[f"month_{m}"] - total_cogs[f"month_{m}"]
+
+        # Operating Expenses
+        total_exp = get_row("EXP_TOTAL")
+        for m in range(1, 13):
+            total_exp[f"month_{m}"] = sum(r[f"month_{m}"] for r in report_data if r["id"].startswith("EXP_") and r["level"] == 1)
+
+        # Operating Profit
+        oper_profit = get_row("OPER_PROFIT")
+        for m in range(1, 13):
+            oper_profit[f"month_{m}"] = gross_profit[f"month_{m}"] - total_exp[f"month_{m}"]
+
+        # Net Profit
+        net_profit = get_row("NET_PROFIT")
+        for m in range(1, 13):
+            other_inc = -sum(r[f"month_{m}"] for r in report_data if r["id"].startswith("OTH_") and r["level"] == 1)
+            net_profit[f"month_{m}"] = oper_profit[f"month_{m}"] + other_inc
+
+        return {"status": "success", "data": report_data}
+    except Exception as e:
+        print(f"Error Comparative P&L: {e}")
+        return {"status": "error", "message": str(e)}
+
+@router.get("/reports/comparative-balance-sheet")
+async def get_comparative_balance_sheet(years: str, db: AsyncSession = Depends(database.get_db)):
+    try:
+        year_list = sorted([int(y) for y in years.split(",")], reverse=True)
+        report_data = []
+        for cat in BS_CATEGORIES:
+            row = {"id": cat["id"], "accountName": cat["label"], "isHeader": cat.get("isHeader", False), "isTotal": cat.get("isTotal", False), "level": cat["level"]}
+            for y in year_list: row[f"year_{y}"] = 0.0
+            report_data.append(row)
+
+        for y in year_list:
+            query = text(f"""
+                SELECT 
+                    gl.GLCode,
+                    SUM(l.debit - l.credit) as balance
+                FROM {DB_NAME_FINANCE}.tbl_ledgerbook l
+                JOIN {DB_NAME_FINANCE}.tbl_glcodemaster gl ON l.gl_id = gl.id
+                JOIN {DB_NAME_FINANCE}.tbl_journal_master jm ON l.reference_no = jm.journal_no COLLATE utf8mb4_0900_ai_ci
+                WHERE YEAR(jm.journal_date) <= :year
+                GROUP BY gl.GLCode
+            """)
+            res = await db.execute(query, {"year": y})
+            for db_row in res.mappings().all():
+                gl_code = db_row['GLCode']
+                balance = float(db_row['balance'])
+                for row in report_data:
+                    cat = next(c for c in BS_CATEGORIES if c["id"] == row["id"])
+                    if "codes" in cat:
+                        if any(gl_code.startswith(prefix) for prefix in cat["codes"]):
+                            # Assets: Debit is positive (balance)
+                            # Liabilities: Credit is positive (-balance)
+                            if cat["id"].startswith("AST"):
+                                row[f"year_{y}"] += balance
+                            else:
+                                row[f"year_{y}"] -= balance
+
+        # Calculate Totals
+        def get_row_bs(rid): return next((r for r in report_data if r["id"] == rid), None)
+        total_assets = get_row_bs("AST_TOTAL")
+        total_liab = get_row_bs("LIAB_TOTAL")
+        total_equity = get_row_bs("EQT_TOTAL")
+
+        for y in year_list:
+            total_assets[f"year_{y}"] = sum(r[f"year_{y}"] for r in report_data if r["id"].startswith("AST_") and r["level"] == 1)
+            total_liab[f"year_{y}"] = sum(r[f"year_{y}"] for r in report_data if r["id"].startswith("LIAB_") and r["level"] == 1)
+            total_equity[f"year_{y}"] = sum(r[f"year_{y}"] for r in report_data if r["id"].startswith("EQT_") and r["level"] == 1)
+
+        return {"status": "success", "data": report_data}
+    except Exception as e:
+        print(f"Error Comparative Balance Sheet: {e}")
+        return {"status": "error", "message": str(e)}

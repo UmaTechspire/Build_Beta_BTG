@@ -228,6 +228,7 @@ class SidebarContent extends Component {
                 "Ledger",
                 "TrialBalance",
                 "Profit & Loss",
+                "ProfitAndLossReport",
                 "Balance Sheet",
                 "Sales Item Wise",
                 "Sales Customer Wise",
@@ -381,6 +382,20 @@ class SidebarContent extends Component {
                 screenName: "Trial Balance",
                 url: "/TrialBalanceReport",
                 icon: "bx bx-list-check",
+                module: []
+            },
+            {
+                screenId: 99925,
+                screenName: "Profit & Loss",
+                url: "/ProfitAndLossReport",
+                icon: "bx bx-line-chart",
+                module: []
+            },
+            {
+                screenId: 99926,
+                screenName: "Balance Sheet",
+                url: "/BalanceSheetReport",
+                icon: "bx bx-building-house",
                 module: []
             }
         ];

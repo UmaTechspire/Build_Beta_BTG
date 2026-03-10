@@ -339,7 +339,7 @@ import AP from "../pages/FinanceModule/AP";
 // --- ADDED NEW REPORT IMPORTS HERE ---
 import SalesItemWise from "../pages/FinanceModule/Reports/SalesItemWise";
 import SalesCustomerWise from "../pages/FinanceModule/Reports/SalesCustomerWise";
-
+import ProfitAndLossReport from "../pages/FinanceModule/Reports/ProfitAndLossReport";
 import Pendingpo from '../pages/FinanceModule/Reports/Pendingpo';
 import AddBankBook from "../pages/FinanceModule/Report/AddBankBook";
 import AddCashBook from "../pages/FinanceModule/Report/AddCashBook";
@@ -426,6 +426,7 @@ const authProtectedRoutes = [
     { path: "/AssetType", component: AssetType },
     { path: "/SalesReport", component: SalesReport },
     { path: "/ProfitAndLoss", component: ProfitLoss },
+    { path: "/ProfitAndLossReport", component: ProfitAndLossReport },
 
     { path: "/LedgerReport", component: LedgerReport },
     { path: "/TrialBalanceReport", component: TrialBalanceReport },
