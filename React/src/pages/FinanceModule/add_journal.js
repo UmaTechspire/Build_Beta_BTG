@@ -241,9 +241,14 @@ const AddJournal = () => {
                     <CardBody>
                         <Row className="mb-4">
                             <Col lg="12">
+                                <div className="d-flex justify-content-end align-items-center gap-2 mb-3">
+                                    <Button color="primary" onClick={() => handleSavePost(false)}>Save</Button>
+                                    <Button color="success" onClick={() => handleSavePost(true)}>Post</Button>
+                                    <Button color="danger" onClick={() => history.push("/journal-ct")}>Cancel</Button>
+                                </div>
+
                                 {/* Header Info Section */}
                                 <div className="mb-4">
-                                    <h5 className="font-size-14 mb-3">Header Details</h5>
                                     <Row className="gy-3">
                                         <Col md="3">
                                             <Label>Date</Label>
@@ -343,11 +348,6 @@ const AddJournal = () => {
                                 {/* Journal Entry Table */}
                                 <div className="d-flex justify-content-between align-items-center mb-3">
                                     <h4 className="card-title">Journal Entries</h4>
-                                    <div className="d-flex justify-content-end gap-2">
-                                        <Button color="primary" onClick={() => handleSavePost(false)}>Save</Button>
-                                        <Button color="success" onClick={() => handleSavePost(true)}>Post</Button>
-                                        <Button color="danger" onClick={() => history.push("/journal-ct")}>Cancel</Button>
-                                    </div>
                                 </div>
                                 <div className="table-responsive">
                                     <Table className="table-bordered mb-0">

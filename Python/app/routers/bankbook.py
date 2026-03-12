@@ -194,7 +194,7 @@ async def get_bank_book_report(
             LEFT JOIN {DB_NAME_USER}.master_customer c ON r.customer_id = c.Id
             LEFT JOIN {DB_NAME_MASTER}.master_supplier s ON r.customer_id = s.SupplierId
             LEFT JOIN {DB_NAME_MASTER}.master_bank b ON CAST(NULLIF(r.deposit_bank_id, '') AS UNSIGNED) = b.BankId
-            LEFT JOIN {DB_NAME_USER}.master_currency mc ON b.CurrencyId = mc.CurrencyId
+            LEFT JOIN {DB_NAME_USER}.master_currency mc ON COALESCE(r.currencyid, b.CurrencyId) = mc.CurrencyId
             WHERE 
                 DATE(COALESCE(r.receipt_date, r.created_date)) BETWEEN :from_date AND :to_date
                 AND r.is_active = 1

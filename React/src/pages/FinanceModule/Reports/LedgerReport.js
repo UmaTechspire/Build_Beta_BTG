@@ -122,9 +122,8 @@ export default function LedgerReport() {
     });
   }, [filtered]);
 
-  const clearFilters = () => {
+  const cancelFilter = () => {
     setCategoryFilter(null);
-    setPartySearch("");
     setSearch("");
     setFromDate(null);
     setToDate(null);
@@ -212,28 +211,17 @@ export default function LedgerReport() {
                 isClearable
                 styles={{ container: base => ({ ...base, minWidth: 200 }) }}
               />
-              <InputText
-                value={partySearch}
-                onChange={e => setPartySearch(e.target.value)}
-                placeholder="Party Name"
-                style={{ minWidth: 180 }}
-                onKeyDown={e => { if (e.key === "Enter") fetchData(); }}
-              />
-              <InputText
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search All..."
-                style={{ minWidth: 180 }}
-              />
-              <Button color="primary" onClick={fetchData} disabled={!fromDate || !toDate}>
-                <i className="bx bx-search me-1"></i>Search
+              <Button color="primary" onClick={fetchData} disabled={!fromDate || !toDate} style={{ backgroundColor: "#6297e1", borderColor: "#6297e1" }}>
+                <i className="bx bx-search-alt label-icon font-size-16 align-middle me-2"></i>Search
               </Button>
-              <Button color="secondary" onClick={clearFilters}>Clear</Button>
-              <Button color="success" onClick={exportExcel} disabled={withBalance.length === 0}>
-                <i className="bx bx-download me-1"></i>Excel
+              <Button color="danger" onClick={cancelFilter} style={{ backgroundColor: "#ba6c66", borderColor: "#ba6c66" }}>
+                <i className="bx bx-window-close label-icon font-size-14 align-middle me-2"></i>Cancel
               </Button>
-              <Button color="info" onClick={printTable} disabled={withBalance.length === 0}>
-                <i className="bx bx-printer me-1"></i>Print
+              <Button color="secondary" onClick={exportExcel} disabled={withBalance.length === 0} style={{ backgroundColor: "#777b8e", borderColor: "#777b8e" }}>
+                <i className="bx bx-export label-icon font-size-16 align-middle me-2"></i>Export
+              </Button>
+              <Button color="info" onClick={printTable} disabled={withBalance.length === 0} style={{ backgroundColor: "#6794dc", borderColor: "#6794dc" }}>
+                <i className="bx bx-printer label-icon font-size-16 align-middle me-2"></i>Print
               </Button>
             </div>
           </Col>
@@ -242,73 +230,74 @@ export default function LedgerReport() {
         {/* Summary Cards */}
         <Row className="mb-3">
           <Col md={3}>
-            <Card className="mini-stats-wid">
-              <CardBody>
-                <div className="d-flex">
-                  <div className="flex-grow-1">
-                    <p className="text-muted fw-medium mb-1">Total Debit</p>
-                    <h5 className="mb-0 text-danger">{numFormat.format(totals.debit)}</h5>
-                  </div>
-                  <div className="mini-stat-icon avatar-sm rounded-circle bg-danger align-self-center">
-                    <span className="avatar-title bg-danger"><i className="bx bx-trending-up font-size-24"></i></span>
-                  </div>
-                </div>
-              </CardBody>
-            </Card>
+            <div className="p-3 bg-white rounded shadow-sm d-flex align-items-center justify-content-between">
+              <div>
+                <p className="text-muted mb-1" style={{ fontSize: "14px", fontWeight: "500" }}>Total Debit</p>
+                <h4 className="fw-bold mb-0 text-danger" style={{ fontSize: "22px" }}>{numFormat.format(totals.debit)}</h4>
+              </div>
+              <div className="mini-stat-icon avatar-sm rounded-circle bg-danger bg-soft align-self-center">
+                <span className="avatar-title rounded-circle bg-danger-subtle text-danger" style={{ backgroundColor: "rgba(244, 102, 102, 0.1)" }}><i className="bx bx-trending-up font-size-24"></i></span>
+              </div>
+            </div>
           </Col>
           <Col md={3}>
-            <Card className="mini-stats-wid">
-              <CardBody>
-                <div className="d-flex">
-                  <div className="flex-grow-1">
-                    <p className="text-muted fw-medium mb-1">Total Credit</p>
-                    <h5 className="mb-0 text-success">{numFormat.format(totals.credit)}</h5>
-                  </div>
-                  <div className="mini-stat-icon avatar-sm rounded-circle bg-success align-self-center">
-                    <span className="avatar-title bg-success"><i className="bx bx-trending-down font-size-24"></i></span>
-                  </div>
-                </div>
-              </CardBody>
-            </Card>
+            <div className="p-3 bg-white rounded shadow-sm d-flex align-items-center justify-content-between">
+              <div>
+                <p className="text-muted mb-1" style={{ fontSize: "14px", fontWeight: "500" }}>Total Credit</p>
+                <h4 className="fw-bold mb-0 text-success" style={{ fontSize: "22px" }}>{numFormat.format(totals.credit)}</h4>
+              </div>
+              <div className="mini-stat-icon avatar-sm rounded-circle bg-success bg-soft align-self-center">
+                <span className="avatar-title rounded-circle bg-success-subtle text-success" style={{ backgroundColor: "rgba(52, 195, 143, 0.1)" }}><i className="bx bx-trending-down font-size-24"></i></span>
+              </div>
+            </div>
           </Col>
           <Col md={3}>
-            <Card className="mini-stats-wid">
-              <CardBody>
-                <div className="d-flex">
-                  <div className="flex-grow-1">
-                    <p className="text-muted fw-medium mb-1">Net Balance</p>
-                    <h5 className={`mb-0 ${totals.debit - totals.credit >= 0 ? "text-danger" : "text-success"}`}>
-                      {numFormat.format(Math.abs(totals.debit - totals.credit))}
-                      {totals.debit - totals.credit >= 0 ? " Dr" : " Cr"}
-                    </h5>
-                  </div>
-                  <div className="mini-stat-icon avatar-sm rounded-circle bg-primary align-self-center">
-                    <span className="avatar-title bg-primary"><i className="bx bx-wallet font-size-24"></i></span>
-                  </div>
-                </div>
-              </CardBody>
-            </Card>
+            <div className="p-3 bg-white rounded shadow-sm d-flex align-items-center justify-content-between">
+              <div>
+                <p className="text-muted mb-1" style={{ fontSize: "14px", fontWeight: "500" }}>Net Balance</p>
+                <h4 className={`fw-bold mb-0 ${totals.debit - totals.credit >= 0 ? "text-primary" : "text-success"}`} style={{ fontSize: "22px" }}>
+                  {numFormat.format(Math.abs(totals.debit - totals.credit))}
+                  {totals.debit - totals.credit >= 0 ? " Dr" : " Cr"}
+                </h4>
+              </div>
+              <div className="mini-stat-icon avatar-sm rounded-circle bg-primary bg-soft align-self-center">
+                <span className="avatar-title rounded-circle bg-primary-subtle text-primary" style={{ backgroundColor: "rgba(85, 110, 230, 0.1)" }}><i className="bx bx-wallet font-size-24"></i></span>
+              </div>
+            </div>
           </Col>
           <Col md={3}>
-            <Card className="mini-stats-wid">
-              <CardBody>
-                <div className="d-flex">
-                  <div className="flex-grow-1">
-                    <p className="text-muted fw-medium mb-1">Total Entries</p>
-                    <h5 className="mb-0">{withBalance.length}</h5>
-                  </div>
-                  <div className="mini-stat-icon avatar-sm rounded-circle bg-warning align-self-center">
-                    <span className="avatar-title bg-warning"><i className="bx bx-list-ul font-size-24"></i></span>
-                  </div>
-                </div>
-              </CardBody>
-            </Card>
+            <div className="p-3 bg-white rounded shadow-sm d-flex align-items-center justify-content-between">
+              <div>
+                <p className="text-muted mb-1" style={{ fontSize: "14px", fontWeight: "500" }}>Total Entries</p>
+                <h4 className="fw-bold mb-0 text-warning" style={{ fontSize: "22px" }}>{withBalance.length}</h4>
+              </div>
+              <div className="mini-stat-icon avatar-sm rounded-circle bg-warning bg-soft align-self-center">
+                <span className="avatar-title rounded-circle bg-warning-subtle text-warning" style={{ backgroundColor: "rgba(241, 181, 61, 0.1)" }}><i className="bx bx-list-ul font-size-24"></i></span>
+              </div>
+            </div>
           </Col>
         </Row>
 
         {/* Ledger Table */}
         <Card>
           <CardBody id="ledger-print">
+
+            {/* Search All Row */}
+            <Row className="mb-2">
+              <Col md={12}>
+                <div className="d-flex justify-content-end align-items-center mb-2">
+                  <span className="p-input-icon-left me-2">
+                    <InputText
+                      type="search"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Keyword Search"
+                      style={{ minWidth: '300px' }}
+                    />
+                  </span>
+                </div>
+              </Col>
+            </Row>
             <DataTable
               ref={tableRef}
               value={withBalance}

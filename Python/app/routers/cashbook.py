@@ -148,10 +148,6 @@ async def get_cash_book_report(
               AND r.cash_amount != 0
               AND (r.reference_no NOT LIKE 'CLM%' OR r.reference_no IS NULL
                    OR (r.deposit_bank_id IS NULL OR r.deposit_bank_id = '' OR r.deposit_bank_id = '0'))
-            GROUP BY 
-                r.receipt_id,
-                r.reference_no,
-                COALESCE(r.receipt_date, r.created_date)
         """
         
         params = {"from_date": from_date, "to_date": to_date}

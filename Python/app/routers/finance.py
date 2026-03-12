@@ -666,6 +666,17 @@ async def create_book_entries_from_claim(
 
         created_ids = []
 
+        # --- Look up currency IDs for all unique currency codes ---
+        unique_codes = set(e.currency_code for e in payload.entries if e.currency_code)
+        currency_map = {}  # code -> CurrencyId
+        if unique_codes:
+            placeholders = ", ".join(f":cc{i}" for i in range(len(unique_codes)))
+            cur_params = {f"cc{i}": code for i, code in enumerate(unique_codes)}
+            cur_query = text(f"SELECT CurrencyId, CurrencyCode FROM {DB_NAME_OLD}.master_currency WHERE CurrencyCode IN ({placeholders})")
+            cur_result = await db.execute(cur_query, cur_params)
+            for row in cur_result.mappings().all():
+                currency_map[row["CurrencyCode"]] = row["CurrencyId"]
+
         for entry in payload.entries:
             # 1 = Cash mode. If Cash, it must always route to Cash Book, even if a Bank was selected in the UI.
             is_cash = entry.payment_mode_id == 1
@@ -686,6 +697,9 @@ async def create_book_entries_from_claim(
                 # Skip duplicate insertion
                 continue
 
+            # Resolve currency ID from the code sent by frontend
+            resolved_currency_id = currency_map.get(entry.currency_code) if entry.currency_code else None
+
             db_receipt = ARReceipt(
                 orgid=payload.org_id,
                 branchid=payload.branch_id,
@@ -694,6 +708,7 @@ async def create_book_entries_from_claim(
 
                 receipt_date=entry.payment_date,
                 customer_id=entry.supplier_id or 0,
+                currencyid=resolved_currency_id,
 
                 cash_amount=cash_amt,
                 bank_amount=bank_amt,

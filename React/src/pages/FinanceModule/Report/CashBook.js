@@ -7,9 +7,10 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { toast } from "react-toastify";
 import Select from "react-select";
+
 import axios from "axios";
 import { PYTHON_API_URL } from "common/pyapiconfig";
-import { GetBankList } from "common/data/mastersapi";
+
 
 const Breadcrumbs = ({ title, breadcrumbItem }) => (
     <div className="page-title-box d-sm-flex align-items-center justify-content-between">
@@ -49,6 +50,8 @@ const selectSm = {
     container: (base) => ({ ...base, width: "100%" }),
 };
 
+
+
 const CashBook = () => {
     const firstDayOfMonth = formatDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
     const today = formatDate(new Date());
@@ -68,9 +71,15 @@ const CashBook = () => {
     const [fromDate, setFromDate] = useState(firstDayOfMonth);
     const [toDate, setToDate] = useState(today);
 
-    // --- NEW: CASH ACCOUNT FILTER ---
-    const [cashAccounts, setCashAccounts] = useState([]);
-    const [selectedCashAccount, setSelectedCashAccount] = useState(null);
+    // --- NEW: TRANSACTION TYPE FILTER ---
+    const [transactionTypes] = useState([
+        { value: 'Receipt', label: 'Receipt' },
+        { value: 'Payment', label: 'Payment' },
+        { value: 'Other Income', label: 'Other Income' }
+    ]);
+    const [selectedTransactionType, setSelectedTransactionType] = useState(null);
+
+
 
     const fetchCashBook = async () => {
         try {
@@ -82,13 +91,20 @@ const CashBook = () => {
                 params: {
                     from_date: fromDate || null,
                     to_date: toDate || null,
-                    bank_id: selectedCashAccount ? selectedCashAccount.value : 0
+                    bank_id: 0
                 }
             });
 
-            const resultData = response.data?.data || [];
+            let resultData = response.data?.data || [];
 
-
+            // Apply transaction type filter if selected
+            if (selectedTransactionType) {
+                resultData = resultData.filter(item => {
+                    const transType = item.TransactionType || "-";
+                    // Only display items matching the selected type
+                    return transType.toLowerCase() === selectedTransactionType.value.toLowerCase();
+                });
+            }
 
             const transformed = resultData.map((item) => ({
                 date: item.Date ? new Date(item.Date) : null,
@@ -112,19 +128,11 @@ const CashBook = () => {
         }
     };
 
-    const loadCashAccounts = async () => {
-        const data = await GetBankList(1, 1);
-        const options = data.map(item => ({
-            value: item.value,
-            label: item.BankName
-        }));
-        setCashAccounts(options);
-    };
+
 
 
 
     useEffect(() => {
-        loadCashAccounts();
         fetchCashBook();
     }, []);
 
@@ -136,7 +144,6 @@ const CashBook = () => {
             "Reference No": ex.voucherNo,
             "Transaction Type": ex.transactionType,
             "Party / Account": ex.party,
-            "Bank Name": ex.bankName,
 
             "Cash In (IDR)": ex.cashIn,
             "Cash Out (IDR)": ex.cashOut,
@@ -189,7 +196,7 @@ const CashBook = () => {
     };
 
     const handleCancelFilters = () => {
-        setSelectedCashAccount(null);
+        setSelectedTransactionType(null);
         setFromDate(firstDayOfMonth);
         setToDate(today);
         setFilters({
@@ -214,12 +221,12 @@ const CashBook = () => {
 
                 {/* Filter & Buttons Section — all in one line */}
                 <Row className="pt-2 pb-3 align-items-center g-2">
-                    <Col md="4">
+                    <Col md="3">
                         <Select
-                            options={cashAccounts}
-                            placeholder="Cash Account"
-                            value={selectedCashAccount}
-                            onChange={setSelectedCashAccount}
+                            options={transactionTypes}
+                            placeholder="Transaction Type"
+                            value={selectedTransactionType}
+                            onChange={setSelectedTransactionType}
                             isClearable
                             styles={selectSm}
                         />
@@ -245,7 +252,7 @@ const CashBook = () => {
                             style={{ height: "38px" }}
                         />
                     </Col>
-                    <Col md="4" className="d-flex gap-1 align-items-center">
+                    <Col md="5" className="d-flex gap-1 align-items-center">
                         <button type="button" className="btn btn-primary" style={{ color: "#fff", height: "38px", fontSize: "13px", padding: "0 12px", whiteSpace: "nowrap" }} onClick={fetchCashBook}>
                             <i className="bx bx-search me-1"></i>Search
                         </button>
@@ -284,7 +291,7 @@ const CashBook = () => {
                                     filters={filters}
                                     onFilter={(e) => setFilters(e.filters)}
                                     globalFilter={globalFilter}
-                                    globalFilterFields={["date", "voucherNo", "party", "bankName", "transactionType", "cashIn", "cashOut", "balance"]}
+                                    globalFilterFields={["date", "voucherNo", "party", "transactionType", "cashIn", "cashOut", "balance"]}
                                     emptyMessage="No records found."
                                     showGridlines
                                     filterDisplay="menu"
@@ -294,7 +301,7 @@ const CashBook = () => {
                                     <Column field="voucherNo" header="Reference No" filter filterPlaceholder="Search Reference" />
                                     <Column field="transactionType" header="Transaction Type" filter filterPlaceholder="Search Type" />
                                     <Column field="party" header="Party / Account" filter filterPlaceholder="Search Party" />
-                                    <Column field="bankName" header="Bank Name" filter filterPlaceholder="Search Bank" />
+
 
                                     <Column field="cashIn" header="Cash In (IDR)" body={(d) => d.cashIn.toLocaleString('en-US', {
                                         style: 'decimal',
@@ -319,7 +326,7 @@ const CashBook = () => {
                                                 <th>Reference No</th>
                                                 <th>Transaction Type</th>
                                                 <th>Party / Account</th>
-                                                <th>Bank Name</th>
+
                                                 <th>Cash In (IDR)</th>
                                                 <th>Cash Out (IDR)</th>
                                                 <th>Balance (IDR)</th>
@@ -333,7 +340,7 @@ const CashBook = () => {
                                                     <td>{item.voucherNo}</td>
                                                     <td>{item.transactionType}</td>
                                                     <td>{item.party}</td>
-                                                    <td>{item.bankName}</td>
+
                                                     <td className="text-end">{item.cashIn.toLocaleString('en-US', {
                                                         style: 'decimal',
                                                         minimumFractionDigits: 2
