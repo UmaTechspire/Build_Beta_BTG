@@ -51,12 +51,27 @@ const initFilters = () => ({
 
 const formatDate = (dateString) => {
     if (!dateString) return "";
+    // Parse as local time to avoid UTC timezone shift (e.g. -1 day in UTC+5:30)
+    // Split the date string to extract year, month, day directly
+    const parts = dateString.split("T")[0].split("-");
+    if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        const date = new Date(year, month, day); // local time, no UTC conversion
+        return date.toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+        }).replace(/ /g, "-"); // e.g. "09-Mar-2026"
+    }
+    // Fallback for non-ISO formats
     const date = new Date(dateString);
     return date.toLocaleDateString("en-GB", {
         day: "2-digit",
         month: "short",
         year: "numeric",
-    }).replace(/ /g, "-"); // e.g. "29-Aug-2025"
+    }).replace(/ /g, "-");
 };
 
 const getUserDetails = () => {

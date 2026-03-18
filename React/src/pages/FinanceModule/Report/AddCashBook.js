@@ -395,7 +395,9 @@ const AddCashBook = () => {
 
         if (rowData.customerId && parseFloat(rowData.cash_amount) > 0) {
             try {
-                const response = await axios.get(`${PYTHON_API_URL}/AR/get-outstanding-invoices/${rowData.customerId}`);
+                const response = await axios.get(`${PYTHON_API_URL}/AR/get-outstanding-invoices/${rowData.customerId}`, {
+                    params: { receipt_id: rowData.receipt_id }
+                });
                 if (response.data && response.data.status === "success") {
                     setInvoiceList(response.data.data);
                 } else {

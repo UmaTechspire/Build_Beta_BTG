@@ -1,7 +1,7 @@
 from sqlalchemy import text
 import re
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
+from typing import List, Union, Optional
 from . import schemas
 from .models.finance import ARReceipt
 from sqlalchemy import select, desc, update
@@ -123,104 +123,11 @@ async def update_customer_and_verify(
     record.bank_charges = data.bank_charges
     record.tax_rate = data.tax_deduction 
     record.exchange_rate = data.exchange_rate
-    
-    # 3. PROCESS ALLOCATIONS (Update Invoice Balances & Collect References)
-    linked_invoices = []
-    
-    for alloc in data.allocations:
-        if alloc.amount_allocated > 0:
-            # Update Paid Amount
-            update_invoice_sql = text(f"""
-                UPDATE {DB_NAME_USER_NEW}.tbl_salesinvoices_header
-                SET PaidAmount = IFNULL(PaidAmount, 0) + :amount
-                WHERE id = :inv_id
-            """)
-            await db.execute(update_invoice_sql, {
-                "amount": alloc.amount_allocated,
-                "inv_id": alloc.invoice_id
-            })
-            
-            # 🟢 FIX TASK 2: Fetch Invoice Number for Linkage Display
-            get_inv_nbr = text(f"SELECT salesinvoicenbr FROM {DB_NAME_USER_NEW}.tbl_salesinvoices_header WHERE id = :inv_id")
-            inv_res = await db.execute(get_inv_nbr, {"inv_id": alloc.invoice_id})
-            inv_nbr = inv_res.scalar()
-            if inv_nbr:
-                linked_invoices.append(inv_nbr)
-            
-            # 🟢 TASK: Link Receipt to AR for Reporting
-            # 3.1 Fetch AR ID from tbl_accounts_receivable
-            get_ar_sql = text(f"SELECT ar_id, already_received FROM {DB_NAME_FINANCE}.tbl_accounts_receivable WHERE invoice_id = :inv_id LIMIT 1")
-            ar_res = await db.execute(get_ar_sql, {"inv_id": alloc.invoice_id})
-            ar_row = ar_res.fetchone()
-            
-            if ar_row:
-                 ar_id = ar_row.ar_id
-                 current_received = ar_row.already_received or 0
-                 
-                 # 3.2 Insert into tbl_receipt_ag_ar
-                 # FIX: Added 'created_ip' to resolve error
-                 insert_alloc_sql = text(f"""
-                    INSERT INTO {DB_NAME_FINANCE}.tbl_receipt_ag_ar 
-                    (receipt_id, ar_id, payment_amount, receipt_date, created_date, created_by, created_ip, is_active)
-                    VALUES (:rid, :arid, :amount, :rdate, NOW(), :uid, :ip, 1)
-                 """)
-                 
-                 # Determine user_id (New schema field or fallback)
-                 user_id = data.user_id if hasattr(data, 'user_id') and data.user_id else (record.created_by or 'System')
-                 # Use record.created_ip (from receipt) or fallback
-                 user_ip = record.created_ip or '127.0.0.1'
+    # 3. PROCESS ALLOCATIONS (Idempotent)
+    linked_invoices = await _process_receipt_allocations(db, record, data)
 
-                 await db.execute(insert_alloc_sql, {
-                    "rid": receipt_id,
-                    "arid": ar_id,
-                    "amount": alloc.amount_allocated,
-                    "rdate": record.receipt_date or datetime.now().date(),
-                    "uid": user_id,
-                    "ip": user_ip
-                 })
-                 
-                 # 3.3 Update tbl_accounts_receivable
-                 update_ar_sql = text(f"""
-                    UPDATE {DB_NAME_FINANCE}.tbl_accounts_receivable
-                    SET already_received = already_received + :amount,
-                        balance_amount = balance_amount - :amount,
-                        updated_date = NOW(),
-                        updated_by = :uid
-                    WHERE ar_id = :arid
-                 """)
-                 await db.execute(update_ar_sql, {
-                    "amount": alloc.amount_allocated,
-                    "uid": user_id,
-                    "arid": ar_id
-                 })
-                 
-                 # 3.4 Update Primary AR Link (if not set)
-                 if record.ar_id is None:
-                     record.ar_id = ar_id
-
-    # Update Reference with Linked Invoices
-    current_desc = record.reference_no or ""
-    
-    # Clean up existing automated suffixes (Old & New Format)
-    current_desc = re.sub(r'\s*\|\s*Inv:.*', '', current_desc, flags=re.IGNORECASE)
-    current_desc = re.sub(r'\s*\|\s*Reply:.*', '', current_desc, flags=re.IGNORECASE)
-    current_desc = re.sub(r'\s*\(Inv:.*?\)', '', current_desc, flags=re.IGNORECASE)
-    current_desc = re.sub(r'\s*\(Reply:.*?\)', '', current_desc, flags=re.IGNORECASE)
-    current_desc = current_desc.strip()
-    
-    # Construct new reference string (Reply + Linked Invoices)
-    additional_info = []
-    if data.reply_message:
-        additional_info.append(f"(Reply: {data.reply_message})")
-    
-    if linked_invoices:
-        # Join invoice numbers (e.g., "INV-001, INV-002")
-        inv_str = ", ".join(linked_invoices)
-        additional_info.append(f"(Inv: {inv_str})")
-        
-    if additional_info:
-        # User wants "test-1234 (Inv: 88730)"
-        record.reference_no = f"{current_desc} {' '.join(additional_info)}".strip()
+    # 4. Update Reference with Linked Invoices
+    await _update_receipt_reference(record, data.reply_message, linked_invoices)
 
     record.pending_verification = False
     record.modified_on = datetime.now()
@@ -535,12 +442,102 @@ async def save_verification_draft(db: AsyncSession, receipt_id: int, data: schem
     record.bank_charges = data.bank_charges
     record.tax_rate = data.tax_deduction
     record.exchange_rate = data.exchange_rate
+
+    # 3. PROCESS ALLOCATIONS (NEW for Save Draft)
+    linked_invoices = await _process_receipt_allocations(db, record, data)
+
+    # 4. Update Reference with Linked Invoices
+    await _update_receipt_reference(record, data.reply_message, linked_invoices)
     
     record.modified_on = datetime.now()
     
     await db.commit()
     await db.refresh(record)
     return record
+
+
+async def _process_receipt_allocations(db: AsyncSession, record: ARReceipt, data: Union[schemas.VerifyCustomerUpdate, schemas.SaveDraftRequest]):
+    """Helper to clear old allocations and apply new ones idempotently."""
+    receipt_id = record.receipt_id
+    
+    # A. PRE-CLEANUP: Revert existing allocations for this receipt_id
+    old_allocs_query = text(f"""
+        SELECT ar.invoice_id, ra.ar_id, ra.payment_amount 
+        FROM {DB_NAME_FINANCE}.tbl_receipt_ag_ar ra
+        JOIN {DB_NAME_FINANCE}.tbl_accounts_receivable ar ON ra.ar_id = ar.ar_id
+        WHERE ra.receipt_id = :rid AND ra.is_active = 1
+    """)
+    old_res = await db.execute(old_allocs_query, {"rid": receipt_id})
+    old_allocs = old_res.fetchall()
+
+    for old in old_allocs:
+        # Revert PaidAmount in Header
+        await db.execute(text(f"UPDATE {DB_NAME_USER_NEW}.tbl_salesinvoices_header SET PaidAmount = PaidAmount - :amt WHERE id = :id"), {"amt": old.payment_amount, "id": old.invoice_id})
+        # Revert already_received in AR
+        await db.execute(text(f"UPDATE {DB_NAME_FINANCE}.tbl_accounts_receivable SET already_received = already_received - :amt, balance_amount = balance_amount + :amt WHERE ar_id = :arid"), {"amt": old.payment_amount, "arid": old.ar_id})
+
+    # 2. Deactivate old allocation records
+    await db.execute(text(f"UPDATE {DB_NAME_FINANCE}.tbl_receipt_ag_ar SET is_active = 0 WHERE receipt_id = :rid"), {"rid": receipt_id})
+
+    # B. APPLY NEW ALLOCATIONS
+    linked_invoices = []
+    # Safeguard for user_id
+    user_id = getattr(data, 'user_id', None) or (record.created_by or 'System')
+    user_ip = record.created_ip or '127.0.0.1'
+
+    for alloc in data.allocations:
+        if alloc.amount_allocated > 0:
+            # 1. Update PaidAmount in Header
+            update_header = text(f"UPDATE {DB_NAME_USER_NEW}.tbl_salesinvoices_header SET PaidAmount = IFNULL(PaidAmount, 0) + :amt WHERE id = :id")
+            await db.execute(update_header, {"amt": alloc.amount_allocated, "id": alloc.invoice_id})
+            
+            # 2. Get Invoice Number
+            get_inv_nbr = text(f"SELECT salesinvoicenbr FROM {DB_NAME_USER_NEW}.tbl_salesinvoices_header WHERE id = :id")
+            inv_res = await db.execute(get_inv_nbr, {"id": alloc.invoice_id})
+            inv_nbr = inv_res.scalar()
+            if inv_nbr: linked_invoices.append(inv_nbr)
+
+            # 3. Update AR Table
+            get_ar = text(f"SELECT ar_id FROM {DB_NAME_FINANCE}.tbl_accounts_receivable WHERE invoice_id = :id LIMIT 1")
+            ar_id = (await db.execute(get_ar, {"id": alloc.invoice_id})).scalar()
+            
+            if ar_id:
+                # Insert Link
+                insert_link = text(f"""
+                    INSERT INTO {DB_NAME_FINANCE}.tbl_receipt_ag_ar 
+                    (receipt_id, ar_id, payment_amount, receipt_date, created_date, created_by, created_ip, is_active)
+                    VALUES (:rid, :arid, :amt, :rdate, NOW(), :uid, :ip, 1)
+                """)
+                await db.execute(insert_link, {
+                    "rid": receipt_id, "arid": ar_id, "amt": alloc.amount_allocated,
+                    "rdate": record.receipt_date or datetime.now().date(), "uid": user_id, "ip": user_ip
+                })
+                
+                # Update AR Balance
+                update_ar = text(f"UPDATE {DB_NAME_FINANCE}.tbl_accounts_receivable SET already_received = already_received + :amt, balance_amount = balance_amount - :amt, updated_date = NOW(), updated_by = :uid WHERE ar_id = :arid")
+                await db.execute(update_ar, {"amt": alloc.amount_allocated, "uid": user_id, "arid": ar_id})
+                
+                if record.ar_id is None: record.ar_id = ar_id
+
+    return linked_invoices
+
+
+async def _update_receipt_reference(record: ARReceipt, reply_message: Optional[str], linked_invoices: List[str]):
+    """Helper to construct the reference string with linked invoices."""
+    current_desc = record.reference_no or ""
+    # Clean up standard formats
+    current_desc = re.sub(r'\s*\|\s*Inv:.*', '', current_desc, flags=re.IGNORECASE)
+    current_desc = re.sub(r'\s*\|\s*Reply:.*', '', current_desc, flags=re.IGNORECASE)
+    current_desc = re.sub(r'\s*\(Inv:.*?\)', '', current_desc, flags=re.IGNORECASE)
+    current_desc = re.sub(r'\s*\(Reply:.*?\)', '', current_desc, flags=re.IGNORECASE)
+    current_desc = current_desc.strip()
+    
+    additional_info = []
+    if reply_message: additional_info.append(f"(Reply: {reply_message})")
+    if linked_invoices: additional_info.append(f"(Inv: {', '.join(linked_invoices)})")
+        
+    if additional_info:
+        record.reference_no = f"{current_desc} {' '.join(additional_info)}".strip()
 
 # ----------------------------------------------------------
 # UPDATE REFERENCE NUMBER (For AR Book Editing)

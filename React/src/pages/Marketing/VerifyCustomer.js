@@ -181,7 +181,9 @@ const VerifyCustomer = () => {
     const initialAdvance = parseFloat(record.cash_amount) || 0;
 
     try {
-      const res = await axios.get(`${PYTHON_API_URL}/AR/get-outstanding-invoices/${record.customer_id}`);
+      const res = await axios.get(`${PYTHON_API_URL}/AR/get-outstanding-invoices/${record.customer_id}`, {
+        params: { receipt_id: record.receipt_id }
+      });
 
       let invoiceList = [];
       if (res.data && res.data.status === "success") {
@@ -190,9 +192,9 @@ const VerifyCustomer = () => {
           invNo: inv.invoice_no,
           date: inv.invoice_date,
           balanceDue: parseFloat(inv.balance_due),
-          paymentType: "",
-          amount: "",
-          selected: false
+          paymentType: inv.allocated_here > 0 ? "Partial" : "",
+          amount: inv.allocated_here > 0 ? parseFloat(inv.allocated_here) : "",
+          selected: inv.is_pre_selected || false
         }));
       }
 
@@ -235,7 +237,7 @@ const VerifyCustomer = () => {
   const handleInvoiceSearch = (e) => {
     const val = e.target.value;
     setInvoiceSearch(val);
-    
+
     if (val.trim() === "") return;
 
     // Auto-select exact matches if they aren't already selected
@@ -250,11 +252,11 @@ const VerifyCustomer = () => {
       }
       return inv;
     });
-    
+
     // Only update state if something changed to avoid unnecessary renders
     const changed = updatedInvoices.some((inv, idx) => inv.selected !== verificationData.invoices[idx].selected);
     if (changed) {
-       setVerificationData(prev => ({ ...prev, invoices: updatedInvoices }));
+      setVerificationData(prev => ({ ...prev, invoices: updatedInvoices }));
     }
   };
 
@@ -301,10 +303,10 @@ const VerifyCustomer = () => {
 
   const totalAllocated = verificationData.invoices.filter(inv => inv.selected).reduce((sum, inv) => sum + (parseFloat(inv.amount) || 0), 0);
   const receiptAmount = selectedRecord ? (selectedRecord.receiptAmount || 0) : 0;
-  
+
   // Treat bankCharges and taxDeduction as reductions when entered as positive values
   const utilizedAmount = totalAllocated - Math.abs(verificationData.bankCharges) - Math.abs(verificationData.taxDeduction) + verificationData.advancePayment;
-  
+
   const variance = receiptAmount - utilizedAmount;
   const isValid = Math.abs(variance) < 1;
 
@@ -362,7 +364,7 @@ const VerifyCustomer = () => {
       await axios.put(`${PYTHON_API_URL}/AR/verify/${selectedRecord.receipt_id}`, getPayload());
       toast.success("Verification Completed! Now Finance can Post.");
       setVerifyModal(false);
-      
+
       // Refresh list to show "Post" button
       const storedUser = JSON.parse(localStorage.getItem("authUser"));
       loadPendingList(customerList, storedUser?.id, storedUser?.department);
@@ -374,7 +376,7 @@ const VerifyCustomer = () => {
       // Use the general post endpoint from finance.py
       await axios.put(`${PYTHON_API_URL}/AR/post/${rowData.receipt_id}`);
       toast.success("Transaction Posted to Books Successfully!");
-      
+
       const storedUser = JSON.parse(localStorage.getItem("authUser"));
       loadPendingList(customerList, storedUser?.id, storedUser?.department);
     } catch (err) {
@@ -443,7 +445,7 @@ const VerifyCustomer = () => {
 
   const actionBodyTemplate = (rowData) => {
     const isVerified = rowData.pending_verification === 0 || rowData.pending_verification === false;
-    
+
     return (
       <div className="d-flex justify-content-center gap-2 align-items-center">
         {!isVerified ? (
@@ -507,9 +509,9 @@ const VerifyCustomer = () => {
             {loadingInvoices ? <div className="text-center p-5"><Spinner color="primary" /></div> : (
               <>
                 <div className="d-flex justify-content-end mb-2">
-                  <Input 
-                    type="text" 
-                    placeholder="Search Invoice No..." 
+                  <Input
+                    type="text"
+                    placeholder="Search Invoice No..."
                     bsSize="sm"
                     style={{ width: '250px' }}
                     value={invoiceSearch}

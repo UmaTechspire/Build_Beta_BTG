@@ -419,7 +419,9 @@ const AddBankBook = () => {
 
         if (rowData.customerId && parseFloat(rowData.bank_amount) > 0) { // Only preview for receipts
             try {
-                const response = await axios.get(`${PYTHON_API_URL}/AR/get-outstanding-invoices/${rowData.customerId}`);
+                const response = await axios.get(`${PYTHON_API_URL}/AR/get-outstanding-invoices/${rowData.customerId}`, {
+                    params: { receipt_id: rowData.receipt_id }
+                });
                 if (response.data && response.data.status === "success") {
                     setInvoiceList(response.data.data);
                 } else {
@@ -457,20 +459,20 @@ const AddBankBook = () => {
         // 🟢 FIX: Find the master bank entry and take only the first part (e.g. "BCA" from "BCA - Cash in Bank")
         const masterBank = bankList.find(b => b.value == bId);
         const fullName = masterBank?.label || printRecord.bankName || printRecord.bank_name || "";
-        
+
         return fullName.split(' - ')[0];
     };
 
     const getFormattedPaymentMethod = (record) => {
         if (!record) return "";
         const via = record.bank_payment_via;
-        let method = "Bank Transfer"; 
+        let method = "Bank Transfer";
 
         if (via === 1) method = "Cheque";
         else if (via === 2) method = "Bank Transfer";
         else if (via === 3) method = "Giro";
         else if (via === 4) method = "Cash";
-        
+
         const bName = getPrintBankName();
 
         if (via === 4) return "Cash";
@@ -800,10 +802,10 @@ const AddBankBook = () => {
                                                     <option value={4}>Cash</option>
                                                 </select>
                                                 {row.bank_payment_via === 1 && (
-                                                    <Input 
-                                                        bsSize="sm" 
-                                                        placeholder="Cheque No" 
-                                                        value={row.cheque_number} 
+                                                    <Input
+                                                        bsSize="sm"
+                                                        placeholder="Cheque No"
+                                                        value={row.cheque_number}
                                                         onChange={(e) => handleRowChange(index, 'cheque_number', e.target.value)}
                                                         style={{ fontSize: '10px', height: '24px' }}
                                                     />
@@ -960,7 +962,7 @@ const AddBankBook = () => {
                                     {printRecord?.customerName || printRecord?.customer_name}
                                 </div>
 
-                                 <div className="label" style={{ fontWeight: 'bold', color: '#1a2c5b', fontSize: '11px', whiteSpace: 'nowrap' }}>The Sum Of</div>
+                                <div className="label" style={{ fontWeight: 'bold', color: '#1a2c5b', fontSize: '11px', whiteSpace: 'nowrap' }}>The Sum Of</div>
                                 <div className="colon" style={{ fontWeight: 'bold', color: '#1a2c5b', fontSize: '11px', textAlign: 'center' }}>:</div>
                                 <div className="slanted-box" style={{ border: '1px solid #1a2c5b', transform: 'skewX(-20deg)', padding: '4px 6px', background: '#fff' }}>
                                     <div style={{ transform: 'skewX(20deg)', fontWeight: 'bold', fontSize: '11px' }}>
@@ -982,7 +984,7 @@ const AddBankBook = () => {
                                         <div className="label" style={{ fontWeight: 'bold', color: '#1a2c5b', fontSize: '11px', marginRight: '8px', whiteSpace: 'nowrap' }}>
                                             Amount {printRecord?.currencyCode === 'IDR' ? 'Rp' : (printRecord?.currencyCode || 'Rp')} :
                                         </div>
-                                         <div style={{
+                                        <div style={{
                                             border: '1px solid #1a2c5b',
                                             width: '200px',
                                             padding: '5px 8px',
