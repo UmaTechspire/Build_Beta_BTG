@@ -601,20 +601,49 @@ async def save_draft(
 # GET OUTSTANDING INVOICES
 # --------------------------------------------------
 @router.get("/get-outstanding-invoices/{customer_id}")
-async def get_outstanding_invoices(customer_id: int, db: AsyncSession = Depends(database.get_db)):
+async def get_outstanding_invoices(
+    customer_id: int, 
+    receipt_id: Optional[int] = None, 
+    db: AsyncSession = Depends(database.get_db)
+):
     try:
+        rid_val = receipt_id if receipt_id else 0
+        
         query = text(f"""
             SELECT 
                 h.id as invoice_id,
                 h.salesinvoicenbr as invoice_no,
                 DATE_FORMAT(h.Salesinvoicesdate, '%d-%m-%Y') as invoice_date,
                 h.TotalAmount as total_amount,
-                (h.TotalAmount - IFNULL(h.PaidAmount, 0)) as balance_due
+                
+                -- Get currently allocated amount for this receipt (if any)
+                (SELECT COALESCE(SUM(ra.payment_amount), 0) 
+                 FROM {DB_NAME_FINANCE}.tbl_receipt_ag_ar ra 
+                 JOIN {DB_NAME_FINANCE}.tbl_accounts_receivable ar_link ON ra.ar_id = ar_link.ar_id
+                 WHERE ar_link.invoice_id = h.id AND ra.receipt_id = :rid AND ra.is_active = 1
+                ) as allocated_here,
+                
+                -- The logical 'Balance Due' should ignore what was ALREADY paid by THIS specific receipt
+                (h.TotalAmount - (IFNULL(h.PaidAmount, 0) - 
+                    (SELECT COALESCE(SUM(ra.payment_amount), 0) 
+                     FROM {DB_NAME_FINANCE}.tbl_receipt_ag_ar ra 
+                     JOIN {DB_NAME_FINANCE}.tbl_accounts_receivable ar_link ON ra.ar_id = ar_link.ar_id
+                     WHERE ar_link.invoice_id = h.id AND ra.receipt_id = :rid AND ra.is_active = 1
+                    )
+                )) as balance_due
+                
             FROM {DB_NAME_USER_NEW}.tbl_salesinvoices_header h
             WHERE h.customerid = :cust_id
-              AND (h.TotalAmount - IFNULL(h.PaidAmount, 0)) > 0
               AND h.IsSubmitted = 1
               AND h.IsAR = 1
+              AND (
+                  (h.TotalAmount - IFNULL(h.PaidAmount, 0)) > 0
+                  OR 
+                  h.id IN (SELECT ar_link2.invoice_id 
+                           FROM {DB_NAME_FINANCE}.tbl_receipt_ag_ar ra2
+                           JOIN {DB_NAME_FINANCE}.tbl_accounts_receivable ar_link2 ON ra2.ar_id = ar_link2.ar_id
+                           WHERE ra2.receipt_id = :rid AND ra2.is_active = 1)
+              )
               AND h.salesinvoicenbr NOT IN (
                   SELECT DISTINCT DOnumber 
                   FROM {DB_NAME_USER_NEW}.tbl_salesinvoices_details 
@@ -623,10 +652,16 @@ async def get_outstanding_invoices(customer_id: int, db: AsyncSession = Depends(
             ORDER BY h.Salesinvoicesdate ASC
         """)
         
-        result = await db.execute(query, {"cust_id": customer_id})
+        result = await db.execute(query, {"cust_id": customer_id, "rid": rid_val})
         invoices = result.mappings().all()
         
-        return {"status": "success", "data": invoices}
+        processed_invoices = []
+        for inv in invoices:
+             item = dict(inv)
+             item["is_pre_selected"] = True if float(item["allocated_here"]) > 0 else False
+             processed_invoices.append(item)
+             
+        return {"status": "success", "data": processed_invoices}
 
     except Exception as e:
         print(f"Error fetching outstanding invoices: {e}")
