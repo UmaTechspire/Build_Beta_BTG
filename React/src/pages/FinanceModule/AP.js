@@ -42,7 +42,8 @@ import {
     GetByIdPurchaseRequisition,
     GetAllPurchaseOrderList,
     GetPaymentHistory,
-    GetAllClaimAndPayment
+    GetAllClaimAndPayment,
+    ClaimAndPaymentGetById
 } from "../../common/data/mastersapi";
 
 const AP = () => {
@@ -83,6 +84,16 @@ const AP = () => {
     const [modalData, setModalData] = useState(null);
     const [modalLoading, setModalLoading] = useState(false);
 
+    const [selectedIRNDetail, setSelectedIRNDetail] = useState(null);
+    const [irnDetailVisible, setIrnDetailVisible] = useState(false);
+    const [selectedClaimDetail, setSelectedClaimDetail] = useState(null);
+    const [claimDetailVisible, setClaimDetailVisible] = useState(false);
+    
+    // --- New States for CLM Link Details ---
+    const [showClaimDetailModal, setShowClaimDetailModal] = useState(false);
+    const [claimDetailData, setClaimDetailData] = useState(null);
+    const [loadingClaimDetail, setLoadingClaimDetail] = useState(false);
+
     const [nestedModal, setNestedModal] = useState(false);
     const [nestedPOData, setNestedPOData] = useState(null);
     const [nestedPOLoading, setNestedPOLoading] = useState(false);
@@ -93,6 +104,26 @@ const AP = () => {
     const [prLoading, setPrLoading] = useState(false);
 
     // --- Styles ---
+    const modalStyle = `
+        .blue-table-header th {
+            background-color: #3e6e9e !important;
+            color: white !important;
+            font-weight: bold !important;
+            text-align: center;
+        }
+        .btn-close-custom {
+            background-color: #c06361 !important;
+            border-color: #c06361 !important;
+            color: white !important;
+        }
+        .bold-label {
+            font-weight: bold;
+            min-width: 120px;
+            color: #333;
+        }
+    `;
+
+    // --- 1. Load Dropdowns & PO List ---
 
 
     // --- 1. Load Dropdowns & PO List ---
@@ -200,17 +231,21 @@ const AP = () => {
             const poDataList = poRes?.data || (Array.isArray(poRes) ? poRes : []);
             const currentPoLookup = { ...poLookup };
             if (Array.isArray(poDataList)) {
-                poDataList.forEach(po => {
-                    const pid = po.poid || po.POId || po.po_id || po.purchase_id;
-                    if (pid) {
-                        currentPoLookup[pid] = {
-                            pono: po.pono || po.PONo || po.PO_Number || po.ponumber || po.po_no || po.PONumber,
-                            podate: po.podate || po.PODate || po.po_date || po.docdate,
-                            currencyid: po.currencyid || po.CurrencyId || po.currency_id || po.TransactionCurrencyId,
-                            currencycode: po.currencycode || po.CurrencyCode || po.currency_code || po.transactioncurrency || po.TransactionCurrency,
-                            po_amount: po.totalamount || po.nettotal || po.po_amount || po.po_total || 0
-                        };
-                    }
+                setPoLookup(prev => {
+                    const newLookup = { ...prev };
+                    poDataList.forEach(po => {
+                        const pid = po.poid || po.POId || po.po_id || po.purchase_id;
+                        if (pid) {
+                            newLookup[pid] = {
+                                pono: po.pono || po.PONo || po.PO_Number || po.ponumber || po.po_no || po.PONumber,
+                                podate: po.podate || po.PODate || po.po_date || po.docdate,
+                                currencyid: po.currencyid || po.CurrencyId || po.currency_id || po.TransactionCurrencyId,
+                                currencycode: po.currencycode || po.CurrencyCode || po.currency_code || po.transactioncurrency || po.TransactionCurrency,
+                                po_amount: po.totalamount || po.nettotal || po.po_amount || po.po_total || 0
+                            };
+                        }
+                    });
+                    return newLookup;
                 });
             }
 
@@ -359,6 +394,11 @@ const AP = () => {
                     allClaimsResponse = await GetAllClaimAndPayment(0, 0, branchId, orgId, userId);
                 } catch (e) { console.error("Claims fetch failed", e); }
 
+                let grnResponse = { data: [] };
+                try {
+                    grnResponse = await GetAllGRNList(supplierId, 0, orgId, branchId, userId, currencyId);
+                } catch (e) { console.error("GRN fetch failed", e); }
+
                 let mergedList = [];
                 const historyPayments = Array.isArray(paymentHistoryResponse) ? paymentHistoryResponse : (paymentHistoryResponse?.data || paymentHistoryResponse?.Data || []);
                 const allClaims = Array.isArray(allClaimsResponse) ? allClaimsResponse : (allClaimsResponse?.data || allClaimsResponse?.Data || []);
@@ -366,6 +406,14 @@ const AP = () => {
                 const fDate = filter.fromDate ? new Date(filter.fromDate).setHours(0, 0, 0, 0) : null;
                 const tDate = filter.toDate ? new Date(filter.toDate).setHours(23, 59, 59, 999) : null;
                 const selectedCurrencyId = Number(currencyId);
+
+                const irnedGrnIds = new Set();
+                if (irnResponse?.data && Array.isArray(irnResponse.data)) {
+                    irnResponse.data.forEach(item => {
+                        const gid = String(item.grn_id || item.grnid || "").trim();
+                        if (gid && gid !== "0") irnedGrnIds.add(gid);
+                    });
+                }
 
                 if (irnResponse?.data && Array.isArray(irnResponse.data)) {
                     irnResponse.data.forEach(item => {
@@ -386,10 +434,49 @@ const AP = () => {
                                 ClaimAmount: 0,
                                 grn_no: item.grnno || item.grn_no || "",
                                 grn_date: item.grndate || item.grn_date || "",
+                                grn_id: String(item.grn_id || item.grnid || "0").trim(),
                                 po_no: poNo,
                                 po_date: item.podate || item.po_date || (currentPoLookup[poId] ? currentPoLookup[poId].podate : ""),
                                 po_amount: Number(item.po_amount || (currentPoLookup[poId] ? currentPoLookup[poId].po_amount : 0)),
-                                currencyid: itemCurId
+                                currencyid: itemCurId,
+                                POId: poId
+                            });
+                        }
+                    });
+                }
+
+                // Process standalone GRNs (not yet IRN-ed)
+                if (grnResponse?.data && Array.isArray(grnResponse.data)) {
+                    grnResponse.data.forEach(item => {
+                        const gid = String(item.grnid || item.grn_id || "").trim();
+                        if (gid && gid !== "0" && !irnedGrnIds.has(gid)) {
+                            const itemDate = item.grndate || item.Date;
+                            const timeStamp = itemDate ? new Date(itemDate).getTime() : 0;
+                            
+                            // Check date range
+                            if (fDate && timeStamp < fDate) return;
+                            if (tDate && timeStamp > tDate) return;
+
+                            const itemCurId = Number(item.currencyid || 0);
+                            if (selectedCurrencyId > 0 && itemCurId !== selectedCurrencyId) return;
+
+                            const poId = item.poid || item.POId || 0;
+                            const poNo = item.pono || (currentPoLookup[poId] ? currentPoLookup[poId].pono : "");
+
+                            mergedList.push({
+                                Date: itemDate,
+                                Reference: "-", // No IRN yet
+                                ReferenceDate: itemDate,
+                                IRNAmount: Number(item.grnvalue || item.amount || 0),
+                                ClaimAmount: 0,
+                                grn_no: item.grnno || "",
+                                grn_date: itemDate,
+                                grn_id: gid,
+                                PONumber: poNo,
+                                po_date: item.podate || (currentPoLookup[poId] ? currentPoLookup[poId].podate : ""),
+                                po_amount: Number(item.po_amount || (currentPoLookup[poId] ? currentPoLookup[poId].po_amount : 0)),
+                                currencyid: itemCurId,
+                                POId: poId
                             });
                         }
                     });
@@ -422,11 +509,12 @@ const AP = () => {
                                 ClaimAmount: Number(item.claimamountintc || item.payment || item.amount || item.totalamount || item.total_amount || item.ClaimAmount || item.totalamountinidr || 0),
                                 grn_no: "",
                                 grn_date: "",
-                                po_no: poNo,
+                                PONumber: poNo,
                                 po_date: item.podate || item.po_date || (currentPoLookup[poId] ? currentPoLookup[poId].podate : ""),
                                 po_amount: Number(item.po_amount || (currentPoLookup[poId] ? currentPoLookup[poId].po_amount : 0)),
                                 currencyid: itemCurId,
-                                supplierid: item.supplierid || item.supplier_id || 0
+                                supplierid: item.supplierid || item.supplier_id || 0,
+                                POId: poId
                             });
                         }
                     });
@@ -437,7 +525,7 @@ const AP = () => {
                     allClaims.forEach(item => {
                         const itemSupplierId = item.supplierid || item.supplier_id || item.SupplierId || 0;
                         const isMatchingSupplier = Number(supplierId) === 0 || Number(itemSupplierId) === Number(supplierId);
-                        const isPosted = (item.isSubmitted || item.IsSubmitted || item.Status === "Posted" || item.Status === "Approved") && (Number(item.claim_director_isapproved) === 1);
+                        const isPosted = (item.isSubmitted || item.IsSubmitted || item.Status === "Posted" || item.Status === "Approved") && (Number(item.ppp_pv_director_approved) === 1);
 
                         if (isMatchingSupplier && isPosted) {
                             const itemDate = item.claimdate || item.ApplicationDate || item.Date;
@@ -467,16 +555,18 @@ const AP = () => {
                                 mergedList.push({
                                     Date: itemDate,
                                     Reference: claimNo,
+                                    ClaimId: item.ClaimID || item.Claim_ID || item.claimid || item.Id || item.id,
                                     ReferenceDate: itemDate,
                                     IRNAmount: 0,
                                     ClaimAmount: Number(item.claimamountintc || item.amount || item.TotalAmount || item.claimAmountTC || 0),
                                     grn_no: "",
                                     grn_date: "",
-                                    po_no: poNo,
+                                    PONumber: poNo,
                                     po_date: item.podate || item.PODate || item.po_date || (currentPoLookup[poId] ? currentPoLookup[poId].podate : ""),
-                                    po_amount: item.po_amount || 0,
+                                    po_amount: Number(item.po_amount || (currentPoLookup[poId] ? currentPoLookup[poId].po_amount : 0)),
                                     currencyid: itemCurId,
-                                    supplierid: itemSupplierId
+                                    supplierid: itemSupplierId,
+                                    POId: poId
                                 });
                             }
                         }
@@ -501,21 +591,52 @@ const AP = () => {
         } finally {
             setLoading(false);
         }
-    }, [activeTab, filter.fromDate, filter.toDate, filter.supplier, filter.currency, orgId, branchId, userId, poLookup, currencyList]);
+    }, [activeTab, filter.fromDate, filter.toDate, filter.supplier, filter.currency, orgId, branchId, userId]);
 
     const displayPONumber = (item) => {
-        // Priority: 1. Direct PONumber field, 2. Lookup by POId
-        const poNo = item.PONumber || (poLookup[item.POId] ? poLookup[item.POId].pono : null);
+        const poNo = item.PONumber || item.pono || item.po_no || (poLookup[item.POId] ? poLookup[item.POId].pono : null);
+        const poDate = item.po_date || item.podate || (poLookup[item.POId] ? poLookup[item.POId].podate : null);
+        
         if (poNo && poNo !== "-") {
             return (
-                <span 
-                    className="fw-bold cursor-pointer text-primary"
-                    style={{ textDecoration: 'underline' }} 
-                    onClick={() => handlePOClick(item.POId)}
-                    title="View PO Details"
-                >
-                    {poNo}
-                </span>
+                <div className="d-flex flex-column">
+                    <span 
+                        className="fw-bold cursor-pointer text-primary"
+                        style={{ textDecoration: 'underline' }} 
+                        onClick={() => handlePOClick(item.POId)}
+                        title="View PO Details"
+                    >
+                        {poNo}
+                    </span>
+                    {poDate && (
+                        <small className="text-muted mt-1">
+                            {formatDate(poDate)}
+                        </small>
+                    )}
+                </div>
+            );
+        }
+        return "-";
+    };
+
+    const displayGRNNumber = (item) => {
+        if (item.grn_no && item.grn_no !== "") {
+            return (
+                <div className="d-flex flex-column">
+                    <span 
+                        className="fw-bold cursor-pointer text-primary" 
+                        style={{ textDecoration: 'underline' }} 
+                        onClick={() => handleGRNClick(item.grn_id)}
+                        title="View GRN Details"
+                    >
+                        {item.grn_no}
+                    </span>
+                    {item.grn_date && (
+                        <small className="text-muted mt-1">
+                            {formatDate(item.grn_date)}
+                        </small>
+                    )}
+                </div>
             );
         }
         return "-";
@@ -686,6 +807,96 @@ const AP = () => {
         }
     };
 
+    const handleClaimClick = async (rowData) => {
+        if (!rowData || !rowData.Reference) return;
+
+        console.log("👉 handleClaimClick for row:", rowData);
+        const reference = rowData.Reference;
+        let claimId = rowData.ClaimId || rowData.ClaimID || rowData.id;
+
+        setShowClaimDetailModal(true);
+        setLoadingClaimDetail(true);
+        setClaimDetailData(null);
+
+        try {
+            // Find matching application number or claim number ONLY IF id is missing
+            if (!claimId) {
+                console.log("⚠️ ClaimId missing in row, performing search...");
+                const pureClaimNo = reference.split(" - ")[0].trim();
+                const listRes = await GetAllClaimAndPayment(0, 0, branchId, orgId, userId);
+
+                if (listRes?.status && listRes.data) {
+                    const searchNoStr = pureClaimNo.replace("CLM", "").trim();
+                    const searchNoNum = parseInt(searchNoStr, 10);
+
+                    const match = listRes.data.find(c => {
+                        const cNo = (c.claimno || c.claim_no || c.ApplicationNo || c.Reference || "").trim();
+                        const cNoPureStr = cNo.replace("CLM", "").trim();
+                        const cNoPureNum = parseInt(cNoPureStr, 10);
+                        
+                        return cNo === pureClaimNo || 
+                               (cNoPureStr === searchNoStr && searchNoStr !== "") ||
+                               (!isNaN(searchNoNum) && searchNoNum === cNoPureNum);
+                    });
+                    
+                    if (match) {
+                        claimId = match.ClaimID || match.Claim_ID || match.claimid || match.Id || match.id;
+                    }
+                }
+                
+                // Final fallback
+                if (!claimId) {
+                    const numericOnly = pureClaimNo.replace(/\D/g, '');
+                    if (numericOnly) claimId = parseInt(numericOnly, 10);
+                }
+            }
+
+            if (!claimId || isNaN(claimId)) {
+                toast.error("Invalid claim reference format.");
+                setShowClaimDetailModal(false);
+                return;
+            }
+
+            console.log("📡 Fetching claim details for ID:", claimId);
+            const res = await ClaimAndPaymentGetById(claimId, orgId, branchId);
+            console.log("📥 API Response:", res);
+
+            const dataObj = res?.data || res || {};
+            const header = dataObj.header || dataObj.Header;
+            const details = dataObj.details || dataObj.Details || [];
+
+            if (header) {
+                setClaimDetailData({
+                    IsClaim: true,
+                    ...header,
+                    Details: details,
+                    // Ensure core fields are mapped for the UI template even if keys vary
+                    ClaimPaymentId: header.ClaimId || header.ClaimID,
+                    FormNo: header.ApplicationNo || header.ClaimNo || header.claimno || pureClaimNo,
+                    Date: header.ApplicationDate || header.ClaimDate,
+                    CategoryType: header.claimcategory || header.ClaimCategoryName || "-",
+                    Department: header.departmentname || header.DeptName || "-",
+                    Applicant: header.applicantname || header.Applicant_Name || "-",
+                    TransCurrency: header.transactioncurrency || header.curr || "-",
+                    HOD: header.HOD_Name || "-",
+                    Supplier: header.SupplierName || header.suppliername || "-",
+                    CostCenter: header.CostCenter || "-",
+                    ClaimAmtInTC: header.ClaimAmountInTC || header.claimamountintc || 0,
+                    Attachment: header.AttachmentName || "No Attachment",
+                    PaymentMode: header.paymentmethodname || "-"
+                });
+            } else {
+                console.error("❌ No header found in claim response");
+                setClaimDetailData({ error: "No claim details found." });
+            }
+        } catch (error) {
+            console.error("Error fetching claim details:", error);
+            setClaimDetailData({ error: "Failed to fetch claim details." });
+        } finally {
+            setLoadingClaimDetail(false);
+        }
+    };
+
     const handleNestedPOClick = async (poId) => {
         if (!poId) return;
         setNestedModal(true);
@@ -792,6 +1003,7 @@ const AP = () => {
 
     return (
         <div className="page-content">
+            <style>{modalStyle}</style>
             <Container fluid>
                 <Breadcrumbs title="Finance" breadcrumbItem="Accounts Payable (AP)" />
 
@@ -973,15 +1185,26 @@ const AP = () => {
                                     showGridlines
                                     size="small"
                                 >
-                                    <Column field="Reference" header="Reference No." sortable />
+                                    <Column field="Reference" header="Reference No." body={(rowData) => {
+                                        const ref = rowData.Reference;
+                                        if (!ref || ref === "" || ref === "-") return "-";
+                                        
+                                        if (ref.startsWith("CLM")) {
+                                            return <span className="text-primary cursor-pointer fw-bold" onClick={() => handleClaimClick(rowData)}>{ref}</span>;
+                                        }
+                                        if (ref.startsWith("IRN") || ref.startsWith("SPC")) {
+                                            return <span className="text-primary cursor-pointer fw-bold" onClick={() => handleIRNClick(rowData)}>{ref}</span>;
+                                        }
+                                        return <span>{ref}</span>;
+                                    }} sortable />
                                     <Column field="ReferenceDate" header="Reference Date" body={(item) => formatDate(item.ReferenceDate)} sortable />
                                     <Column field="IRNAmount" header="IRN Amount" body={(item) => {
                                         let val = item.IRNAmount || 0;
                                         if (Math.abs(val) < 0.001) val = 0;
                                         return val !== 0 ? val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-";
                                     }} className="text-end" sortable />
-                                    <Column field="grn_no" header="GRN No / Date" body={(item) => (item.grn_no && item.grn_no !== "") ? `${item.grn_no} / ${formatDate(item.grn_date)}` : "-"} sortable />
-                                    <Column field="po_no" header="PO No / Date" body={(item) => (item.po_no && item.po_no !== "") ? `${item.po_no} / ${formatDate(item.po_date)}` : "-"} sortable />
+                                    <Column field="grn_no" header="GRN No / Date" body={displayGRNNumber} sortable />
+                                    <Column field="po_no" header="PO No / Date" body={displayPONumber} sortable />
                                     <Column field="po_amount" header="PO Amount" body={(item) => {
                                         let val = item.po_amount || 0;
                                         if (Math.abs(val) < 0.001) val = 0;
@@ -1011,61 +1234,70 @@ const AP = () => {
                     <ModalBody>
                         {modalLoading ? <div className="text-center p-5"><i className="bx bx-loader bx-spin font-size-24"></i></div> : modalData ? (
                             <>
-                                {/* HEADER INFO SECTION - Structured with Proper Colon Alignment */}
+                                {/* HEADER INFO SECTION */}
                                 <div className="mb-4">
-                                    <Row className="mb-2">
-                                        <Col md={6} className="d-flex">
-                                            <span className="fw-bold" style={{ minWidth: "120px", color: "#333" }}>
-                                                {modalType === "PO" ? "PO No." : "Number"}
-                                            </span>
-                                            <span style={{ color: "#333" }}>
-                                                : {modalType === "GRN" ? modalData.Header?.grnno : modalData.Header?.pono}
-                                            </span>
-                                        </Col>
-                                        <Col md={6} className="d-flex">
-                                            <span className="fw-bold" style={{ minWidth: "120px", color: "#333" }}>
-                                                {modalType === "PO" ? "PO Date" : "Date"}
-                                            </span>
-                                            <span style={{ color: "#333" }}>
-                                                : {formatDate(modalType === "GRN" ? modalData.Header?.grndate : modalData.Header?.podate)}
-                                            </span>
-                                        </Col>
-                                    </Row>
-
-                                    <Row className="mb-2">
-                                        <Col md={6} className="d-flex">
-                                            <span className="fw-bold" style={{ minWidth: "120px", color: "#333" }}>Supplier</span>
-                                            <span style={{ color: "#333" }}>: {modalData.Header?.suppliername}</span>
-                                        </Col>
-
-                                        <Col md={6} className="d-flex">
-                                            <span className="fw-bold" style={{ minWidth: "120px", color: "#333" }}>
-                                                {modalType === "PO" ? "PR No." : "Total Amount"}
-                                            </span>
-                                            {modalType === "PO" ? (
-                                                <span className="fw-bold text-danger cursor-pointer">
-                                                    : {modalData.Requisition?.[0]?.prnumber || "-"}
-                                                </span>
-                                            ) : (
-                                                <span style={{ color: "#333" }}>
-                                                    : {Number(modalData.Header?.nettotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                </span>
-                                            )}
-                                        </Col>
-                                    </Row>
-
-                                    <Row className="mb-2">
-                                        <Col md={6} className="d-flex">
-                                            <span className="fw-bold" style={{ minWidth: "120px", color: "#333" }}>Currency</span>
-                                            <span style={{ color: "#333" }}>: {modalData.Header?.currencycode || "SGD"}</span>
-                                        </Col>
-                                    </Row>
+                                    {modalType === "GRN" ? (
+                                        <Row>
+                                            <Col md={4}>
+                                                <div className="d-flex mb-2">
+                                                    <span className="bold-label" style={{ minWidth: "120px" }}>GRN No.</span>
+                                                    <span>: {modalData.Header?.grnno}</span>
+                                                </div>
+                                                <div className="d-flex mb-2">
+                                                    <span className="bold-label" style={{ minWidth: "120px" }}>PO No(s).</span>
+                                                    <span>: {modalData.Header?.POConcat || modalData.Header?.pono || "N/A"}</span>
+                                                </div>
+                                            </Col>
+                                            <Col md={4}>
+                                                <div className="d-flex mb-2">
+                                                    <span className="bold-label" style={{ minWidth: "120px" }}>GRN Date</span>
+                                                    <span>: {formatDate(modalData.Header?.grndate)}</span>
+                                                </div>
+                                            </Col>
+                                            <Col md={4}>
+                                                <div className="d-flex mb-2">
+                                                    <span className="bold-label" style={{ minWidth: "120px" }}>Supplier</span>
+                                                    <span className="text-uppercase">: {modalData.Header?.suppliername}</span>
+                                                </div>
+                                            </Col>
+                                        </Row>
+                                    ) : (
+                                        <Row>
+                                            <Col md={4}>
+                                                <div className="d-flex mb-2">
+                                                    <span className="bold-label" style={{ minWidth: "120px" }}>PO No.</span>
+                                                    <span>: {modalData.Header?.pono}</span>
+                                                </div>
+                                                <div className="d-flex mb-2">
+                                                    <span className="bold-label" style={{ minWidth: "120px" }}>Currency</span>
+                                                    <span>: {modalData.Header?.currencycode || "N/A"}</span>
+                                                </div>
+                                            </Col>
+                                            <Col md={4}>
+                                                <div className="d-flex mb-2">
+                                                    <span className="bold-label" style={{ minWidth: "120px" }}>PO Date</span>
+                                                    <span>: {formatDate(modalData.Header?.podate)}</span>
+                                                </div>
+                                                <div className="d-flex mb-2">
+                                                    <span className="bold-label" style={{ minWidth: "120px" }}>PR No.</span>
+                                                    <span className="text-danger fw-bold">: {modalData.Requisition?.[0]?.prnumber || "-"}</span>
+                                                </div>
+                                            </Col>
+                                            <Col md={4}>
+                                                <div className="d-flex mb-2">
+                                                    <span className="bold-label" style={{ minWidth: "120px" }}>Supplier</span>
+                                                    <span className="text-uppercase">: {modalData.Header?.suppliername}</span>
+                                                </div>
+                                            </Col>
+                                        </Row>
+                                    )}
                                 </div>
+                                <hr />
 
                                 {/* DETAILS TABLE */}
                                 <div className="table-responsive border">
                                     <Table className="table table-bordered mb-0">
-                                        <thead className="table-light">
+                                        <thead className="blue-table-header">
                                             <tr>
                                                 <th>#</th>
                                                 {(modalType === "PO" || modalType === "IRN") && <th>PR No.</th>}
@@ -1117,43 +1349,53 @@ const AP = () => {
                         ) : <p className="text-center">No details available.</p>}
                     </ModalBody>
                     <ModalFooter>
-                        <Button color="danger" onClick={toggleModal}>Close</Button>
+                        <button type="button" className="btn btn-close-custom" onClick={toggleModal}>
+                            <i className="bx bx-window-close label-icon font-size-16 align-middle me-2"></i> Close
+                        </button>
                     </ModalFooter>
                 </Modal>
 
-                {/* Nested PO Modal (Also Styled in Firebrick) */}
+                {/* Nested PO Modal (Standardized Styling) */}
                 <Modal isOpen={nestedModal} toggle={toggleNestedModal} size="xl" centered backdrop="static">
                     <ModalHeader toggle={toggleNestedModal}>Purchase Order Details (Linked)</ModalHeader>
                     <ModalBody>
                         {nestedPOLoading ? <div className="text-center p-5"><i className="bx bx-loader bx-spin font-size-24"></i></div> : nestedPOData ? (
                             <>
                                 <div className="mb-4">
-                                    <Row className="mb-2">
-                                        <Col md={6} className="d-flex">
-                                            <span className="fw-bold" style={{ minWidth: "120px", color: "#333" }}>PO No.</span>
-                                            <span style={{ color: "#333" }}>: {nestedPOData.Header?.pono}</span>
+                                    <Row>
+                                        <Col md={4}>
+                                            <div className="d-flex mb-2">
+                                                <span className="bold-label">PO No.</span>
+                                                <span>: {nestedPOData.Header?.pono}</span>
+                                            </div>
+                                            <div className="d-flex mb-2">
+                                                <span className="bold-label">PO Date</span>
+                                                <span>: {formatDate(nestedPOData.Header?.podate)}</span>
+                                            </div>
                                         </Col>
-                                        <Col md={6} className="d-flex">
-                                            <span className="fw-bold" style={{ minWidth: "120px", color: "#333" }}>PO Date</span>
-                                            <span style={{ color: "#333" }}>: {formatDate(nestedPOData.Header?.podate)}</span>
+                                        <Col md={4}>
+                                            <div className="d-flex mb-2">
+                                                <span className="bold-label">Supplier</span>
+                                                <span className="text-uppercase">: {nestedPOData.Header?.suppliername}</span>
+                                            </div>
+                                            <div className="d-flex mb-2">
+                                                <span className="bold-label">Currency</span>
+                                                <span>: {nestedPOData.Header?.currencycode || "N/A"}</span>
+                                            </div>
                                         </Col>
-                                    </Row>
-                                    <Row className="mb-2">
-                                        <Col md={6} className="d-flex">
-                                            <span className="fw-bold" style={{ minWidth: "120px", color: "#333" }}>Supplier</span>
-                                            <span style={{ color: "#333" }}>: {nestedPOData.Header?.suppliername}</span>
-                                        </Col>
-                                        <Col md={6} className="d-flex">
-                                            <span className="fw-bold" style={{ minWidth: "120px", color: "#333" }}>Status</span>
-                                            <span style={{ color: "#333" }}>: {nestedPOData.Header?.isactive ? "Active" : "Inactive"}</span>
+                                        <Col md={4}>
+                                            <div className="d-flex mb-2">
+                                                <span className="bold-label">Status</span>
+                                                <span>: {nestedPOData.Header?.isactive ? "Active" : "Inactive"}</span>
+                                            </div>
                                         </Col>
                                     </Row>
                                 </div>
                                 <div className="table-responsive border">
                                     <Table className="table table-bordered mb-0">
-                                        <thead className="table-light">
+                                        <thead className="blue-table-header">
                                             <tr>
-                                                <th>#</th>
+                                                <th style={{ width: '50px' }}>#</th>
                                                 <th>Item Name</th>
                                                 <th>Qty</th>
                                                 <th>UOM</th>
@@ -1163,13 +1405,13 @@ const AP = () => {
                                         </thead>
                                         <tbody>
                                             {nestedPOData.Requisition?.map((row, i) => (
-                                                <tr key={i}>
+                                                <tr key={i} className="align-middle">
                                                     <td>{i + 1}</td>
                                                     <td>{row.itemname}</td>
                                                     <td>{row.qty}</td>
                                                     <td>{row.uom}</td>
                                                     <td className="text-end">{Number(row.unitprice || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                                    <td className="text-end">{Number(row.totalvalue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                    <td className="text-end"><strong>{Number(row.totalvalue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -1179,53 +1421,57 @@ const AP = () => {
                         ) : <p className="text-center">No data found.</p>}
                     </ModalBody>
                     <ModalFooter>
-                        <Button color="secondary" onClick={toggleNestedModal}>Close</Button>
+                        <button type="button" className="btn btn-close-custom" onClick={toggleNestedModal}>
+                            <i className="bx bx-window-close label-icon font-size-16 align-middle me-2"></i> Close
+                        </button>
                     </ModalFooter>
                 </Modal>
 
-                {/* PR Details Modal */}
+                {/* PR Details Modal (Standardized Styling) */}
                 <Modal isOpen={prModal} toggle={togglePrModal} size="xl" centered backdrop="static">
                     <ModalHeader toggle={togglePrModal}>Purchase Requisition Details</ModalHeader>
                     <ModalBody>
                         {prLoading ? <div className="text-center p-5"><i className="bx bx-loader bx-spin font-size-24"></i></div> : prData ? (
                             <>
                                 <div className="mb-4">
-                                    <Row className="mb-2">
-                                        <Col md={6} className="d-flex">
-                                            <span className="fw-bold" style={{ minWidth: "120px", color: "#333" }}>PR No.</span>
-                                            <span className="fw-bold text-danger cursor-pointer">: {prData.Header?.PR_Number}</span>
+                                    <Row>
+                                        <Col md={4}>
+                                            <div className="d-flex mb-2">
+                                                <span className="bold-label" style={{ minWidth: "120px" }}>PR No.</span>
+                                                <span className="fw-bold text-danger cursor-pointer">: {prData.Header?.PR_Number}</span>
+                                            </div>
+                                            <div className="d-flex mb-2">
+                                                <span className="bold-label" style={{ minWidth: "120px" }}>PR Date</span>
+                                                <span>: {prData.Header?.PRDate}</span>
+                                            </div>
                                         </Col>
-                                        <Col md={6} className="d-flex">
-                                            <span className="fw-bold" style={{ minWidth: "120px", color: "#333" }}>PR Date</span>
-                                            <span style={{ color: "#333" }}>: {prData.Header?.PRDate}</span>
+                                        <Col md={4}>
+                                            <div className="d-flex mb-2">
+                                                <span className="bold-label" style={{ minWidth: "120px" }}>Supplier</span>
+                                                <span className="text-uppercase">: {prData.Header?.SupplierName}</span>
+                                            </div>
+                                            <div className="d-flex mb-2">
+                                                <span className="bold-label" style={{ minWidth: "120px" }}>Currency</span>
+                                                <span>: {prData.Header?.currencycode || "SGD"}</span>
+                                            </div>
                                         </Col>
-                                    </Row>
-                                    <Row className="mb-2">
-                                        <Col md={6} className="d-flex">
-                                            <span className="fw-bold" style={{ minWidth: "120px", color: "#333" }}>Supplier</span>
-                                            <span style={{ color: "#333" }}>: {prData.Header?.SupplierName}</span>
-                                        </Col>
-                                        <Col md={6} className="d-flex">
-                                            <span className="fw-bold" style={{ minWidth: "120px", color: "#333" }}>Currency</span>
-                                            <span style={{ color: "#333" }}>: {prData.Header?.currencycode || "SGD"}</span>
-                                        </Col>
-                                    </Row>
-                                    <Row className="mb-2">
-                                        <Col md={6} className="d-flex">
-                                            <span className="fw-bold" style={{ minWidth: "120px", color: "#333" }}>PR Type</span>
-                                            <span style={{ color: "#333" }}>: {prData.Header?.prTypeName}</span>
-                                        </Col>
-                                        <Col md={6} className="d-flex">
-                                            <span className="fw-bold" style={{ minWidth: "120px", color: "#333" }}>Payment Term</span>
-                                            <span style={{ color: "#333" }}>: {prData.Header?.PaymentTermName}</span>
+                                        <Col md={4}>
+                                            <div className="d-flex mb-2">
+                                                <span className="bold-label" style={{ minWidth: "120px" }}>PR Type</span>
+                                                <span>: {prData.Header?.prTypeName}</span>
+                                            </div>
+                                            <div className="d-flex mb-2">
+                                                <span className="bold-label" style={{ minWidth: "120px" }}>Payment Term</span>
+                                                <span>: {prData.Header?.PaymentTermName}</span>
+                                            </div>
                                         </Col>
                                     </Row>
                                 </div>
                                 <div className="table-responsive border">
                                     <Table className="table table-bordered mb-0">
-                                        <thead className="table-light">
+                                        <thead className="blue-table-header">
                                             <tr>
-                                                <th>#</th>
+                                                <th style={{ width: '50px' }}>#</th>
                                                 <th>Item Group</th>
                                                 <th>Item Name</th>
                                                 <th>Qty</th>
@@ -1241,19 +1487,19 @@ const AP = () => {
                                         </thead>
                                         <tbody>
                                             {prData.Details?.map((row, i) => (
-                                                <tr key={i}>
+                                                <tr key={i} className="align-middle">
                                                     <td>{i + 1}</td>
                                                     <td>{row.groupname}</td>
                                                     <td>{row.ItemName || "-"}</td>
                                                     <td>{row.Qty}</td>
                                                     <td>{row.UOMName}</td>
-                                                    <td className="text-end">{Number(row.UnitPrice || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                                    <td className="text-end">{Number(row.DiscountValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                                    <td className="text-end">{row.TaxPerc}</td>
-                                                    <td className="text-end">{Number(row.TaxValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                                    <td className="text-end">{row.vatPerc}</td>
-                                                    <td className="text-end">{Number(row.vatValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                                    <td className="text-end"><strong>{Number(row.NetTotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
+                                                    <td className="text-end">{Number(row.unitprice || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                    <td className="text-end">{Number(row.discountamount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                    <td className="text-end">{row.taxperc || 0}</td>
+                                                    <td className="text-end">{Number(row.taxamount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                    <td className="text-end">{row.vatpercent || 0}</td>
+                                                    <td className="text-end">{Number(row.vatamount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                    <td className="text-end"><strong>{Number(row.NetValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
                                                 </tr>
                                             ))}
                                             <tr className="fw-bold bg-light">
@@ -1267,7 +1513,106 @@ const AP = () => {
                         ) : <p className="text-center">No data found.</p>}
                     </ModalBody>
                     <ModalFooter>
-                        <Button color="danger" onClick={togglePrModal}>Close</Button>
+                        <button type="button" className="btn btn-close-custom" onClick={togglePrModal}>
+                            <i className="bx bx-window-close label-icon font-size-16 align-middle me-2"></i> Close
+                        </button>
+                    </ModalFooter>
+                </Modal>
+
+                {/* Claim Link Detail Modal */}
+                <Modal 
+                    isOpen={showClaimDetailModal} 
+                    toggle={() => setShowClaimDetailModal(false)} 
+                    size="xl" 
+                    centered 
+                    backdrop="static"
+                >
+                    <ModalHeader toggle={() => setShowClaimDetailModal(false)}>
+                        Claim Details: {claimDetailData?.FormNo || claimDetailData?.Reference || "-"}
+                    </ModalHeader>
+                    <ModalBody>
+                        {loadingClaimDetail ? (
+                            <div className="text-center p-5"><i className="bx bx-loader bx-spin font-size-24"></i></div>
+                        ) : claimDetailData?.error ? (
+                            <div className="text-center p-5 text-danger">{claimDetailData.error}</div>
+                        ) : claimDetailData ? (
+                            <>
+                                <div className="mb-4">
+                                    <Row>
+                                        <Col md={4}>
+                                            <div className="d-flex mb-2">
+                                                <span className="bold-label" style={{ minWidth: '140px' }}>Category Type</span>
+                                                <span>: {claimDetailData.CategoryType}</span>
+                                            </div>
+                                            <div className="d-flex mb-2">
+                                                <span className="bold-label" style={{ minWidth: '140px' }}>Application Date</span>
+                                                <span>: {formatDate(claimDetailData.Date)}</span>
+                                            </div>
+                                            <div className="d-flex mb-2">
+                                                <span className="bold-label" style={{ minWidth: '140px' }}>Claim Number</span>
+                                                <span className="fw-bold">: {claimDetailData.FormNo}</span>
+                                            </div>
+                                        </Col>
+                                        <Col md={4}>
+                                            <div className="d-flex mb-2">
+                                                <span className="bold-label" style={{ minWidth: '140px' }}>Department</span>
+                                                <span>: {claimDetailData.Department}</span>
+                                            </div>
+                                            <div className="d-flex mb-2">
+                                                <span className="bold-label" style={{ minWidth: '140px' }}>Applicant</span>
+                                                <span>: {claimDetailData.Applicant}</span>
+                                            </div>
+                                            <div className="d-flex mb-2">
+                                                <span className="bold-label" style={{ minWidth: '140px' }}>Trans Currency</span>
+                                                <span>: {claimDetailData.TransCurrency}</span>
+                                            </div>
+                                        </Col>
+                                        <Col md={4}>
+                                            <div className="d-flex mb-2">
+                                                <span className="bold-label" style={{ minWidth: '140px' }}>HOD</span>
+                                                <span>: {claimDetailData.HOD}</span>
+                                            </div>
+                                            <div className="d-flex mb-2">
+                                                <span className="bold-label" style={{ minWidth: '140px' }}>Supplier</span>
+                                                <span className="text-uppercase">: {claimDetailData.Supplier}</span>
+                                            </div>
+                                            <div className="d-flex mb-2">
+                                                <span className="bold-label" style={{ minWidth: '140px' }}>Cost Center</span>
+                                                <span>: {claimDetailData.CostCenter}</span>
+                                            </div>
+                                        </Col>
+                                    </Row>
+                                    <Row className="mt-2">
+                                        <Col md={4}>
+                                            <div className="d-flex mb-2">
+                                                <span className="bold-label" style={{ minWidth: '140px' }}>Claim Amt in TC</span>
+                                                <span className="fw-bold text-primary">: {claimDetailData.ClaimAmtInTC?.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                                            </div>
+                                        </Col>
+                                        <Col md={4}>
+                                            <div className="d-flex mb-2">
+                                                <span className="bold-label" style={{ minWidth: '140px' }}>Payment Mode</span>
+                                                <span>: {claimDetailData.PaymentMode}</span>
+                                            </div>
+                                        </Col>
+                                    </Row>
+                                </div>
+
+                                <DataTable value={claimDetailData.Details || []} className="p-datatable-sm" showGridlines responsiveLayout="scroll">
+                                    <Column header="#" body={(_, { rowIndex }) => rowIndex + 1} headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center", width: '3rem' }} />
+                                    <Column field="claimtype" header="Claim Type" headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} />
+                                    <Column field="Purpose" header="Claim & Payment Description" headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} body={(r) => r.Purpose || r.ClaimAndPaymentDesc || "-"} />
+                                    <Column field="Amount" header="Amount" headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} className="text-end" body={(r) => r.Amount?.toLocaleString('en-US', { minimumFractionDigits: 2 })} />
+                                    <Column field="ExpenseDate" header="Expense Date" headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} body={(r) => r.ExpenseDate ? formatDate(r.ExpenseDate) : "-"} />
+                                    <Column field="Purpose" header="Purpose" headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} />
+                                </DataTable>
+                            </>
+                        ) : null}
+                    </ModalBody>
+                    <ModalFooter>
+                        <button type="button" className="btn btn-close-custom text-white" onClick={() => setShowClaimDetailModal(false)}>
+                            <i className="bx bx-window-close label-icon font-size-16 align-middle me-2"></i> Close
+                        </button>
                     </ModalFooter>
                 </Modal>
             </Container>

@@ -650,7 +650,10 @@ def get_all_claims(
         # 2. Main Query Logic (Simplified compared to SP string concatenation)
         # Purpose aggregation subquery or join
         purpose_subquery = f"""
-            (SELECT Claim_ID, GROUP_CONCAT(DISTINCT Purpose SEPARATOR ', ') as Purpose
+            (SELECT Claim_ID, 
+                    GROUP_CONCAT(DISTINCT Purpose SEPARATOR ', ') as Purpose,
+                    GROUP_CONCAT(DISTINCT IFNULL(docReference, '')) as pono,
+                    MAX(IFNULL(poid, 0)) as poid
              FROM tbl_claimAndpayment_Details
              WHERE IsActive = 1 {" AND ClaimTypeId = " + str(claimtypeid) if claimtypeid > 0 else ""}
              GROUP BY Claim_ID) as tfc
@@ -659,6 +662,8 @@ def get_all_claims(
         query = f"""
             SELECT 
                 tfc.Purpose AS purpose, 
+                tfc.pono,
+                tfc.poid,
                 ch.Claim_ID, 
                 ch.ApplicationNo AS claimno,
                 DATE_FORMAT(ch.ApplicationDate, '%d-%b-%Y') AS claimdate,
@@ -680,6 +685,7 @@ def get_all_claims(
                 CASE WHEN IFNULL(ch.isdiscussionaccepted,0)=1 THEN 1 ELSE IFNULL(ch.IsSubmitted,0) END AS isSubmitted,
                 ch.SupplierId,
                 IFNULL(ch.claim_director_isapproved, 0) AS claim_director_isapproved,
+                IFNULL(ch.PPP_PV_Director_approve, 0) AS ppp_pv_director_approved,
                 IFNULL(ch.is_delete_required,0) AS is_delete_required,
                 IFNULL(ch.finance_cancel, 0) AS finance_cancel,
                 IFNULL(ch.finance_cancel_remarks, '') AS finance_cancel_remarks,

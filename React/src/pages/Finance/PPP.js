@@ -6,6 +6,7 @@ import {
 } from "reactstrap";
 import PaymentVoucher from "./PaymentVoucher";
 import PaymentSummaryTable from './PaymentSummaryTable';
+import PaymentHistory from "../Procurement/Invoice-Receipt/procurements-irn-payment-history";
 import * as XLSX from 'xlsx';
 import { toast } from 'react-toastify';
 import Breadcrumbs from "../../components/Common/Breadcrumb"
@@ -72,6 +73,31 @@ const PPP = ({ selectedType, setSelectedType }) => {
   const [historyForType, setHistoryForType] = useState(null);
   const [detailVisible, setDetailVisible] = useState(false);
   const [selectedDetail, setSelectedDetail] = useState({});
+
+  const UserData = JSON.parse(localStorage.getItem("authUser")) || {};
+  const [showPaymentHistoryModal, setShowPaymentHistoryModal] = useState(false);
+  const [selectedpoids, setselectedpoids] = useState([]);
+
+  const togglePaymentHistoryModal = () => setShowPaymentHistoryModal(!showPaymentHistoryModal);
+  const handleOpenPaymentHistory = () => {
+    const sid = selectedDetail?.header?.supplierid ?? selectedDetail?.header?.SupplierId ?? selectedDetail?.header?.supplierId ?? 0;
+    let poNo = selectedDetail?.header?.PONo;
+    if (!poNo || poNo === "N/A") {
+      const detailWithPO = selectedDetail?.details?.find(d => d.pono && d.pono !== "N/A");
+      if (detailWithPO) {
+        poNo = detailWithPO.pono;
+      }
+    }
+    if (!sid || sid === 0) {
+      Swal.fire("Info", "No supplier information available for payment history.", "info");
+      return;
+    }
+    if (poNo && (!selectedDetail.header.PONo || selectedDetail.header.PONo === "N/A")) {
+      selectedDetail.header.PONo = poNo;
+    }
+    setShowPaymentHistoryModal(true);
+  };
+
   const [selectedRows, setSelectedRows] = useState([]);
   const [selectedsummaryRows, setselectedsummaryRows] = useState([]);
   const [Seqno, setSeqno] = useState("");
@@ -740,6 +766,12 @@ const PPP = ({ selectedType, setSelectedType }) => {
       // Logic to fetch PRs via POs (similar to Manageclaim&Payment.js)
       try {
         const uniquePOIds = [...new Set(details.map(d => d.poid).filter(id => id > 0))];
+
+        if (uniquePOIds.length > 0) {
+          setselectedpoids(uniquePOIds);
+        } else {
+          setselectedpoids([]);
+        }
 
         if (uniquePOIds.length > 0) {
           const poToPrMap = {};
@@ -2549,6 +2581,16 @@ let severity = 'secondary'; // default gray
           )}
         </ModalBody>
         <ModalFooter>
+          {(selectedDetail?.header?.ClaimCategoryId === 3 || UserData?.roleName === 'Director' || UserData?.RoleName === 'Director') && (
+            <button
+              type="button"
+              className="btn btn-success"
+              onClick={handleOpenPaymentHistory}
+            >
+              <i className="mdi mdi-eye font-size-16 me-2"></i> Payment History
+            </button>
+          )}
+
           {!access.loading && access.print && (
             <button
               type="button"
@@ -2564,6 +2606,23 @@ let severity = 'secondary'; // default gray
 
         </ModalFooter>
       </Modal>
+
+      <Modal isOpen={showPaymentHistoryModal} toggle={togglePaymentHistoryModal} size="xl">
+        <ModalHeader toggle={togglePaymentHistoryModal}>Payment History</ModalHeader>
+        <ModalBody>
+          {selectedpoids && selectedpoids.length > 0 ? (
+            <PaymentHistory
+              poId={selectedpoids}
+            />
+          ) : (
+            <div>No records found.</div>
+          )}
+        </ModalBody>
+        <ModalFooter>
+          <button type="button" className="btn btn-danger" onClick={togglePaymentHistoryModal}>Close</button>
+        </ModalFooter>
+      </Modal>
+
       {/* PR Details Modal - Reusable */}
       <Modal isOpen={prDetailVisible} toggle={() => setPrDetailVisible(false)} size="xl">
         <ModalHeader toggle={() => setPrDetailVisible(false)}>PR Details</ModalHeader>

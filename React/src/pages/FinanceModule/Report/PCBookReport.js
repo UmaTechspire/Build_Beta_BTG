@@ -33,6 +33,24 @@ const PCBookReport = () => {
     const [loadingData, setLoadingData] = useState(false);
     const dtRef = useRef(null);
 
+    // helper: robust transfer detection
+    const isTransferRow = (row) => {
+        if (!row) return false;
+        const catId = row.category_id ?? row.categoryId ?? null;
+        const catName = (row.categoryName || row.category_name || "").toString().toLowerCase();
+        const desc = (row.description || row.Description || "").toString().toLowerCase();
+        const expType = (row.expense_type || "").toString().toLowerCase();
+        const pcno = (row.pc_number || "").toString().toLowerCase();
+
+        return (
+            catId === 6 ||
+            catName.includes('transfer') ||
+            desc.includes('transfer') ||
+            expType.includes('transfer') ||
+            pcno.includes('trf')
+        );
+    };
+
     const fetchPCBook = async () => {
         setLoadingData(true);
         try {
@@ -50,13 +68,22 @@ const PCBookReport = () => {
                     (a, b) => new Date(a.ExpDate) - new Date(b.ExpDate)
                 );
 
+                // Debug: log detected transfer rows using helper
+                try {
+                    const detectedTransfers = sorted.filter(r => isTransferRow(r));
+                    console.log("PCBookReport (Report) - detected transfer rows:", detectedTransfers.length, detectedTransfers.slice(0, 10));
+                } catch (e) {
+                    console.debug("PCBookReport (Report) - transfer log error:", e);
+                }
+
                 let cumulative = 0;
                 const processed = sorted.map((row) => {
                     const amount = parseFloat(row.Amount) || 0;
 
                     // Determine Debit (Receipt) vs Credit (Expense) based on category
-                    // category_id: 1 = Receipt/Debit (+), others = Expense/Credit (-)
-                    const isReceipt = row.category_id === 1;
+                    // category_id: 1 = Receipt/Debit (+), treat Transfer (detected by helper) as Debit
+                    const isReceipt = row.category_id === 1 || isTransferRow(row);
+
                     const debit = isReceipt ? amount : 0;
                     const credit = isReceipt ? 0 : amount;
 

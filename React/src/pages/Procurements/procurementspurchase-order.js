@@ -8,9 +8,40 @@ import Breadcrumbs from "../../components/Common/Breadcrumb";
 import { FilterMatchMode, FilterOperator } from 'primereact/api';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
+import 'primeicons/primeicons.css';
+import { Badge } from 'primereact/badge';
 import { Button } from 'primereact/button';
 import { ColumnGroup } from 'primereact/columngroup';
 import Select from "react-select";
+
+const btnCircleStyle = `
+.btn-circle {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #ccc;
+}
+.blue-table-header th {
+    background-color: #3e6e9e !important;
+    color: white !important;
+    font-weight: bold !important;
+    text-align: center;
+}
+.btn-close-custom {
+    background-color: #c06361 !important;
+    border-color: #c06361 !important;
+    color: white !important;
+}
+.bold-label {
+    font-weight: bold;
+    min-width: 120px;
+    color: #333;
+}
+`;
 import AsyncSelect from "react-select/async";
 import "primereact/resources/themes/lara-light-blue/theme.css";
 import { useHistory } from "react-router-dom";
@@ -30,10 +61,8 @@ import {
     GetAllPurchaseOrderList,
     GetPOSupplierAutoComplete,
     GetPONOAutoComplete,
-    GetByIdPurchaseOrder,
-    GetCommonProcurementPRNoList,
-    GetPRNoBySupplierAndCurrency,
-    GetPurchaseOrderPrint, GetAllPO, GetAllItems
+    GetByIdPurchaseOrder, GetCommonProcurementPRNoList, GetPRNoBySupplierAndCurrency, GetPurchaseOrderPrint,
+    GetAllPO, GetAllItems, GetGRNById, IRNGetBy, ClaimAndPaymentGetById
 } from "common/data/mastersapi";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -51,22 +80,30 @@ const initFilters = () => ({
 
 const formatDate = (dateString) => {
     if (!dateString) return "";
-    // Parse as local time to avoid UTC timezone shift (e.g. -1 day in UTC+5:30)
-    // Split the date string to extract year, month, day directly
-    const parts = dateString.split("T")[0].split("-");
+
+    // If it's literally the string "Invalid Date", return empty
+    if (typeof dateString === "string" && dateString.toLowerCase().includes("invalid")) return "";
+
+    // Parse as local time to avoid UTC timezone shift
+    const parts = String(dateString).split("T")[0].split("-");
     if (parts.length === 3) {
         const year = parseInt(parts[0], 10);
         const month = parseInt(parts[1], 10) - 1;
         const day = parseInt(parts[2], 10);
-        const date = new Date(year, month, day); // local time, no UTC conversion
-        return date.toLocaleDateString("en-GB", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-        }).replace(/ /g, "-"); // e.g. "09-Mar-2026"
+        const date = new Date(year, month, day);
+        if (!isNaN(date.getTime())) {
+            return date.toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+            }).replace(/ /g, "-");
+        }
     }
+
     // Fallback for non-ISO formats
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "";
+
     return date.toLocaleDateString("en-GB", {
         day: "2-digit",
         month: "short",
@@ -132,7 +169,10 @@ const ProcurementsManagePurchaseOrder = () => {
         { field: 'CurrencyCode', header: 'Currency' },
         { field: 'totalamount', header: 'Total Amount' },
         { field: 'CreatedDate', header: 'Created Date' },
-        { field: 'createdbyName', header: 'Created By' }
+        { field: 'createdbyName', header: 'Created By' },
+        { field: 'irn_no', header: 'IRN No' },
+        { field: 'grn_no', header: 'GRN No' },
+        { field: 'claim_no', header: 'Claim No' }
     ];
     const [visibleColumns, setVisibleColumns] = useState(columns);
 
@@ -149,6 +189,12 @@ const ProcurementsManagePurchaseOrder = () => {
     const [poOptions, setPoOptions] = useState([]);
     const [poDetailVisible, setPoDetailVisible] = useState(false);
     const [selectedPODetail, setSelectedPODetail] = useState(null);
+    const [grnDetailVisible, setGrnDetailVisible] = useState(false);
+    const [selectedGRNDetail, setSelectedGRNDetail] = useState(null);
+    const [irnDetailVisible, setIrnDetailVisible] = useState(false);
+    const [selectedIRNDetail, setSelectedIRNDetail] = useState(null);
+    const [claimDetailVisible, setClaimDetailVisible] = useState(false);
+    const [selectedClaimDetail, setSelectedClaimDetail] = useState(null);
 
     useEffect(() => {
         const fetchItemsFromPOs = async () => {
@@ -197,6 +243,10 @@ const ProcurementsManagePurchaseOrder = () => {
             case 'Posted': return 'success';
             case 'Saved': return 'danger';
             case 'New': return 'info';
+            case 'Approved': return 'btn-success';
+            case 'Discussed': return 'btn-warning';
+            case 'Yet to Act': return 'btn-secondary';
+            default: return 'btn-secondary';
         };
     };
 
@@ -251,7 +301,7 @@ const ProcurementsManagePurchaseOrder = () => {
         }
 
         try {
-            const res = await GetByIdPurchaseRequisition(prid, orgId, branchId);
+            const res = await GetByIdPurchaseRequisition(prid, branchId, orgId);
 
             if (res?.status && res.data) {
                 setPOOptionsFromResponse(res);
@@ -786,9 +836,146 @@ const ProcurementsManagePurchaseOrder = () => {
         }
     };
 
+    const handleShowGRNDetails = async (grnid) => {
+        const res = await GetGRNById(grnid, branchId, orgId);
+        if (res?.status) {
+            setSelectedGRNDetail(res.data);
+            setGrnDetailVisible(true);
+        } else {
+            Swal.fire("Error", "GRN details not available", "error");
+        }
+    };
+
+    const handleShowIRNDetails = async (irnid) => {
+        const res = await IRNGetBy(irnid, branchId, orgId);
+        if (res?.status) {
+            const poid = res.data?.Header?.poid;
+            if (poid) {
+                // If there's a linked PO, show the full PO details (with items) as requested
+                handleShowDetails({ poid });
+            } else {
+                // Fallback to basic IRN details if no PO is linked
+                setSelectedIRNDetail(res.data);
+                setIrnDetailVisible(true);
+            }
+        } else {
+            Swal.fire("Error", "IRN details not available", "error");
+        }
+    };
+
+    const handleShowClaimDetails = async (claimid) => {
+        const res = await ClaimAndPaymentGetById(claimid, orgId, branchId);
+        if (res?.status) {
+            let details = res.data.details || [];
+
+            // Extract unique PO IDs that are valid
+            const uniquePOIds = [...new Set(details.map(d => d.poid).filter(id => id && id > 0))];
+
+            if (uniquePOIds.length > 0) {
+                // Create a map to store PO ID -> PR Info
+                const poToPrMap = {};
+
+                // Fetch PO details for each unique PO
+                await Promise.all(uniquePOIds.map(async (poid) => {
+                    try {
+                        const poRes = await GetByIdPurchaseOrder(poid, orgId, branchId);
+
+                        if (poRes?.status && poRes.data?.Requisition) {
+                            // The Requisition array contains the prnumber
+                            const prNumbers = poRes.data.Requisition
+                                .map(req => req.prnumber)
+                                .filter(Boolean); // Filter out null/undefined/empty strings
+
+                            // Join unique PR numbers
+                            const prConcat = [...new Set(prNumbers)].join(", ");
+
+                            // Also store the first PRID found for clicking purposes
+                            const firstPrId = poRes.data.Requisition.find(req => req.prid > 0)?.prid;
+
+                            poToPrMap[poid] = {
+                                prnumber: prConcat || "NA",
+                                prid: firstPrId
+                            };
+                        }
+                    } catch (err) {
+                        console.error(`Failed to fetch details for PO ${poid}`, err);
+                    }
+                }));
+
+                // Enrich details with PR info
+                details = details.map(d => {
+                    if (d.poid && poToPrMap[d.poid]) {
+                        return {
+                            ...d,
+                            prnumber: poToPrMap[d.poid].prnumber,
+                            prid: poToPrMap[d.poid].prid
+                        };
+                    }
+                    return { ...d, prnumber: "NA" };
+                });
+            }
+
+            setSelectedClaimDetail({
+                ...res.data,
+                details: details
+            });
+            setClaimDetailVisible(true);
+        } else {
+            Swal.fire("Error", "Claim details not available", "error");
+        }
+    };
+
     const actionclaimBodyTemplate = (rowData) => {
         return <span style={{ cursor: "pointer", color: "blue" }} className="btn-rounded btn btn-link"
             onClick={() => handleShowDetails(rowData)}>{rowData.pono}</span>;
+    };
+
+    const grnLinkBodyTemplate = (rowData) => {
+        if (!rowData.grn_no) return "-";
+        const nums = rowData.grn_no.split(", ");
+        const ids = rowData.grn_ids ? rowData.grn_ids.split(",") : [];
+        return (
+            <div className="d-flex flex-wrap gap-1">
+                {nums.map((num, i) => (
+                    <span key={i} title="View GRN" className="btn btn-link p-0" style={{ cursor: 'pointer', verticalAlign: 'baseline', textDecoration: 'none' }}
+                        onClick={() => ids[i] && handleShowGRNDetails(ids[i])}>
+                        {num}{i < nums.length - 1 ? "," : ""}
+                    </span>
+                ))}
+            </div>
+        );
+    };
+
+    const irnLinkBodyTemplate = (rowData) => {
+        if (!rowData.irn_no) return "-";
+        const nums = rowData.irn_no.split(", ");
+        const ids = rowData.irn_ids ? rowData.irn_ids.split(",") : [];
+        return (
+            <div className="d-flex flex-wrap gap-1">
+                {nums.map((num, i) => (
+                    <span key={i} title="View IRN" className="btn btn-link p-0" style={{ cursor: 'pointer', verticalAlign: 'baseline', textDecoration: 'none' }}
+                        onClick={() => ids[i] && handleShowIRNDetails(ids[i])}>
+                        {num}{i < nums.length - 1 ? "," : ""}
+                    </span>
+                ))}
+            </div>
+        );
+    };
+
+    const claimLinkBodyTemplate = (rowData) => {
+        if (!rowData.claim_no) return "-";
+        const nums = rowData.claim_no.split(", ");
+        const ids = rowData.claim_ids ? rowData.claim_ids.split(",") : [];
+        return (
+            <div className="d-flex flex-wrap gap-1">
+                {nums.map((num, i) => (
+                    <span key={i} title="View Claim" className="btn btn-link p-0" style={{ cursor: 'pointer', verticalAlign: 'baseline', textDecoration: 'none' }}
+                        onClick={() => ids[i] && handleShowClaimDetails(ids[i])}>
+                        {num}{i < nums.length - 1 ? "," : ""}
+                    </span>
+                ))}
+            </div>
+        );
     };
 
     const fetchPOPrint = async (poid) => {
@@ -1477,7 +1664,7 @@ const ProcurementsManagePurchaseOrder = () => {
                                         loading={isLoading}
                                         dataKey="poid"
                                         filters={filters}
-                                        globalFilterFields={['pono', 'podate', 'requestorname', 'suppliername', 'CreatedDate', 'createdbyName', 'CurrencyCode', 'totalamount', 'Status']}
+                                        globalFilterFields={['pono', 'podate', 'requestorname', 'suppliername', 'CreatedDate', 'createdbyName', 'CurrencyCode', 'totalamount', 'Status', 'irn_no', 'grn_no', 'claim_no']}
                                         emptyMessage="No suppliers found."
                                         header={header}
                                         onFilter={(e) => setFilters(e.filters)}
@@ -1563,6 +1750,33 @@ const ProcurementsManagePurchaseOrder = () => {
                                             // filterElement={statusFilterTemplate}
                                             className="text-center"
                                             style={{ width: "10%" }}
+                                        />
+                                        <Column
+                                            field="irn_no"
+                                            header="IRN No"
+                                            filter
+                                            filterPlaceholder="Search by IRN"
+                                            className="text-left"
+                                            style={{ width: "10%" }}
+                                            body={irnLinkBodyTemplate}
+                                        />
+                                        <Column
+                                            field="grn_no"
+                                            header="GRN No"
+                                            filter
+                                            filterPlaceholder="Search by GRN"
+                                            className="text-left"
+                                            style={{ width: "10%" }}
+                                            body={grnLinkBodyTemplate}
+                                        />
+                                        <Column
+                                            field="claim_no"
+                                            header="Claim No"
+                                            filter
+                                            filterPlaceholder="Search by Claim"
+                                            className="text-left"
+                                            style={{ width: "10%" }}
+                                            body={claimLinkBodyTemplate}
                                         />
                                         {/* <Column
                                         header="Action"
@@ -2296,7 +2510,7 @@ const ProcurementsManagePurchaseOrder = () => {
                                 {[
                                     ["PR No.", selectedPRDetail.Header?.PR_Number],
                                     ["PR Type", selectedPRDetail.Header?.prTypeName],
-                                    ["PR Date", formatDate(selectedPRDetail.Header?.PRDate)],
+                                    ["PR Date", formatDate(selectedPRDetail.Header?.PRDate || selectedPRDetail.Header?.prdate)],
                                     ["PM No.", selectedPRDetail.Header?.MemoConcat],
                                     ["Supplier", selectedPRDetail.Header?.SupplierName],
                                     ["Currency", selectedPRDetail.Header?.currencycode],
@@ -2422,40 +2636,62 @@ const ProcurementsManagePurchaseOrder = () => {
                 <ModalBody>
                     {selectedPODetail && (
                         <>
-                            <Row form>
-                                {[
-                                    ["PO No.", selectedPODetail.Header?.pono],
-                                    ["PO Date", formatDate(selectedPODetail.Header?.podate)],
-                                    ["Supplier", selectedPODetail.Header?.suppliername],
-                                    ["Currency", selectedPODetail.Header?.currencycode],
-                                    ["PR No.", selectedPODetail.Header?.PRConcat || "NA"],
-                                ].map(([label, val], i) => (
-                                    <Col md="4" key={i} className="form-group row">
-                                        <Label className="col-sm-5 col-form-label bold">{label}</Label>
-                                        <Col sm="7" className="mt-2">: {val || "N/A"}</Col>
+                            <div className="mb-4">
+                                <Row>
+                                    <Col md={4}>
+                                        <div className="d-flex mb-2">
+                                            <span className="bold-label" style={{ minWidth: "120px" }}>PO No.</span>
+                                            <span>: {selectedPODetail.Header?.pono}</span>
+                                        </div>
+                                        <div className="d-flex mb-2">
+                                            <span className="bold-label" style={{ minWidth: "120px" }}>PO Date</span>
+                                            <span>: {formatDate(selectedPODetail.Header?.podate)}</span>
+                                        </div>
                                     </Col>
-                                ))}
-                            </Row>
+                                    <Col md={4}>
+                                        <div className="d-flex mb-2">
+                                            <span className="bold-label" style={{ minWidth: "120px" }}>Supplier</span>
+                                            <span className="text-uppercase">: {selectedPODetail.Header?.suppliername}</span>
+                                        </div>
+                                        <div className="d-flex mb-2">
+                                            <span className="bold-label" style={{ minWidth: "120px" }}>PR No(s).</span>
+                                            <span className="text-danger fw-bold">: {selectedPODetail.Header?.PRConcat || "N/A"}</span>
+                                        </div>
+                                    </Col>
+                                    <Col md={4}>
+                                        <div className="d-flex mb-2">
+                                            <span className="bold-label" style={{ minWidth: "120px" }}>Currency</span>
+                                            <span>: {selectedPODetail.Header?.currencycode || "N/A"}</span>
+                                        </div>
+                                        <div className="d-flex mb-2">
+                                            <span className="bold-label" style={{ minWidth: "120px" }}>Net Total</span>
+                                            <span className="fw-bold">: {selectedPODetail.Header?.nettotal?.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                                        </div>
+                                    </Col>
+                                </Row>
+                            </div>
 
                             <hr />
 
-                            <DataTable value={selectedPODetail.Requisition || []}>
-                                <Column header="#" body={(_, { rowIndex }) => rowIndex + 1} />
-                                <Column field="prnumber" header="PR No." />
-                                <Column field="groupname" header="Item Group" />
-                                <Column field="itemname" header="Item Name" />
-                                <Column field="qty" header="Qty" body={(r) => r.qty?.toLocaleString("en-US", { minimumFractionDigits: 3 })} />
-                                <Column field="uom" header="UOM" />
-                                <Column field="unitprice" header="Unit Price" body={(r) => r.unitprice?.toLocaleString("en-US", { minimumFractionDigits: 2 })} />
-                                <Column field="discountvalue" header="Discount" body={(r) => r.discountvalue?.toLocaleString("en-US", { minimumFractionDigits: 2 })} />
-                                <Column field="taxperc" header="Tax %" />
-                                <Column field="taxvalue" header="Tax Amt" body={(r) => r.taxvalue?.toLocaleString("en-US", { minimumFractionDigits: 2 })} />
-                                <Column field="vatperc" header="VAT %" />
-                                <Column field="vatvalue" header="VAT Amt" body={(r) => r.vatvalue?.toLocaleString("en-US", { minimumFractionDigits: 2 })} />
+                            <DataTable value={selectedPODetail.Requisition || []} className="p-datatable-sm" rowClassName={() => "align-middle"}>
+                                <Column header="#" body={(_, { rowIndex }) => rowIndex + 1} headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center", width: '3rem' }} />
+                                <Column field="prnumber" header="PR No." headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} body={(r) => <span className="text-danger fw-bold">{r.prnumber}</span>} />
+                                <Column field="groupname" header="Item Group" headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} />
+                                <Column field="itemname" header="Item Name" headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} />
+                                <Column field="qty" header="Qty" headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} body={(r) => r.qty?.toLocaleString("en-US", { minimumFractionDigits: 3 })} />
+                                <Column field="uom" header="UOM" headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} />
+                                <Column field="unitprice" header="Unit Price" headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} style={{ textAlign: "right" }} body={(r) => r.unitprice?.toLocaleString("en-US", { minimumFractionDigits: 2 })} />
+                                <Column field="discountvalue" header="Discount" headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} style={{ textAlign: "right" }} body={(r) => r.discountvalue?.toLocaleString("en-US", { minimumFractionDigits: 2 })} />
+                                <Column field="taxperc" header="Tax %" headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} style={{ textAlign: "center" }} />
+                                <Column field="taxvalue" header="Tax Amt" headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} style={{ textAlign: "right" }} body={(r) => r.taxvalue?.toLocaleString("en-US", { minimumFractionDigits: 2 })} />
+                                <Column field="vatperc" header="VAT %" headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} style={{ textAlign: "center" }} />
+                                <Column field="vatvalue" header="VAT Amt" headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} style={{ textAlign: "right" }} body={(r) => r.vatvalue?.toLocaleString("en-US", { minimumFractionDigits: 2 })} />
                                 <Column
                                     field="nettotal"
                                     header="Total Amt"
-                                    body={(r) => r.nettotal?.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                                    headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }}
+                                    style={{ textAlign: "right" }}
+                                    body={(r) => <b>{r.nettotal?.toLocaleString("en-US", { minimumFractionDigits: 2 })}</b>}
                                     footer={<b>{selectedPODetail.Header?.nettotal?.toLocaleString("en-US", { minimumFractionDigits: 2 })}</b>}
                                 />
                             </DataTable>
@@ -2463,12 +2699,255 @@ const ProcurementsManagePurchaseOrder = () => {
                     )}
                 </ModalBody>
                 <ModalFooter>
-                    <button type="button" className="btn btn-danger" onClick={() => setPoDetailVisible(false)}>
-                        Close
+                    <button type="button" className="btn btn-close-custom" onClick={() => setPoDetailVisible(false)}>
+                        <i className="bx bx-window-close label-icon font-size-16 align-middle me-2"></i> Close
                     </button>
                 </ModalFooter>
             </Modal>
 
+            {/* IRN Details Modal */}
+            <Modal isOpen={irnDetailVisible} toggle={() => setIrnDetailVisible(false)} size="xl">
+                <ModalHeader toggle={() => setIrnDetailVisible(false)}>Invoice Receipt Details</ModalHeader>
+                <ModalBody>
+                    {selectedIRNDetail && (
+                        <div className="mb-4">
+                            <Row>
+                                <Col md={4}>
+                                    <div className="d-flex mb-2">
+                                        <span className="bold-label">Supplier</span>
+                                        <span className="text-uppercase">: {selectedIRNDetail.Header?.suppliername}</span>
+                                    </div>
+                                    <div className="d-flex mb-2">
+                                        <span className="bold-label">PO No.</span>
+                                        <span>: {selectedIRNDetail.Header?.pono}</span>
+                                    </div>
+                                    <div className="d-flex mb-2">
+                                        <span className="bold-label">GRN No.</span>
+                                        <span>: {selectedIRNDetail.Header?.grnno}</span>
+                                    </div>
+                                </Col>
+                                <Col md={4}>
+                                    <div className="d-flex mb-2">
+                                        <span className="bold-label">Invoice No.</span>
+                                        <span>: {selectedIRNDetail.Header?.invoice_no}</span>
+                                    </div>
+                                    <div className="d-flex mb-2">
+                                        <span className="bold-label">Invoice Date</span>
+                                        <span>: {formatDate(selectedIRNDetail.Header?.invoice_dt)}</span>
+                                    </div>
+                                    <div className="d-flex mb-2">
+                                        <span className="bold-label">Receipt Date</span>
+                                        <span>: {formatDate(selectedIRNDetail.Header?.receipt_Date)}</span>
+                                    </div>
+                                </Col>
+                                <Col md={4}>
+                                    <div className="d-flex mb-2">
+                                        <span className="bold-label">Due Date</span>
+                                        <span>: {formatDate(selectedIRNDetail.Header?.due_dt)}</span>
+                                    </div>
+                                    <div className="d-flex mb-2">
+                                        <span className="bold-label">Net Amount</span>
+                                        <span className="fw-bold">: {selectedIRNDetail.Header?.net_amount?.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                    <div className="d-flex mb-2">
+                                        <span className="bold-label">Status</span>
+                                        <span>: {selectedIRNDetail.Header?.irnstatus}</span>
+                                    </div>
+                                </Col>
+                            </Row>
+                        </div>
+                    )}
+                </ModalBody>
+                <ModalFooter>
+                    <button type="button" className="btn btn-close-custom" onClick={() => setIrnDetailVisible(false)}>
+                        <i className="bx bx-window-close label-icon font-size-16 align-middle me-2"></i> Close
+                    </button>
+                </ModalFooter>
+            </Modal>
+
+            {/* GRN Details Modal */}
+            <Modal isOpen={grnDetailVisible} toggle={() => setGrnDetailVisible(false)} size="xl">
+                <ModalHeader toggle={() => setGrnDetailVisible(false)}>GRN Details</ModalHeader>
+                <ModalBody>
+                    {selectedGRNDetail && (
+                        <>
+                            <div className="mb-4">
+                                <Row>
+                                    <Col md={4}>
+                                        <div className="d-flex mb-2">
+                                            <span className="bold-label">GRN No.</span>
+                                            <span>: {selectedGRNDetail.Header?.grnno || "N/A"}</span>
+                                        </div>
+                                        <div className="d-flex mb-2">
+                                            <span className="bold-label">PO No(s).</span>
+                                            <span>: {selectedGRNDetail.Header?.POConcat || "N/A"}</span>
+                                        </div>
+                                    </Col>
+                                    <Col md={4}>
+                                        <div className="d-flex mb-2">
+                                            <span className="bold-label">GRN Date</span>
+                                            <span>: {formatDate(selectedGRNDetail.Header?.grndate) || "N/A"}</span>
+                                        </div>
+                                    </Col>
+                                    <Col md={4}>
+                                        <div className="d-flex mb-2">
+                                            <span className="bold-label">Supplier</span>
+                                            <span className="text-uppercase">: {selectedGRNDetail.Header?.suppliername || "N/A"}</span>
+                                        </div>
+                                    </Col>
+                                </Row>
+                            </div>
+
+                            <DataTable value={selectedGRNDetail.Details || []} responsiveLayout="scroll" className="p-datatable-sm" rowClassName={() => "align-middle"}>
+                                <Column header="#" body={(_, { rowIndex }) => rowIndex + 1} headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center", width: '3rem' }} />
+                                <Column field="pono" header="PO No." headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} />
+                                <Column field="itemDescription" header="Item Description" headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} />
+                                <Column field="dono" header="DO No." headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} />
+                                <Column field="dodate" header="DO Date" headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} body={(rowData) => formatDate(rowData.dodate)} />
+                                <Column field="poqty" header="PO Qty" headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} body={(rowData) => (rowData.poqty || 0).toLocaleString()} />
+                                <Column field="UOM" header="UOM" headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} />
+                                <Column field="alreadyrecqty" header="Recd Qty" headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} body={(rowData) => (rowData.alreadyrecqty || 0).toLocaleString()} />
+                                <Column field="oribalanceqty" header="Bal Qty" headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} body={(rowData) => (rowData.oribalanceqty || 0).toLocaleString()} />
+                                <Column field="grnQty" header="GRN Qty" headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} body={(rowData) => (rowData.grnQty || 0).toLocaleString()} />
+                                <Column field="containerno" header="Contnr No." headerStyle={{ backgroundColor: "#3e6e9e", color: "white", fontWeight: "bold", textAlign: "center" }} />
+                            </DataTable>
+                        </>
+                    )}
+                </ModalBody>
+                <ModalFooter>
+                    <button type="button" className="btn btn-close-custom" onClick={() => setGrnDetailVisible(false)}>
+                        <i className="bx bx-window-close label-icon font-size-14 align-middle me-2"></i> Close
+                    </button>
+                </ModalFooter>
+            </Modal>
+
+            {/* Claim Details Modal */}
+            <Modal isOpen={claimDetailVisible} toggle={() => setClaimDetailVisible(false)} size="xl">
+                <style>{btnCircleStyle}</style>
+                <div style={{ position: 'relative' }}>
+                    {selectedClaimDetail?.header?.ClaimCategoryId === 3 && (
+                        <span style={{ position: 'absolute', top: '15px', right: '50px', fontWeight: 'bold', color: '#333', fontSize: '12px', zIndex: 10 }}>F-BTG-PUR-05 (Rev.03)</span>
+                    )}
+                    <ModalHeader toggle={() => setClaimDetailVisible(false)}>Claim Details</ModalHeader>
+                </div>
+                <ModalBody>
+                    {selectedClaimDetail && (
+                        <>
+                            <Row className="mb-3">
+                                {[
+                                    ["Category Type", selectedClaimDetail.header?.ClaimCategoryName || "N/A"],
+                                    ["Application Date", formatDate(selectedClaimDetail.header?.ClaimDate || selectedClaimDetail.header?.applicationdate)],
+                                    ["Application No", selectedClaimDetail.header?.ClaimNo || selectedClaimDetail.header?.claim_no],
+                                    ["Department", selectedClaimDetail.header?.DeptName || "N/A"],
+                                    ["Applicant", selectedClaimDetail.header?.Applicant_Name || "N/A"],
+                                    ["Attachment", selectedClaimDetail.header?.AttachmentName ? (
+                                        <button
+                                            key="att-btn"
+                                            type="button"
+                                            className="btn d-flex align-items-center justify-content-between p-0"
+                                            onClick={() => Swal.fire("Info", "Attachment feature coming soon", "info")}
+                                            style={{ height: "20px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "blue", border: "none", background: "none" }}
+                                        >
+                                            <span style={{ flexGrow: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={selectedClaimDetail.header.AttachmentName}>
+                                                {selectedClaimDetail.header.AttachmentName}
+                                            </span>
+                                            <i className="mdi mdi-cloud-download mdi-18px text-primary ms-1"></i>
+                                        </button>
+                                    ) : "No Attachment"],
+                                    ["Trans Currency", selectedClaimDetail.header?.transactioncurrency || selectedClaimDetail.header?.curr],
+                                    ["HOD", selectedClaimDetail.header?.HOD_Name || "N/A"],
+                                    ["Supplier", selectedClaimDetail.header?.SupplierName || selectedClaimDetail.header?.suppliername],
+                                    ["Cost Center", selectedClaimDetail.header?.CostCenter || "N/A"],
+                                    ["Claim Amt in TC", <b key="amt-val">{selectedClaimDetail.header?.ClaimAmountInTC?.toLocaleString("en-US", { minimumFractionDigits: 2 }) || selectedClaimDetail.header?.claimamountintc?.toLocaleString("en-US", { minimumFractionDigits: 2 })}</b>],
+                                    ["Payment Mode", selectedClaimDetail.header?.paymentmethodname || "N/A"],
+                                ].map(([label, val], i) => (
+                                    <Col md="4" key={i} className="mb-2">
+                                        <div className="d-flex">
+                                            <Label className="bold mb-0" style={{ width: "130px", fontSize: '13px' }}>{label}</Label>
+                                            <span style={{ fontSize: '13px' }}>: {val || "N/A"}</span>
+                                        </div>
+                                    </Col>
+                                ))}
+                            </Row>
+                            <hr />
+                            <DataTable value={selectedClaimDetail.details || []} responsiveLayout="scroll" className="p-datatable-sm">
+                                <Column header="#" body={(_, { rowIndex }) => rowIndex + 1} headerStyle={{ width: '3rem', textAlign: 'center' }} />
+                                {(selectedClaimDetail.header?.ClaimCategoryId === 3) && (
+                                    <Column field="pono" header="PO No" body={(rowData) => (
+                                        <span className="btn btn-link p-0" style={{ cursor: 'pointer', textDecoration: 'none', color: "blue" }} onClick={() => rowData.poid && handleShowDetails(rowData)}>
+                                            {rowData.pono || rowData.poid || "N/A"}
+                                        </span>
+                                    )} />
+                                )}
+                                {(selectedClaimDetail.header?.ClaimCategoryId === 3) && (
+                                    <Column field="prnumber" header="PR No" body={(rowData) => (
+                                        <span className="btn btn-link p-0" style={{ cursor: 'pointer', textDecoration: 'none', color: "blue" }} onClick={() => rowData.prid && handlePRClick(rowData.prid)}>
+                                            {rowData.prnumber || rowData.prno || "N/A"}
+                                        </span>
+                                    )} />
+                                )}
+                                <Column field="claimtype" header="Claim Type" headerStyle={{ textAlign: 'center' }} />
+                                <Column field="PaymentDescription" header="Claim & Payment Description" headerStyle={{ textAlign: 'center' }} />
+                                <Column field="TotalAmount" header="Amount" style={{ textAlign: 'right' }} body={(r) => (r.TotalAmount || r.net_amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })} />
+                                <Column field="ExpenseDatevw" header="Expense Date" headerStyle={{ textAlign: 'center' }} body={(r) => r.ExpenseDatevw || formatDate(r.ExpenseDatevw || r.expensedate)} />
+                                <Column field="Purpose" header="Purpose" headerStyle={{ textAlign: 'center' }} />
+                            </DataTable>
+
+                            <Row className="mt-3">
+                                <Col md="12">
+                                    <Label className="bold">Remarks</Label>
+                                    <Input type="textarea" rows="2" disabled value={selectedClaimDetail.header?.Remarks || ""} />
+                                </Col>
+                            </Row>
+
+                            <Row className="mt-4">
+                                <Col md="9">
+                                    <Table bordered responsive className="text-center font-size-12">
+                                        <thead>
+                                            <tr>
+                                                <th style={{ backgroundColor: "#B4DBE0" }} colSpan="3">Claim</th>
+                                                <th style={{ backgroundColor: "#E6E4BC" }} colSpan="2">PPP</th>
+                                                <th style={{ backgroundColor: "#FFE9F5" }} colSpan="2">Vouchers</th>
+                                            </tr>
+                                            <tr>
+                                                <th style={{ backgroundColor: "#B4DBE0" }}>HOD</th>
+                                                <th style={{ backgroundColor: "#B4DBE0" }}>GM</th>
+                                                <th style={{ backgroundColor: "#B4DBE0" }}>Director</th>
+                                                <th style={{ backgroundColor: "#E6E4BC" }}>GM</th>
+                                                <th style={{ backgroundColor: "#E6E4BC" }}>Director</th>
+                                                <th style={{ backgroundColor: "#FFE9F5" }}>Director</th>
+                                                <th style={{ backgroundColor: "#FFE9F5" }}>CEO</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td><Button className={`btn-circle ${getSeverity(selectedClaimDetail.header?.ClmhodStatus)}`} /></td>
+                                                <td><Button className={`btn-circle ${getSeverity(selectedClaimDetail.header?.ClmgmStatus)}`} /></td>
+                                                <td><Button className={`btn-circle ${getSeverity(selectedClaimDetail.header?.ClmDrStatus)}`} /></td>
+                                                <td><Button className={`btn-circle ${getSeverity(selectedClaimDetail.header?.PPPgmStatus)}`} /></td>
+                                                <td><Button className={`btn-circle ${getSeverity(selectedClaimDetail.header?.PPPDrStatus)}`} /></td>
+                                                <td><Button className={`btn-circle ${getSeverity(selectedClaimDetail.header?.VouCmrStatus)}`} /></td>
+                                                <td><Button className={`btn-circle ${getSeverity(selectedClaimDetail.header?.VouDrStatus)}`} /></td>
+                                            </tr>
+                                        </tbody>
+                                    </Table>
+                                </Col>
+                            </Row>
+
+                            <div className="d-flex gap-3 mt-2 font-size-12">
+                                <span><Button className="btn-circle btn-success me-1" /> Approved</span>
+                                <span><Button className="btn-circle btn-warning me-1" /> Discussed</span>
+                                <span><Button className="btn-circle btn-secondary me-1" /> Yet to Act</span>
+                            </div>
+                        </>
+                    )}
+                </ModalBody>
+                <ModalFooter>
+                    <button type="button" className="btn btn-danger" onClick={() => setClaimDetailVisible(false)}>
+                        Close
+                    </button>
+                </ModalFooter>
+            </Modal>
         </>
     );
 };

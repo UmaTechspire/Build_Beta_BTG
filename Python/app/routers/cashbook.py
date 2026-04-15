@@ -57,6 +57,7 @@ async def get_daily_cash_entries(db: AsyncSession = Depends(get_db)):
                 r.receipt_id,
                 r.transaction_type,
                 r.currencyid,
+                r.ar_id,
                 COALESCE(r.receipt_date, r.created_date) as date,
                 r.customer_id,
                 CASE 
@@ -73,6 +74,8 @@ async def get_daily_cash_entries(db: AsyncSession = Depends(get_db)):
                 r.is_posted, 
                 r.pending_verification, 
                 r.is_submitted,
+                tfc.Purpose as purpose,
+                mcc.claimcategory as claimCategory,
                 CASE WHEN r.is_posted = 1 THEN 'P' ELSE 'S' END as status_code,
                 CASE 
                     WHEN r.is_posted = 1 AND r.pending_verification = 1 THEN 'Pending'
@@ -82,6 +85,14 @@ async def get_daily_cash_entries(db: AsyncSession = Depends(get_db)):
             FROM {DB_NAME_FINANCE}.tbl_ar_receipt r
             LEFT JOIN {DB_NAME_USER}.master_customer c ON r.customer_id = c.Id
             LEFT JOIN {DB_NAME_MASTER}.master_supplier s ON r.customer_id = s.SupplierId
+            LEFT JOIN (
+                SELECT Claim_ID, GROUP_CONCAT(DISTINCT Purpose SEPARATOR ', ') as Purpose
+                FROM {DB_NAME_FINANCE}.tbl_claimAndpayment_Details
+                WHERE IsActive = 1
+                GROUP BY Claim_ID
+            ) tfc ON r.ar_id = tfc.Claim_ID
+            LEFT JOIN {DB_NAME_FINANCE}.tbl_claimAndpayment_header h ON r.ar_id = h.Claim_ID
+            LEFT JOIN {DB_NAME_FINANCE}.master_claimcategory mcc ON h.ClaimCategoryId = mcc.Id
             WHERE r.cash_amount != 0
               AND r.is_active = 1
             ORDER BY r.receipt_id DESC
@@ -134,11 +145,16 @@ async def get_cash_claims(claim_category: Optional[str] = None, db: AsyncSession
             LEFT JOIN btggasify_live.master_currency mc2 ON h.TransactionCurrencyId = mc2.CurrencyId
             LEFT JOIN btggasify_live.users u ON h.CreatedBy = u.Id
             INNER JOIN {DB_NAME_FINANCE}.tbl_PaymentSummary_header s ON h.SummaryId = s.SummaryId
-            WHERE h.PPP_PV_Commissioner_approveone = 1
+            WHERE h.PPP_PV_Director_approve = 1
               AND h.ModeOfPaymentId = 1
               AND h.IsActive = 1
               AND h.SummaryId > 0
               AND s.PaymentNo >= 'PPP0000041'
+              AND NOT EXISTS (
+                  SELECT 1 FROM {DB_NAME_FINANCE}.tbl_ar_receipt r 
+                  WHERE (r.ar_id = h.Claim_ID OR LOWER(r.reference_no) LIKE CONCAT('%', LOWER(TRIM(h.ApplicationNo)), '%')) 
+                    AND r.is_active = 1
+              )
               {category_filter}
             ORDER BY h.Claim_ID DESC
             LIMIT 500
@@ -202,6 +218,23 @@ async def get_cash_book_report(
 
         result = await db.execute(text(sql), params)
         rows = result.mappings().all()
+
+        # --- FILTER BY DIRECTOR APPROVAL ---
+        receipt_ids = [r.get("receipt_id") for r in rows if r.get("receipt_id")]
+        if receipt_ids:
+            # Join with claims table to check approval status
+            approval_sql = text(f"""
+                SELECT r.receipt_id 
+                FROM {DB_NAME_FINANCE}.tbl_ar_receipt r
+                LEFT JOIN {DB_NAME_FINANCE}.tbl_claimAndpayment_header h ON r.ar_id = h.Claim_ID
+                WHERE r.receipt_id IN ({','.join(map(str, receipt_ids))})
+                  AND (r.ar_id = 0 OR r.ar_id IS NULL OR h.PPP_PV_Director_approve = 1)
+            """)
+            approval_result = await db.execute(approval_sql)
+            approved_ids = {row[0] for row in approval_result.all()}
+            
+            # Keep rows that are NOT claims or are approved claims
+            rows = [r for r in rows if (not r.get("receipt_id")) or (r.get("receipt_id") in approved_ids)]
         
         # --- 2. FETCH PPP CASH WITHDRAWS DIRECTLY ---
         # NetCashWithdraw is always in IDR. Skip PPP rows entirely if a non-IDR currency filter is active.

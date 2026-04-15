@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useMemo, useEffect } from "react";
 import { Container, Row, Col, Card, CardBody, Label } from "reactstrap";
 import Breadcrumbs from "../../../components/Common/Breadcrumb";
@@ -49,6 +48,8 @@ const PCBookReport = () => {
     const [selectedPcDetail, setSelectedPcDetail] = useState(null);
     const [claimDetailVisible, setClaimDetailVisible] = useState(false);
     const [selectedClaimDetail, setSelectedClaimDetail] = useState(null);
+    const [sortField, setSortField] = useState(null);
+    const [sortOrder, setSortOrder] = useState(null);
 
     const dtRef = useRef(null);
     const printAreaRef = useRef(null);
@@ -156,6 +157,18 @@ const PCBookReport = () => {
                 };
             });
 
+            // Debug: log detected transfer rows (category_id === 6 or categoryName contains 'transfer')
+            try {
+                const transferRows = allItems.filter(it =>
+                    it.category_id === 6 ||
+                    (it.categoryName && String(it.categoryName).toLowerCase().includes("transfer")) ||
+                    (it.description && String(it.description).toLowerCase().includes("transfer"))
+                );
+                console.log("PCBookReport (Reports) - detected transfer rows:", transferRows.length, transferRows.slice(0, 10));
+            } catch (e) {
+                console.debug("PCBookReport (Reports) - transfer log error:", e);
+            }
+            
             // 2. Filter by date FIRST
             if (fromDate && toDate) {
                 const f = new Date(fromDate); f.setHours(0, 0, 0, 0);
@@ -183,19 +196,20 @@ const PCBookReport = () => {
 
             const finalSorted = openingBalanceRow ? [openingBalanceRow, ...others] : others;
 
-            // 4. Calculate running totals for the final sorted sequence
-            let runningTotal = 0;
             let processed = finalSorted.map((row) => {
                 const amount = parseFloat(row.amount || row.Amount) || 0;
-                // Opening Balance (category 1) or Claims are debits
-                const isDebit = (row.category_id === 1 || (row.description && row.description.toUpperCase().includes("OPENING")) || (row.pc_number && row.pc_number.startsWith("CLM")));
+                // Treat category_id === 6 (Transfer) as Debit as well
+                const isDebit = (
+                    row.category_id === 1 ||
+                    row.category_id === 6 ||
+                    (row.description && row.description.toUpperCase().includes("OPENING")) ||
+                    (row.pc_number && row.pc_number.startsWith("CLM"))
+                );
 
                 const debit = isDebit ? amount : 0;
                 const credit = isDebit ? 0 : amount;
-                runningTotal += debit - credit;
-
+                
                 let amountidr = parseFloat(row.amountidr || row.AmountIDR || 0);
-                // Fallback for claims or IDR currency if IDR amount is 0
                 if (amountidr === 0 && (selectedCurrency?.label === "IDR" || (row.pc_number && row.pc_number.startsWith("CLM")))) {
                     amountidr = amount;
                 }
@@ -206,7 +220,6 @@ const PCBookReport = () => {
                     credit,
                     amount,
                     amountidr,
-                    cumulativeAmount: runningTotal,
                     dailyVoucher: row.dailyvoucher || row.dailyVoucher || generateDailyVoucherID(row.expdate || row.ExpDate),
                     COA: row.coa || row.COA || row.account_name || "",
                     description: (row.pc_number && row.pc_number.startsWith("CLM")) ? "claim and payment" : (row.expensedescription || row.ExpenseDescription || row.description || row.Description || row.remarks || row.Remarks || "")
@@ -245,17 +258,68 @@ const PCBookReport = () => {
         loadCurrencies();
     }, []);
 
+    const processedPcData = useMemo(() => {
+        let items = [...pcData];
+
+        // 1. Filter
+        if (globalFilter) {
+            const lowFilter = globalFilter.toLowerCase();
+            items = items.filter(item => {
+                return (
+                    (item.pc_number && item.pc_number.toLowerCase().includes(lowFilter)) ||
+                    (item.description && item.description.toLowerCase().includes(lowFilter)) ||
+                    (item.dailyVoucher && item.dailyVoucher.toLowerCase().includes(lowFilter))
+                );
+            });
+        }
+
+        // 2. Sort
+        // Separate Opening Balance to always keep it at the top
+        const openingBalanceRow = items.find(item => 
+            (item.pc_number && item.pc_number.toUpperCase().includes("OPENING")) ||
+            (item.description && item.description.toUpperCase().includes("OPENING BALANCE"))
+        );
+        let others = items.filter(item => item !== openingBalanceRow);
+
+        if (sortField) {
+            others.sort((a, b) => {
+                let valA = a[sortField];
+                let valB = b[sortField];
+                
+                if (sortField === "expdate") {
+                    valA = new Date(a.expdate || a.ExpDate).getTime();
+                    valB = new Date(b.expdate || b.ExpDate).getTime();
+                }
+
+                let result = 0;
+                if (valA < valB) result = -1;
+                else if (valA > valB) result = 1;
+
+                return sortOrder === 1 ? result : -result;
+            });
+        }
+
+        const finalSorted = openingBalanceRow ? [openingBalanceRow, ...others] : others;
+
+        // 3. Recalculate cumulative
+        let runningTotal = 0;
+        return finalSorted.map(row => {
+            runningTotal += (row.debit - row.credit);
+            return { ...row, cumulativeAmount: runningTotal };
+        });
+    }, [pcData, globalFilter, sortField, sortOrder]);
+
     useEffect(() => {
         if (selectedCurrency && fromDate && toDate) {
             fetchPCBook();
         }
     }, [selectedCurrency, fromDate, toDate]);
 
-    const totalDebit = pcData.reduce((sum, r) => sum + (r.debit || 0), 0);
-    const totalCredit = pcData.reduce((sum, r) => sum + (r.credit || 0), 0);
+    const totalDebit = processedPcData.reduce((sum, r) => sum + (r.debit || 0), 0);
+    const totalCredit = processedPcData.reduce((sum, r) => sum + (r.credit || 0), 0);
 
     const exportExcel = () => {
-        const exportData = pcData.map((item) => ({
+        const exportData = processedPcData.map((item) => ({
             "Date": item.expdate || item.ExpDate,
             "Reference number": item.pc_number || "",
             "Description": item.description,
@@ -528,12 +592,17 @@ const PCBookReport = () => {
                                 <div className="mt-2">
                                     <DataTable
                                         ref={dtRef}
-                                        value={pcData}
+                                        value={processedPcData}
                                         paginator
                                         rows={10}
                                         header={header}
                                         loading={loadingData}
-                                        globalFilter={globalFilter}
+                                        sortField={sortField}
+                                        sortOrder={sortOrder}
+                                        onSort={(e) => {
+                                            setSortField(e.sortField);
+                                            setSortOrder(e.sortOrder);
+                                        }}
                                         className="blue-bg"
                                         responsiveLayout="scroll"
                                         showGridlines
@@ -576,7 +645,6 @@ const PCBookReport = () => {
                                         <Column
                                             field="description"
                                             header="Description"
-                                            sortable
                                         />
                                         <Column
                                             field="debit"

@@ -390,8 +390,8 @@ const BankBook = () => {
                 "Currency": ex.currency,
                 "Exchange Rate": ex.exchangeRate,
                 "Total (Converted)": ex.totalConverted > 0 ? ex.totalConverted : "-",
-                "Debit Out": ex.convertedDebit,
-                "Credit In": ex.convertedCredit,
+                "Debit": ex.convertedDebit,
+                "Credit": ex.convertedCredit,
                 "Balance": ex.balance,
             };
 
@@ -688,8 +688,8 @@ const BankBook = () => {
                                         });
                                     }} className="text-end" sortable />
 
-                                    {/* Debit Out (IDR converted) */}
-                                    <Column field="convertedDebit" header="Debit Out" body={(d) => {
+                                    {/* Debit (IDR converted) */}
+                                    <Column field="convertedDebit" header="Debit" body={(d) => {
                                         if (d.convertedDebit === 0) return "-";
                                         return d.convertedDebit.toLocaleString('en-US', {
                                             style: 'decimal',
@@ -697,8 +697,8 @@ const BankBook = () => {
                                         });
                                     }} className="text-end" sortable />
 
-                                    {/* Credit In (IDR converted) */}
-                                    <Column field="convertedCredit" header="Credit In" body={(d) => {
+                                    {/* Credit (IDR converted) */}
+                                    <Column field="convertedCredit" header="Credit" body={(d) => {
                                         if (d.convertedCredit === 0) return "-";
                                         return d.convertedCredit.toLocaleString('en-US', {
                                             style: 'decimal',
@@ -744,8 +744,8 @@ const BankBook = () => {
                                                 <th>Currency</th>
                                                 <th>Exc. Rate</th>
                                                 <th>Total (Converted)</th>
-                                                <th>Debit Out</th>
-                                                <th>Credit In</th>
+                                                <th>Debit</th>
+                                                <th>Credit</th>
                                                 <th>Balance</th>
                                                 {filtered.some(ex => ex.overdraftLimit > 0) && (
                                                     <>

@@ -369,15 +369,13 @@ const PaymentVoucher = ({ VoucherId }) => {
                 <td style={styles.dotValue}> :  </td>
                 <td style={styles.rightValue}>  {header.voucherDate}</td>
               </tr>
-              {header.isSupplier == 1 && (
+              {(header.paymentMethod === "Cash" || details[0]?.accountName) && (
                 <tr>
-                  <td style={styles.leftLabel}><strong>Account Name	</strong></td>
-                  <td style={styles.dotValue}> :  </td>
-                  <td style={styles.leftValue}> {details[0]?.accountName}</td>
-
-
-
-                </tr>)}
+                  <td style={styles.leftLabel}><strong>Account Name</strong></td>
+                  <td style={styles.dotValue}> : </td>
+                  <td style={styles.leftValue}> {header.paymentMethod === "Cash" ? "Cash in hand" : details[0]?.accountName}</td>
+                </tr>
+              )}
               {header.isSupplier == 1 && (
                 <tr>
                   <td style={styles.leftLabel}><strong>PO & WO</strong></td>
@@ -399,13 +397,13 @@ const PaymentVoucher = ({ VoucherId }) => {
           <table style={styles.table}>
             <thead>
               <tr>
-                <th style={{ ...styles.cellCenter, width: "3%" }}>No</th>
-                <th style={{ ...styles.cellCenter, width: "10%" }}>Claim No</th>
+                <th style={{ ...styles.cellCenter, width: "3%", backgroundColor: "#f2f2f2", color: "#000" }}>No</th>
+                <th style={{ ...styles.cellCenter, width: "10%", backgroundColor: "#f2f2f2", color: "#000" }}>Claim No</th>
                 {/* <th style={styles.cellCenter}>Account No</th> */}
                 {/* <th style={styles.cellCenter}>Account Name</th> */}
                 {/* <th style={{...styles.cellCenter,width:"20%"}}>Description</th> */}
-                <th style={{ ...styles.cellCenter, width: "62%" }}>Purpose</th>
-                <th style={{ ...styles.cellCenter, width: "14%" }}>Amount {header.currencyCode} </th>
+                <th style={{ ...styles.cellCenter, width: "62%", backgroundColor: "#f2f2f2", color: "#000" }}>Purpose</th>
+                <th style={{ ...styles.cellCenter, width: "14%", backgroundColor: "#f2f2f2", color: "#000" }}>Amount {header.currencyCode} </th>
               </tr>
             </thead>
             <tbody>
@@ -431,12 +429,12 @@ const PaymentVoucher = ({ VoucherId }) => {
           <table style={styles.table}>
             <thead>
               <tr>
-                <th style={styles.cellCenter}>No</th>
-                <th style={styles.cellCenter}>Claim No</th>
+                <th style={{ ...styles.cellCenter, backgroundColor: "#f2f2f2", color: "#000" }}>No</th>
+                <th style={{ ...styles.cellCenter, backgroundColor: "#f2f2f2", color: "#000" }}>Claim No</th>
                 {/* <th style={styles.cellCenter}>Code</th> */}
                 {/* <th style={styles.cellCenter}>Description</th> */}
-                <th style={styles.cellCenter}>Purpose</th>
-                <th style={styles.cellCenter}>Amount {header.currencyCode} </th>
+                <th style={{ ...styles.cellCenter, backgroundColor: "#f2f2f2", color: "#000" }}>Purpose</th>
+                <th style={{ ...styles.cellCenter, backgroundColor: "#f2f2f2", color: "#000" }}>Amount {header.currencyCode} </th>
               </tr>
             </thead>
             <tbody>

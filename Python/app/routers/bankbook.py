@@ -131,89 +131,39 @@ async def get_bank_book_report(
         result = await db.execute(sql, params)
         raw_rows = result.mappings().all()
         
-        # --- IGNORE INDIVIDUAL CLAIMS ---
-        # Instead of grouping CLM rows manually, we completely drop them 
-        # out of the transaction list and replace them via a direct DB pull from tbl_PaymentSummary_header
-        ungrouped = []       
-        
-        for row in raw_rows:
-            voucher = str(row["VoucherNo"]) if row["VoucherNo"] else ""
-            is_claim = "CLM" in voucher or (row["TransactionType"] == "Payment" and row.get("cash_amount", 0) == 0)
-            
-            if not is_claim:
-                new_item = dict(row)
-                new_item["GroupedClaims"] = [{
-                    "VoucherNo": voucher,
-                    "Amount": float(row["NetAmount"] or 0),
-                    "receipt_id": row["receipt_id"],
-                    "InvoiceNo": row["AllocatedInvoices"] or row["Description"],
-                    "pending_verification": row.get("pending_verification", 1),
-                    "transactionType": row["TransactionType"]
-                }]
-                new_item["_order"] = len(ungrouped)
-                ungrouped.append(new_item)
-
-        # --- FETCH COMBINED PPP BANK TOTALS FROM DB ---
-        BANK_COLUMN_MAP = {
-            5: "bank_ocbc_i_idr",
-            6: "bank_ocbc_ii_idr",
-            7: "bank_ocbc_payroll_idr",
-            8: "bank_ocbc_usd",
-            9: "bank_maybank_idr_i",
-            10: "bank_maybank_sgd_i",
-            11: "bank_maybank_idr_ii",
-            12: "bank_maybank_sgd_ii",
-            13: "bank_uob_usd",
-            14: "bank_uob_sgd",
-            15: "bank_uob_idr",
-            16: "bank_permata_idr",
-            17: "bank_bni_idr",
-            18: "bank_bca_idr",
-            19: "bank_mandiri_idr"
-        }
-        
-        target_bank = int(bank_id)
-        if target_bank in BANK_COLUMN_MAP:
-            col_name = BANK_COLUMN_MAP[target_bank]
-            
-            # Note: We filter by CreatedDate to map the withdrawal strictly to when the PPP was processed
-            ppp_sql = text(f"""
-                SELECT 
-                    s.PaymentNo as VoucherNo,
-                    s.CreatedDate as Date,
-                    s.{col_name} as BankWithdraw
-                FROM {DB_NAME_FINANCE}.tbl_PaymentSummary_header s
-                WHERE DATE(s.CreatedDate) >= :from_date_clean AND DATE(s.CreatedDate) <= :to_date_clean
-                  AND s.{col_name} > 0
+        # --- FILTER PAYMENTS BY DIRECTOR APPROVAL ---
+        receipt_ids = [r.get("receipt_id") for r in raw_rows if r.get("receipt_id")]
+        if receipt_ids:
+            # We keep rows that are NOT claims (ar_id=0) or ARE approved claims
+            approval_sql = text(f"""
+                SELECT r.receipt_id 
+                FROM {DB_NAME_FINANCE}.tbl_ar_receipt r
+                LEFT JOIN {DB_NAME_FINANCE}.tbl_claimAndpayment_header h ON r.ar_id = h.Claim_ID
+                WHERE r.receipt_id IN ({','.join(map(str, receipt_ids))})
+                  AND (r.ar_id = 0 OR r.ar_id IS NULL OR h.PPP_PV_Director_approve = 1)
             """)
-            ppp_result = await db.execute(ppp_sql, {
-                "from_date_clean": from_date_clean, 
-                "to_date_clean": to_date_clean
-            })
-            for p_row in ppp_result.mappings().all():
-                amount = float(p_row["BankWithdraw"])
-                ppp_no = p_row["VoucherNo"]
-                created_date = p_row["Date"]
-                
-                ungrouped.append({
-                    "Date": created_date,
-                    "VoucherNo": ppp_no,
-                    "TransactionType": "Cash withdraw", 
-                    "Account": "-",
-                    "Party": ppp_no,
-                    "PartyDetail": None,
-                    "Description": "Combined Withdraw",
-                    "Currency": "IDR", # Default mapped logic via procedure assumes IDR for most
-                    "CreditIn": amount,
-                    "DebitOut": 0.0,
-                    "NetAmount": amount,
-                    "bank_payment_via": 0,
-                    "cheque_number": None,
-                    "cash_amount": 0.0,
-                    "GroupedClaims": [],
-                    "_order": len(ungrouped)
-                })
-        all_items = ungrouped
+            approval_result = await db.execute(approval_sql)
+            approved_ids = {row[0] for row in approval_result.all()}
+            
+            raw_rows = [r for r in raw_rows if (not r.get("receipt_id")) or (r.get("receipt_id") in approved_ids)]
+
+        # --- MAP ALL TRANSACTIONS (INCLUDING CLAIMS) ---
+        all_items = []
+        for i, row in enumerate(raw_rows):
+            item = dict(row)
+            # Add GroupedClaims as a single item list for potential UI usage (e.g. popups)
+            item["GroupedClaims"] = [{
+                "VoucherNo": item["VoucherNo"],
+                "Amount": float(item["NetAmount"] or 0),
+                "receipt_id": item["receipt_id"],
+                "InvoiceNo": item["AllocatedInvoices"] or item.get("Description", ""),
+                "pending_verification": item.get("pending_verification", 1),
+                "transactionType": item["TransactionType"]
+            }]
+            item["_order"] = i
+            all_items.append(item)
+
+        # Final sort by date and original order
         all_items.sort(key=lambda x: (str(x.get("Date", "")), x.get("_order", 0)))
         
         # Calculate running balance on the final sorted list

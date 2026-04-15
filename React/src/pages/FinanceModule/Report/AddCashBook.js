@@ -30,7 +30,7 @@ import jsPDF from "jspdf";
 
 // Configuration
 import { GetCustomerFilter } from "../../FinanceModule/service/financeapi";
-import { GetBankList, GetAllCurrencies } from "common/data/mastersapi";
+import { GetBankList, GetAllCurrencies, saveOrUpdatePettyCash } from "common/data/mastersapi";
 import { PYTHON_API_URL } from "common/pyapiconfig";
 
 // --- IMPORT LOGO FOR PRINT ---
@@ -81,6 +81,24 @@ const formatDatePrint = (dateInput) => {
     const year = d.getFullYear();
 
     return `${day}-${month}-${year}`;
+};
+
+// --- HELPER: Split Reference No into Claim No and Purpose ---
+const splitReferenceNo = (ref, backendPurpose) => {
+    if (backendPurpose) {
+        let claimNo = "";
+        if (ref && ref.startsWith("CLM")) {
+            claimNo = ref.split(" - ")[0].trim();
+        }
+        return { claimNo, purpose: backendPurpose };
+    }
+    
+    if (!ref) return { claimNo: "", purpose: "" };
+    if (ref.startsWith("CLM") && ref.includes(" - ")) {
+        const [claimNo, ...descParts] = ref.split(" - ");
+        return { claimNo: claimNo.trim(), purpose: descParts.join(" - ").trim() };
+    }
+    return { claimNo: "", purpose: ref };
 };
 
 // --- HELPER: Format Number with Commas ---
@@ -253,7 +271,8 @@ const AddCashBook = () => {
             const amtStr = String(row.amount || 0).replace(/,/g, '');
             const amt = parseFloat(amtStr || 0);
             if (row.type === 'Receipt' || row.type === 'Other Income' || row.type === 'Round minus') acc.receipt += amt;
-            else if (row.type === 'Payment' || row.type === 'Round plus' || row.type === 'Deposit') acc.payment += amt;
+            // Treat transfer as payment (cashbook deduction)
+            else if (row.type === 'transfer' || row.type === 'Payment' || row.type === 'Round plus' || row.type === 'Deposit') acc.payment += amt;
             return acc;
         }, { receipt: 0, payment: 0 });
         setTotals(t);
@@ -288,7 +307,10 @@ const AddCashBook = () => {
                     const isVerified = item.verification_status === "Completed";
                     const amountVal = parseFloat(item.cash_amount || 0);
 
-                    const name = customerList.find(c => c.value === item.customer_id)?.label || item.customerName || item.customer_id || "-";
+                    const isPayment = ['Payment', 'Deposit', 'Round plus'].includes(item.transaction_type);
+                    const lookupList = isPayment ? supplierList : customerList;
+                    
+                    const name = lookupList.find(c => String(c.value) === String(item.customer_id))?.label || item.customerName || item.customer_id || "-";
                     const customerName = (name === "Unknown Customer" || name === "unknown customer") ? "-" : name;
 
                     return {
@@ -300,6 +322,8 @@ const AddCashBook = () => {
                         is_submitted: item.is_submitted,
                         customerId: item.customer_id,
                         currencyCode: currencyList.find(c => c.value === item.currencyid)?.label || "",
+                        claimCategory: item.claim_category || item.claimCategory || "",
+                        ar_id: item.ar_id || item.linked_claim_id,
 
                         // Searchable fields for global filter
                         receiptIdStr: String(item.receipt_id),
@@ -483,6 +507,31 @@ const AddCashBook = () => {
             
             return claimSupId === targetId || claimAppId === targetId;
         });
+
+        // --- ENHANCED RECOVERY LOGIC ---
+        // 1. Try to find the claim by ID if we have it
+        let currentClaim = filtered.find(c => c.value === row.linkedClaimId);
+
+        // 2. If not found by ID, try to find by Claim Number string inside the referenceNo
+        if (!currentClaim && row.referenceNo && row.referenceNo.startsWith("CLM")) {
+            const claimNo = row.referenceNo.split(" - ")[0].trim();
+            currentClaim = filtered.find(c => c.label.includes(claimNo));
+            
+            // If found by label, we effectively "recover" the missing ID
+            if (currentClaim && !row.linkedClaimId) {
+                row.linkedClaimId = currentClaim.value;
+            }
+        }
+
+        // 3. Fallback: If still not in the list (likely already paid), manually inject it
+        if (row.linkedClaimId && !filtered.some(c => c.value === row.linkedClaimId)) {
+            filtered.push({
+                value: row.linkedClaimId,
+                label: row.referenceNo || "Linked Claim" 
+            });
+        }
+
+        return filtered;
     };
 
     // Helper to switch options based on type and claim category
@@ -491,6 +540,7 @@ const AddCashBook = () => {
         if (['Payment', 'Round plus', 'Deposit'].includes(type)) {
             return supplierList;
         }
+        if (type === 'transfer') return []; // No party selection for transfer
         return [];
     };
 
@@ -505,6 +555,12 @@ const AddCashBook = () => {
             newRows[index]['linkedClaimId'] = null;
             newRows[index]['referenceNo'] = "";
             newRows[index]['amount'] = "";
+            
+            // Auto-set claimCategory to "Claim" if transfer is selected
+            if (value === 'transfer') {
+                newRows[index]['claimCategory'] = 'Claim';
+                loadClaimsForCategory('Claim');
+            }
         }
 
         // 2. Load claims and clear data when claim category changes
@@ -517,7 +573,7 @@ const AddCashBook = () => {
                 loadClaimsForCategory(value);
                 // Clear party if Cash Advance or Claim is selected for a Payment
                 if (['Cash Advance', 'Claim'].includes(value) && newRows[index].type === 'Payment') {
-                    newRows[index]['customerId'] = 0;
+                    newRows[index]['customerId'] = "";
                 } else {
                     newRows[index]['customerId'] = "";
                 }
@@ -614,9 +670,13 @@ const AddCashBook = () => {
             amount: Math.abs(amount),
             salesPersonId: rowData.sales_person_id,
             sendNotification: rowData.send_notification,
-            claimCategory: "",
-            linkedClaimId: null
+            claimCategory: rowData.claimCategory || rowData.claim_category || "",
+            linkedClaimId: rowData.ar_id || rowData.linked_claim_id || rowData.linkedClaimId || null
         }]);
+
+        if (rowData.claimCategory) {
+            loadClaimsForCategory(rowData.claimCategory);
+        }
 
         setIsModalOpen(true);
     };
@@ -633,10 +693,16 @@ const AddCashBook = () => {
         }
 
         for (let i = 0; i < rows.length; i++) {
-            // Skip Party validation for Claim and Cash Advance categories
-            const isOptionalParty = ['Claim', 'Cash Advance'].includes(rows[i].claimCategory);
+            // Skip Party validation for transfer, Claim and Cash Advance categories
+            const isOptionalParty = ['Claim', 'Cash Advance'].includes(rows[i].claimCategory) || rows[i].type === 'transfer';
             if (!isOptionalParty && !rows[i].customerId) {
                 toast.error(`Please select a Party for row ${i + 1}`);
+                return;
+            }
+            
+            // Validate Claim No for transfer
+            if (rows[i].type === 'transfer' && !rows[i].linkedClaimId) {
+                toast.error(`Please select a Claim No. for transfer in row ${i + 1}`);
                 return;
             }
         }
@@ -644,10 +710,14 @@ const AddCashBook = () => {
         try {
             const isPosted = mode === "POST";
             const headerPayload = rows.map(row => {
-                // Calculate amount (Negative for Payment items)
+                // Calculate amount (Negative for Cash Book credit/deduction items)
                 const amtStr = String(row.amount || 0).replace(/,/g, '');
                 let finalAmount = Math.abs(parseFloat(amtStr || 0));
-                if (['Payment', 'Round plus', 'Deposit'].includes(row.type)) {
+                
+                if (row.type === 'transfer') {
+                    // NEGATIVE for Cash Book credit/deduction
+                    finalAmount = -Math.abs(parseFloat(amtStr || 0));
+                } else if (['Payment', 'Round plus', 'Deposit'].includes(row.type)) {
                     finalAmount = -finalAmount;
                 }
 
@@ -661,7 +731,9 @@ const AddCashBook = () => {
                     sales_person_id: row.salesPersonId ? parseInt(row.salesPersonId) : null,
                     send_notification: row.sendNotification,
                     transaction_type: row.type,
+                    claim_category: row.claimCategory,
                     linked_claim_id: row.linkedClaimId || null,
+                    ar_id: row.linkedClaimId || null, // Standard field name
                     status: isPosted ? "Posted" : "Saved",
                     is_posted: isPosted
                 };
@@ -682,6 +754,77 @@ const AddCashBook = () => {
             } else {
                 const endpoint = `${PYTHON_API_URL}/AR/cash/create`;
                 await axios.post(endpoint, payload);
+            }
+
+            // If posting and there are transfer rows, create petty cash records (debit) so PCBook shows them
+            if (isPosted) {
+                const transferRows = rows.filter(r => r.type === 'transfer');
+                for (const tr of transferRows) {
+                    try {
+                        // Build petty cash header payload. Keep minimal required fields.
+                        const amtStr = String(tr.amount || 0).replace(/,/g, '');
+                        const amt = Math.abs(parseFloat(amtStr || 0)) || 0;
+
+                        // Resolve currency id and code from selectedCurrency (fallback to 3/IDR)
+                        const curId = selectedCurrency?.value || selectedCurrency?.CurrencyId || 3;
+                        const curCode = (selectedCurrency?.label || selectedCurrency?.CurrencyCode || "IDR").toString();
+
+                        // Compute AmountIDR.
+                        // TODO: if you have an exchange rate available, multiply amt by exchangeRate here.
+                        const amountidr = curCode === "IDR" ? amt : amt; // currently no rate available => keep same value
+
+                        // Debug: log important values to help trace why PC record may lack currency/amount
+                        console.log("Creating petty cash for transfer:", {
+                            reference: tr.referenceNo,
+                            amount_raw: tr.amount,
+                            parsed_amount: amt,
+                            currency_selected: selectedCurrency,
+                            currency_id: curId,
+                            currency_code: curCode,
+                            amount_idr: amountidr
+                        });
+
+                        const pettyHeader = {
+                            // Keep multiple common variants so backend receives expected keys
+                            VoucherNo: tr.referenceNo || "",
+                            ExpDate: format(tr.date, "yyyy-MM-dd"),
+                            ExpenseType: null,
+                            ExpenseDescription: tr.referenceNo || "",
+                            BillNumber: "",
+                            ExpenseFileName: "",
+                            ExpenseFilePath: "",
+                            FileUpdatedDate: new Date().toISOString(),
+                            Who: "Payer",
+                            Whom: (tr.customerId ? (customerList.find(c => String(c.value) === String(tr.customerId))?.label || "") : (tr.referenceNo || "")),
+                            // Provide amount fields in multiple common names
+                            Amount: amt,
+                            AmountIDR: amountidr,
+                            amount: amt,
+                            amountidr: amountidr,
+                            // Currency fields in common variants
+                            currencyid: curId,
+                            currencycode: curCode,
+                            CurrencyId: curId,
+                            CurrencyCode: curCode,
+                            IsSubmitted: true,
+                            OrgId: 1,
+                            BranchId: 1,
+                            IsActive: true,
+                            category_id: 6, // Cash Book Transfer category
+                            userid: 505,
+                            CreatedIP: "127.0.0.1",
+                            ModifiedIP: "127.0.0.1"
+                        };
+
+                        const pettyPayload = { Header: pettyHeader };
+
+                        // Use helper from common/data/mastersapi which wraps the API call
+                        await saveOrUpdatePettyCash(pettyPayload, false);
+                    } catch (pcErr) {
+                        // Don't break the whole operation if petty creation fails - log for debugging
+                        console.error("Failed to create petty cash for transfer row", tr, pcErr);
+                    }
+                }
             }
 
             toast.success(`${rows.length} Entries ${isPosted ? 'Posted' : 'Saved'} Successfully`);
@@ -706,6 +849,8 @@ const AddCashBook = () => {
             
             await axios.put(`${PYTHON_API_URL}/AR/cash/submit/${id}`, {});
             toast.success(isReceipt ? "Marketing Verification Generated!" : "Posted to Cash Book Successfully!");
+            // Clear claim cache to force re-fetch of now-processed claims
+            setClaimListCache({});
             loadEntryList();
         } catch (err) {
             toast.error("Process failed");
@@ -716,6 +861,8 @@ const AddCashBook = () => {
         try {
             await axios.put(`${PYTHON_API_URL}/AR/cash/post/${id}`, {});
             toast.success("Posted to Cash Book successfully!");
+            // Clear claim cache to force re-fetch of now-processed claims
+            setClaimListCache({});
             loadEntryList();
         } catch (err) {
             toast.error("Final post failed");
@@ -751,6 +898,10 @@ const AddCashBook = () => {
         try {
             await axios.put(`${PYTHON_API_URL}/AR/cash/submit/${selectedEntry.receipt_id}`, {});
             toast.success("Marketing Verification Generated!");
+            
+            // Clear claim cache to force re-fetch of now-processed claims
+            setClaimListCache({});
+            
             setIsPreviewOpen(false);
             loadEntryList();
         } catch (err) {
@@ -765,29 +916,73 @@ const AddCashBook = () => {
     };
 
     const getReceiptHTML = () => {
+        const isPayment = printRecord?.transaction_type === 'Payment';
         const receiptContent = document.getElementById("receipt-print-section").innerHTML;
         const metaContent = document.getElementById("receipt-print-meta")?.innerHTML || "";
+        
         return `
             <html>
                 <head>
-                    <title>Receipt Voucher - ${printRecord?.receipt_id}</title>
+                    <title>${isPayment ? 'Payment' : 'Receipt'} Voucher - ${printRecord?.receipt_id}</title>
                     <base href="${window.location.origin}/" />
                     <style>
-                        @page { size: A5 landscape; margin: 8mm; }
-                        body { font-family: 'Times New Roman', serif; margin: 0; padding: 8px; }
-                        .receipt-container { border: 2px solid #1a2c5b; padding: 18px 22px; position: relative; width: 100%; max-width: 700px; margin: auto; box-sizing: border-box; }
-                        .header { display: flex; align-items: center; border-bottom: 2px solid #1a2c5b; padding-bottom: 6px; margin-bottom: 12px; }
-                        .logo { width: 70px; margin-right: 15px; }
-                        .company-details h2 { margin: 0; color: #1a2c5b; font-size: 16px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
-                        .company-details p { margin: 1px 0; font-size: 9px; color: #333; }
+                        @page { size: A5 landscape; margin: 5mm; }
+                        body { 
+                            font-family: ${isPayment ? 'Arial, sans-serif' : "'Times New Roman', serif"}; 
+                            margin: 0; 
+                            padding: 8px; 
+                            ${isPayment ? 'font-size: 11.5px; zoom: 0.95;' : ''}
+                        }
+                        .receipt-container { 
+                            border: ${isPayment ? 'none' : '2px solid #1a2c5b'}; 
+                            padding: ${isPayment ? '0' : '18px 22px'}; 
+                            position: relative; 
+                            width: 100%; 
+                            max-width: 700px; 
+                            margin: auto; 
+                            box-sizing: border-box; 
+                        }
+                        .header { 
+                            display: flex; 
+                            align-items: center; 
+                            border-bottom: ${isPayment ? '0.5px solid #000' : '2px solid #1a2c5b'}; 
+                            padding-bottom: 6px; 
+                            margin-bottom: 12px; 
+                        }
+                        .logo { width: ${isPayment ? '90px' : '70px'}; margin-right: 15px; }
+                        .company-details h2 { 
+                            margin: 0; 
+                            color: ${isPayment ? '#000' : '#1a2c5b'}; 
+                            font-size: ${isPayment ? '16px' : '16px'}; 
+                            font-weight: bold; 
+                            text-transform: uppercase; 
+                            letter-spacing: 0.5px; 
+                        }
+                        .company-details p { margin: 1px 0; font-size: 12px; color: ${isPayment ? '#000' : '#333'}; }
                         .receipt-no { position: absolute; top: 18px; right: 22px; font-size: 14px; color: #d92525; font-weight: bold; font-family: monospace; text-align: right; }
                         .running-system { font-size: 8px; color: #666; font-style: italic; margin-top: 2px; }
-                        .receipt-title { text-align: center; font-size: 15px; font-weight: bold; margin: 10px 0 18px 0; color: #1a2c5b; letter-spacing: 1.5px; text-decoration: underline double; }
-                        .label { font-weight: bold; color: #1a2c5b; font-size: 11px; white-space: nowrap; }
-                        .colon { font-weight: bold; color: #1a2c5b; font-size: 11px; text-align: center; }
+                        .receipt-title { 
+                            text-align: center; 
+                            font-size: ${isPayment ? '18px' : '15px'}; 
+                            font-weight: bold; 
+                            margin: 10px 0 18px 0; 
+                            color: ${isPayment ? '#000' : '#1a2c5b'}; 
+                            letter-spacing: ${isPayment ? '2px' : '1.5px'}; 
+                            ${isPayment ? 'text-transform: uppercase;' : 'text-decoration: underline double;' } 
+                        }
+                        .label { font-weight: bold; color: ${isPayment ? '#000' : '#1a2c5b'}; font-size: 11px; white-space: nowrap; }
+                        .colon { font-weight: bold; color: ${isPayment ? '#000' : '#1a2c5b'}; font-size: 11px; text-align: center; }
                         .value { border-bottom: 1px solid #1a2c5b; padding-left: 6px; font-size: 11px; position: relative; min-height: 16px; color: #000; }
                         .slanted-box { border: 1px solid #1a2c5b; transform: skewX(-20deg); padding: 4px 6px; background: #fff; }
                         .print-meta { max-width: 700px; margin: 2px auto 0 auto; text-align: right; font-size: 6px; color: #aaa; padding-top: 1px; }
+                        
+                        /* Payment Voucher Specific - Matching PPP.js */
+                        .pv-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; border: 1px solid #000; }
+                        .pv-table th { background-color: #f2f2f2; color: #000; font-weight: bold; padding: 6px 8px; border: 1px solid #000; text-align: center; }
+                        .pv-table td { padding: 6px 8px; border: 1px solid #000; vertical-align: top; color: #000; }
+                        .pv-total-row td { font-weight: bold; background-color: #f2f2f2; }
+                        .two-col-table { width: 100%; border-collapse: separate; font-size: 14px; border: none; margin-bottom: 20px; }
+                        .two-col-table td { border: none; padding: 4px 2px; vertical-align: top; }
                     </style>
                 </head>
                 <body>
@@ -858,7 +1053,8 @@ const AddCashBook = () => {
             const scaledHeight = (canvas.height * usableWidth) / canvas.width;
 
             pdf.addImage(imgData, "PNG", margin, margin, usableWidth, scaledHeight);
-            pdf.save(`Receipt_Voucher_${printRecord?.receipt_id || 'receipt'}.pdf`);
+            const fileName = printRecord?.transaction_type === 'Payment' ? 'Payment_Voucher' : 'Receipt_Voucher';
+            pdf.save(`${fileName}_${printRecord?.receipt_id || 'receipt'}.pdf`);
 
             toast.success("Receipt downloaded successfully!");
         } catch (error) {
@@ -1105,6 +1301,7 @@ const AddCashBook = () => {
                                             >
                                                 <option value="Receipt">Receipt</option>
                                                 <option value="Payment">Payment</option>
+                                                <option value="transfer">transfer</option>
                                                 <option value="Other Income">Other Income</option>
                                                 <option value="Round plus">Round plus</option>
                                                 <option value="Round minus">Round minus</option>
@@ -1120,30 +1317,34 @@ const AddCashBook = () => {
                                                 style={{ fontSize: '12px' }}
                                             />
                                         </td>
-                                        {/* Claim Category — shown/enabled only for Payment */}
+                                        {/* Claim Category — shown for Payment and transfer */}
                                         <td>
                                             <Select
                                                 options={CLAIM_CATEGORIES}
                                                 value={CLAIM_CATEGORIES.find(c => c.value === row.claimCategory) || null}
                                                 onChange={(opt) => handleRowChange(index, 'claimCategory', opt?.value || '')}
                                                 styles={customSelectStyles}
-                                                isDisabled={row.type !== 'Payment'}
+                                                isDisabled={!['Payment', 'transfer'].includes(row.type)}
                                                 menuPortalTarget={document.body}
-                                                placeholder={row.type === 'Payment' ? "Select..." : ""}
+                                                placeholder={['Payment', 'transfer'].includes(row.type) ? "Select..." : ""}
                                             />
                                         </td>
                                         <td>
                                             <Select
                                                 options={getOptionsForType(row.type, row.claimCategory)}
-                                                value={getOptionsForType(row.type, row.claimCategory).find(c => c.value === row.customerId)}
+                                                value={
+                                                    (row.type === 'transfer' || (row.type === 'Payment' && ['Cash Advance', 'Claim'].includes(row.claimCategory)))
+                                                    ? null 
+                                                    : getOptionsForType(row.type, row.claimCategory).find(c => c.value === row.customerId) || null
+                                                }
                                                 onChange={(opt) => handleRowChange(index, 'customerId', opt?.value)}
                                                 styles={customSelectStyles}
-                                                isDisabled={row.type === 'Payment' && ['Cash Advance', 'Claim'].includes(row.claimCategory)}
+                                                isDisabled={row.type === 'transfer' || (row.type === 'Payment' && ['Cash Advance', 'Claim'].includes(row.claimCategory))}
                                                 menuPortalTarget={document.body}
-                                                placeholder={['Payment', 'Deposit'].includes(row.type) ? "Select Supplier..." : "Select Customer..."}
+                                                placeholder={row.type === 'transfer' ? "N/A" : (['Payment', 'Deposit'].includes(row.type) ? "Select Supplier..." : "Select Customer...")}
                                             />
                                         </td>
-                                        {/* Claim No — enabled only for Payment with category */}
+                                        {/* Claim No — enabled for Payment with category or transfer with Claim category */}
                                         <td>
                                             <Select
                                                 options={getFilteredClaims(row)}
@@ -1151,12 +1352,12 @@ const AddCashBook = () => {
                                                 onChange={(opt) => handleRowChange(index, 'linkedClaimId', opt?.value)}
                                                 styles={customSelectStyles}
                                                 isDisabled={
-                                                    row.type !== 'Payment' || 
-                                                    !row.claimCategory || 
-                                                    (row.claimCategory === 'Supplier Payment' && getFilteredClaims(row).length === 0)
+                                                    (row.type === 'Payment' && !row.claimCategory) ||
+                                                    (row.type === 'Payment' && row.claimCategory === 'Supplier Payment' && getFilteredClaims(row).length === 0) ||
+                                                    (row.type === 'transfer' && row.claimCategory !== 'Claim')
                                                 }
                                                 menuPortalTarget={document.body}
-                                                placeholder={row.type === 'Payment' ? (getFilteredClaims(row).length > 0 ? "Select Claim..." : "No Claims Found") : ""}
+                                                placeholder={(['Payment', 'transfer'].includes(row.type) && row.claimCategory) ? (getFilteredClaims(row).length > 0 ? "Select Claim..." : "No Claims Found") : ""}
                                             />
                                         </td>
                                         <td>
@@ -1180,7 +1381,7 @@ const AddCashBook = () => {
                                             <i className="bx bx-trash text-danger cursor-pointer" onClick={() => handleRemoveRow(index)}></i>
                                         </td>
                                         <td className="text-center">
-                                            {row.type === 'Payment' && ['Claim', 'Cash Advance'].includes(row.claimCategory) && (
+                                            {(row.type === 'Payment' || row.type === 'transfer') && ['Claim', 'Cash Advance'].includes(row.claimCategory) && (
                                                 <i 
                                                     className="bx bx-x-circle text-warning cursor-pointer fs-5 align-middle" 
                                                     onClick={() => openCancelModal(index, row.linkedClaimId)}
@@ -1277,7 +1478,7 @@ const AddCashBook = () => {
                     centered
                     style={{ maxWidth: '780px', width: '95%' }}
                 >
-                    <ModalHeader toggle={() => setIsPrintModalOpen(false)}>Receipt Preview</ModalHeader>
+                    <ModalHeader toggle={() => setIsPrintModalOpen(false)}>Voucher Preview</ModalHeader>
                     <ModalBody className="p-3" style={{ backgroundColor: '#f9f9f9', overflowX: 'auto' }}>
                         <div id="receipt-print-section" className="receipt-container" style={{
                             backgroundColor: 'white',
@@ -1292,106 +1493,223 @@ const AddCashBook = () => {
                             boxSizing: 'border-box'
                         }}>
                             {/* Header */}
-                            <div className="header" style={{ display: 'flex', alignItems: 'center', borderBottom: '2px solid #1a2c5b', paddingBottom: '6px', marginBottom: '12px' }}>
-                                <div className="logo" style={{ width: '70px', marginRight: '15px', flexShrink: 0 }}>
+                            <div className="header" style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                borderBottom: printRecord?.transaction_type === 'Payment' ? '0.5px solid #000' : '2px solid #1a2c5b', 
+                                paddingBottom: '6px', 
+                                marginBottom: '12px' 
+                            }}>
+                                <div className="logo" style={{ width: printRecord?.transaction_type === 'Payment' ? '90px' : '70px', marginRight: '15px', flexShrink: 0 }}>
                                     <img src={logo} alt="BTG Logo" style={{ width: '100%' }} />
                                 </div>
                                 <div className="company-details" style={{ flexGrow: 1 }}>
-                                    <h2 style={{ margin: 0, color: '#1a2c5b', fontSize: '16px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PT. BATAM TEKNOLOGI GAS</h2>
-                                    <p style={{ margin: '1px 0', fontSize: '9px', color: '#333' }}>Jalan Brigjen Katamso KM. 3, Tanjung Uncang, Batam - Indonesia</p>
-                                    <p style={{ margin: '1px 0', fontSize: '9px', color: '#333' }}>Telp: (+62) 778 462959, 391918</p>
-                                    <p style={{ margin: '1px 0', fontSize: '9px', color: '#333' }}>Website: www.ptbtg.com | E-mail: ptbtg@ptbtg.com</p>
+                                    <h2 style={{ 
+                                        margin: 0, 
+                                        color: printRecord?.transaction_type === 'Payment' ? '#000' : '#1a2c5b', 
+                                        fontSize: '16px', 
+                                        fontWeight: 'bold', 
+                                        textTransform: 'uppercase', 
+                                        letterSpacing: '0.5px' 
+                                    }}>PT. BATAM TEKNOLOGI GAS</h2>
+                                    <p style={{ margin: '1px 0', fontSize: '12px', color: printRecord?.transaction_type === 'Payment' ? '#000' : '#333' }}>Jalan Brigjen Katamso KM. 3, Tanjung Uncang, Batam - Indonesia</p>
+                                    <p style={{ margin: '1px 0', fontSize: '12px', color: printRecord?.transaction_type === 'Payment' ? '#000' : '#333' }}>Telp: (+62) 778 462959, 391918</p>
+                                    <p style={{ margin: '1px 0', fontSize: '12px', color: printRecord?.transaction_type === 'Payment' ? '#000' : '#333' }}>Website: www.ptbtg.com | E-mail: ptbtg@ptbtg.com</p>
                                 </div>
-                                <div style={{ position: 'absolute', top: '18px', right: '22px', textAlign: 'right' }}>
-                                    <div style={{ fontSize: '14px', color: '#d92525', fontWeight: 'bold', fontFamily: 'monospace' }}>
-                                        No. : {printRecord?.receipt_id}
+                                {! (printRecord?.transaction_type === 'Payment') && (
+                                    <div style={{ position: 'absolute', top: '18px', right: '22px', textAlign: 'right' }}>
+                                        <div style={{ fontSize: '14px', color: '#d92525', fontWeight: 'bold', fontFamily: 'monospace' }}>
+                                            No. : {printRecord?.receipt_id}
+                                        </div>
                                     </div>
-                                    <div style={{ fontSize: '8px', color: '#666', fontStyle: 'italic', marginTop: '2px' }}>
-                                    </div>
-                                </div>
+                                )}
                             </div>
 
                             {/* Title */}
-                            <div className="receipt-title" style={{ textAlign: 'center', fontSize: '15px', fontWeight: 'bold', textDecoration: 'underline double', marginBottom: '18px', color: '#1a2c5b', letterSpacing: '1.5px' }}>
-                                RECEIPT VOUCHER
+                            <div className="receipt-title" style={{ 
+                                textAlign: 'center', 
+                                fontSize: printRecord?.transaction_type === 'Payment' ? '18px' : '15px', 
+                                fontWeight: 'bold', 
+                                textDecoration: printRecord?.transaction_type === 'Payment' ? 'none' : 'underline double', 
+                                marginBottom: '18px', 
+                                color: printRecord?.transaction_type === 'Payment' ? '#000' : '#1a2c5b', 
+                                letterSpacing: printRecord?.transaction_type === 'Payment' ? '2px' : '1.5px',
+                                textTransform: printRecord?.transaction_type === 'Payment' ? 'uppercase' : 'none'
+                            }}>
+                                {printRecord?.transaction_type === 'Payment' ? 'PAYMENT VOUCHER' : 'RECEIPT VOUCHER'}
                             </div>
 
-                            {/* Content Grid */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '120px 10px 1fr', gridGap: '10px 4px', alignItems: 'baseline', marginBottom: '18px' }}>
-                                <div className="label" style={{ fontWeight: 'bold', color: '#1a2c5b', fontSize: '11px', whiteSpace: 'nowrap' }}>Received From</div>
-                                <div className="colon" style={{ fontWeight: 'bold', color: '#1a2c5b', fontSize: '11px', textAlign: 'center' }}>:</div>
-                                <div className="value" style={{ borderBottom: '1px solid #1a2c5b', paddingLeft: '6px', fontSize: '11px' }}>
-                                    {printRecord?.customerName || printRecord?.customer_name}
-                                </div>
-
-                                <div className="label" style={{ fontWeight: 'bold', color: '#1a2c5b', fontSize: '11px', whiteSpace: 'nowrap' }}>The Sum Of</div>
-                                <div className="colon" style={{ fontWeight: 'bold', color: '#1a2c5b', fontSize: '11px', textAlign: 'center' }}>:</div>
-                                <div className="slanted-box" style={{ border: '1px solid #1a2c5b', transform: 'skewX(-20deg)', padding: '4px 6px', background: '#fff' }}>
-                                    <div style={{ transform: 'skewX(20deg)', fontWeight: 'bold', fontSize: '11px' }}>
-                                        {numberToWords(parseFloat(printRecord?.cash_amount || 0))} Rupiah Only
+                            {printRecord?.transaction_type === 'Payment' ? (
+                                <>
+                                    {/* Payment Voucher Header Fields - Matching PPP.js Table Style */}
+                                    <div style={{ width: "100%", marginBottom: "20px" }}>
+                                        <table style={{ width: "100%", borderCollapse: "separate", fontSize: "14px", border: "none" }}>
+                                            <tbody>
+                                                <tr>
+                                                    <td style={{ width: "120px", textAlign: "left", padding: "4px 2px", fontWeight: "bold", border: "none" }}>Payment To</td>
+                                                    <td style={{ width: "10px", padding: "4px 2px", border: "none" }}>:</td>
+                                                    <td style={{ width: "220px", padding: "4px 2px", verticalAlign: "top", border: "none" }}>{printRecord?.customerName}</td>
+                                                    
+                                                    <td style={{ width: "60px", textAlign: "left", padding: "4px 2px", fontWeight: "bold", border: "none" }}>PV #</td>
+                                                    <td style={{ width: "10px", padding: "4px 2px", border: "none" }}>:</td>
+                                                    <td style={{ width: "120px", padding: "4px 2px", verticalAlign: "top", border: "none" }}>{printRecord?.receipt_id}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td style={{ textAlign: "left", padding: "4px 2px", fontWeight: "bold", border: "none" }}>Payment Method</td>
+                                                    <td style={{ padding: "4px 2px", border: "none" }}>:</td>
+                                                    <td style={{ padding: "4px 2px", verticalAlign: "top", border: "none" }}>{(printRecord?.bankName && printRecord?.bankName !== "-") ? "Bank Transfer" : "Cash"}</td>
+                                                    
+                                                    <td style={{ textAlign: "left", padding: "4px 2px", fontWeight: "bold", border: "none" }}>Date</td>
+                                                    <td style={{ padding: "4px 2px", border: "none" }}>:</td>
+                                                    <td style={{ padding: "4px 2px", verticalAlign: "top", border: "none" }}>{formatDatePrint(printRecord?.date)}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td style={{ textAlign: "left", padding: "4px 2px", fontWeight: "bold", border: "none" }}>Account Name</td>
+                                                    <td style={{ padding: "4px 2px", border: "none" }}>:</td>
+                                                    <td style={{ padding: "4px 2px", verticalAlign: "top", border: "none" }}>{(printRecord?.bankName && printRecord?.bankName !== "-") ? printRecord.bankName : "Cash in hand"}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
                                     </div>
-                                </div>
 
-                                <div className="label" style={{ fontWeight: 'bold', color: '#1a2c5b', fontSize: '11px', whiteSpace: 'nowrap' }}>Being Payment Of</div>
-                                <div className="colon" style={{ fontWeight: 'bold', color: '#1a2c5b', fontSize: '11px', textAlign: 'center' }}>:</div>
-                                <div className="value" style={{ borderBottom: '1px solid #1a2c5b', paddingLeft: '6px', fontSize: '11px', lineHeight: '1.4' }}>
-                                    {(() => {
-                                        const ref = printRecord?.reference_no || "";
-                                        const match = ref.match(/\(Inv:\s*(.*?)\)/);
-                                        if (match && match[1]) {
-                                            return match[1].split(',').map(i => i.trim()).join(', ');
-                                        }
-                                        return ref || "______________________";
-                                    })()}
-                                </div>
-                            </div>
+                                    {/* Payment Item Table - Matching PPP.js */}
+                                    <Table style={{ width: '100%', marginBottom: '18px', fontSize: '11px', borderCollapse: 'collapse', border: '1px solid #000' }} className="align-middle">
+                                        <thead>
+                                            <tr>
+                                                <th style={{ width: '3%', backgroundColor: '#f2f2f2', color: '#000', fontWeight: 'bold', border: '1px solid #000', padding: '6px 8px' }} className="text-center">No</th>
+                                                <th style={{ width: '10%', backgroundColor: '#f2f2f2', color: '#000', fontWeight: 'bold', border: '1px solid #000', padding: '6px 8px' }} className="text-center">Claim No</th>
+                                                <th style={{ width: '62%', backgroundColor: '#f2f2f2', color: '#000', fontWeight: 'bold', border: '1px solid #000', padding: '6px 8px' }} className="text-center">Purpose</th>
+                                                <th style={{ width: '25%', backgroundColor: '#f2f2f2', color: '#000', fontWeight: 'bold', border: '1px solid #000', padding: '6px 8px' }} className="text-center">Amount IDR</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {(() => {
+                                                const { claimNo, purpose } = splitReferenceNo(printRecord?.reference_no, printRecord?.purpose);
+                                                const amountValue = Math.abs(parseFloat(printRecord?.cash_amount || 0));
+                                                return (
+                                                    <>
+                                                        <tr>
+                                                            <td style={{ border: '1px solid #000', padding: '6px 8px' }} className="text-center">1</td>
+                                                            <td style={{ border: '1px solid #000', padding: '6px 8px' }} className="text-center">{claimNo || "-"}</td>
+                                                            <td style={{ border: '1px solid #000', padding: '6px 8px' }}>{purpose}</td>
+                                                            <td style={{ border: '1px solid #000', padding: '6px 8px' }} className="text-end">
+                                                                {amountValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                                            </td>
+                                                        </tr>
+                                                        <tr style={{ backgroundColor: '#f2f2f2' }}>
+                                                            <td colSpan="3" className="text-end fw-bold" style={{ textTransform: 'uppercase', border: '1px solid #000', padding: '6px 8px' }}>Total</td>
+                                                            <td className="text-end fw-bold" style={{ border: '1px solid #000', padding: '6px 8px' }}>
+                                                                {amountValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                                            </td>
+                                                        </tr>
+                                                    </>
+                                                );
+                                            })()}
+                                        </tbody>
+                                    </Table>
 
-                            {/* Amount + Signature Row */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '18px' }}>
-                                <div style={{ width: '58%' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '14px' }}>
-                                        <div className="label" style={{ fontWeight: 'bold', color: '#1a2c5b', fontSize: '11px', marginRight: '8px', whiteSpace: 'nowrap' }}>
-                                            Amount Rp :
+                                    <div style={{ fontSize: '11.5px', marginTop: '20px', fontStyle: 'italic' }}>
+                                        <strong>Amount in Words :</strong> {numberToWords(Math.abs(parseFloat(printRecord?.cash_amount || 0)))} Rupiah Only
+                                    </div>
+
+                                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: "40px" }}>
+                                        <div style={{ display: "flex", gap: "40px" }}>
+                                            <div style={{ textAlign: "center", minWidth: "120px" }}>
+                                                <span>Approved by Director and GM</span>
+                                            </div>
                                         </div>
-                                        <div style={{
-                                            border: '1px solid #1a2c5b',
-                                            width: '200px',
-                                            padding: '5px 8px',
-                                            transform: 'skewX(-20deg)',
-                                            textAlign: 'center',
-                                            background: '#fff'
-                                        }}>
-                                            <span style={{ display: 'inline-block', transform: 'skewX(20deg)', fontWeight: 'bold', fontSize: '14px' }}>
-                                                {parseFloat(printRecord?.cash_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                                            </span>
+                                        <div style={{ textAlign: "center" }}>
+                                            <div style={{ border: "1px solid black", width: "180px", height: "50px", marginBottom: "5px" }}></div>
+                                            <span style={{ fontSize: "11px" }}>{`Applicant's Signature`}</span>
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    {/* Receipt Voucher Content Grid */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '120px 10px 1fr', gridGap: '10px 4px', alignItems: 'baseline', marginBottom: '18px' }}>
+                                        <div className="label" style={{ fontWeight: 'bold', color: '#1a2c5b', fontSize: '11px', whiteSpace: 'nowrap' }}>Received From</div>
+                                        <div className="colon" style={{ fontWeight: 'bold', color: '#1a2c5b', fontSize: '11px', textAlign: 'center' }}>:</div>
+                                        <div className="value" style={{ borderBottom: '1px solid #1a2c5b', paddingLeft: '6px', fontSize: '11px' }}>
+                                            {printRecord?.customerName || printRecord?.customer_name}
+                                        </div>
+
+                                        <div className="label" style={{ fontWeight: 'bold', color: '#1a2c5b', fontSize: '11px', whiteSpace: 'nowrap' }}>Account Name</div>
+                                        <div className="colon" style={{ fontWeight: 'bold', color: '#1a2c5b', fontSize: '11px', textAlign: 'center' }}>:</div>
+                                        <div className="value" style={{ borderBottom: '1px solid #1a2c5b', paddingLeft: '6px', fontSize: '11px' }}>
+                                            {(printRecord?.bankName && printRecord?.bankName !== "-") ? printRecord.bankName : "Cash in hand"}
+                                        </div>
+
+                                        <div className="label" style={{ fontWeight: 'bold', color: '#1a2c5b', fontSize: '11px', whiteSpace: 'nowrap' }}>The Sum Of</div>
+                                        <div className="colon" style={{ fontWeight: 'bold', color: '#1a2c5b', fontSize: '11px', textAlign: 'center' }}>:</div>
+                                        <div className="slanted-box" style={{ border: '1px solid #1a2c5b', transform: 'skewX(-20deg)', padding: '4px 6px', background: '#fff' }}>
+                                            <div style={{ transform: 'skewX(20deg)', fontWeight: 'bold', fontSize: '11px' }}>
+                                                {numberToWords(parseFloat(printRecord?.cash_amount || 0))} Rupiah Only
+                                            </div>
+                                        </div>
+
+                                        <div className="label" style={{ fontWeight: 'bold', color: '#1a2c5b', fontSize: '11px', whiteSpace: 'nowrap' }}>Being Payment Of</div>
+                                        <div className="colon" style={{ fontWeight: 'bold', color: '#1a2c5b', fontSize: '11px', textAlign: 'center' }}>:</div>
+                                        <div className="value" style={{ borderBottom: '1px solid #1a2c5b', paddingLeft: '6px', fontSize: '11px', lineHeight: '1.4' }}>
+                                            {(() => {
+                                                const ref = printRecord?.reference_no || "";
+                                                const match = ref.match(/\(Inv:\s*(.*?)\)/);
+                                                if (match && match[1]) {
+                                                    return match[1].split(',').map(i => i.trim()).join(', ');
+                                                }
+                                                return ref || "______________________";
+                                            })()}
                                         </div>
                                     </div>
 
-                                    <div style={{ display: 'flex', alignItems: 'baseline' }}>
-                                        <div className="label" style={{ fontWeight: 'bold', color: '#1a2c5b', fontSize: '11px', marginRight: '6px', whiteSpace: 'nowrap' }}>
-                                            Payment Method :
+                                    {/* Amount + Signature Row */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '18px' }}>
+                                        <div style={{ width: '58%' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '14px' }}>
+                                                <div className="label" style={{ fontWeight: 'bold', color: '#1a2c5b', fontSize: '11px', marginRight: '8px', whiteSpace: 'nowrap' }}>
+                                                    Amount Rp :
+                                                </div>
+                                                <div style={{
+                                                    border: '1px solid #1a2c5b',
+                                                    width: '200px',
+                                                    padding: '5px 8px',
+                                                    transform: 'skewX(-20deg)',
+                                                    textAlign: 'center',
+                                                    background: '#fff'
+                                                }}>
+                                                    <span style={{ display: 'inline-block', transform: 'skewX(20deg)', fontWeight: 'bold', fontSize: '14px' }}>
+                                                        {parseFloat(printRecord?.cash_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                                                <div className="label" style={{ fontWeight: 'bold', color: '#1a2c5b', fontSize: '11px', marginRight: '6px', whiteSpace: 'nowrap' }}>
+                                                    Payment Method :
+                                                </div>
+                                                <div className="value" style={{ borderBottom: '1px solid #1a2c5b', flexGrow: 1, paddingLeft: '6px', fontSize: '11px', color: '#000' }}>
+                                                    {(printRecord?.bankName && printRecord?.bankName !== "-") ? "Bank Transfer" : "Cash"}
+                                                </div>
+                                            </div>
+
+                                            {/* Cash receipt footer note */}
+                                            <div style={{ marginTop: '12px', fontSize: '9px', color: '#555', fontStyle: 'italic' }}>
+                                                Payment received in cash. Valid upon realization.
+                                            </div>
                                         </div>
-                                        <div className="value" style={{ borderBottom: '1px solid #1a2c5b', flexGrow: 1, paddingLeft: '6px', fontSize: '11px', color: '#000' }}>
-                                            Cash
+
+                                        <div style={{ textAlign: 'center', width: '35%' }}>
+                                            <div style={{ fontSize: '11px', marginBottom: '3px', color: '#000' }}>
+                                                Batam, {formatDatePrint(printRecord?.date || printRecord?.receipt_date)}
+                                            </div>
+                                            <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#1a2c5b' }}>Received by,</div>
+
+                                            <div style={{ fontSize: '10px', marginTop: '3px', fontWeight: 'bold' }}>( Admin )</div>
+                                            <div style={{ fontSize: '8px', marginTop: '4px', color: '#666', fontStyle: 'italic' }}>This is computer generated, no signature required</div>
                                         </div>
                                     </div>
-
-                                    {/* Cash receipt footer note */}
-                                    <div style={{ marginTop: '12px', fontSize: '9px', color: '#555', fontStyle: 'italic' }}>
-                                        Payment received in cash. Valid upon realization.
-                                    </div>
-                                </div>
-
-                                <div style={{ textAlign: 'center', width: '35%' }}>
-                                    <div style={{ fontSize: '11px', marginBottom: '3px', color: '#000' }}>
-                                        Batam, {formatDatePrint(printRecord?.date || printRecord?.receipt_date)}
-                                    </div>
-                                    <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#1a2c5b' }}>Received by,</div>
-
-                                    <div style={{ fontSize: '10px', marginTop: '3px', fontWeight: 'bold' }}>( Admin )</div>
-                                    <div style={{ fontSize: '8px', marginTop: '4px', color: '#666', fontStyle: 'italic' }}>This is computer generated, no signature required</div>
-                                </div>
-                            </div>
+                                </>
+                            )}
 
                         </div>
                         {/* Printed-by date OUTSIDE the border */}

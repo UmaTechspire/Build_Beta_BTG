@@ -1042,6 +1042,32 @@ word-break: break-word;
               })}
             </tr>
 
+            {/* Round Off */}
+            <tr style={{ backgroundColor: "#fff5cc", fontWeight: "bold" }}>
+              <td colSpan={3} style={{ textAlign: "left" }}>Round Off</td>
+              {currencies.map(curr => {
+                const modeOfCashTotal = data
+                  .filter(r => r.PaymentMethod === "Cash" || r.PaymentMethod === "Cash Withdrawal")
+                  .filter(r => r.curr === curr)
+                  .reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
+
+                const cihValue = parseFloat(cashInHand[curr] || 0);
+                const cfsValue = parseFloat(cashFromSales[curr] || 0);
+                const cashNeededVal = modeOfCashTotal - cihValue - cfsValue;
+
+                const roundOffVal = curr === "IDR" ? (Math.round(cashNeededVal / 100) * 100) - cashNeededVal : 0;
+
+                return (
+                  <td style={{ textAlign: "right" }} key={`roundoff-${curr}`}>
+                    {roundOffVal > 0 ? "+" : ""}{roundOffVal.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    })}
+                  </td>
+                );
+              })}
+            </tr>
+
             {/* Net Cash Withdraw */}
             <tr style={{ backgroundColor: "#fffbbd", fontWeight: "bold" }}>
               <td colSpan={3} style={{ textAlign: "left" }}>Net Cash Withdraw</td>
