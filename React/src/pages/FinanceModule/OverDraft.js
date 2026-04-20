@@ -260,11 +260,21 @@ const AddOverDraft = () => {
                                 name="overDraftDate"
                                 value={values.overDraftDate}
                                 onChange={([date]) => setFieldValue("overDraftDate", date)}
+<<<<<<< HEAD
                                 options={{
                                   altInput: true,
                                   altFormat: "d-M-Y",
                                   dateFormat: "Y-m-d"
                                 }}
+=======
+
+                                options={{
+                                  altInput: true,
+                                  altFormat: "d-M-Y",
+                                  dateFormat: "Y-m-d",
+                                }}
+
+>>>>>>> a559928087df7ea1f73ebe586b7426b5c897c19d
                               />
                               {errors.overDraftDate && touched.overDraftDate && (
                                 <div className="text-danger small mt-1">{errors.overDraftDate}</div>

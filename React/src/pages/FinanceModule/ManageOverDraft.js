@@ -48,7 +48,7 @@ const formatDate = (date) => {
 const ManageOverDraft = () => {
   const history = useHistory();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
+
   // Authentication & Authorization check
   const authUser = JSON.parse(localStorage.getItem("authUser") || "{}");
   const isAuthorized = authUser.IsAdmin === 1 || authUser.superAdmin === 1 || authUser.roleName === "Admin";
@@ -265,13 +265,13 @@ const ManageOverDraft = () => {
                   onChange={(val) => setSelectedInterest(val)}
                   options={interestTypeOptions}
                   isClearable
-                />   
+                />
               </div>
-            
+
             </Col>
             <Col md="6" className="d-flex justify-content-end gap-2">
-            <button className="btn btn-primary me-2" onClick={fetchOverDrafts}>Search</button>
-            <button className="btn btn-danger" onClick={handleCancelFilters}>Cancel</button>
+              <button className="btn btn-primary me-2" onClick={fetchOverDrafts}>Search</button>
+              <button className="btn btn-danger" onClick={handleCancelFilters}>Cancel</button>
               <button className="btn btn-info" onClick={dAddOverDraft}>New</button>
               <button className="btn btn-secondary" onClick={exportToExcel}>
                 <i className="bx bx-export me-2"></i> Export
@@ -297,7 +297,7 @@ const ManageOverDraft = () => {
                     "interestType",
                     "isSubmitted",
                     "repayInMonths",
-                    "odInterest","odAmountIDR","overDraftDate"
+                    "odInterest", "odAmountIDR", "overDraftDate"
                   ]}
                   emptyMessage="No OverDrafts found."
                   showGridlines
@@ -308,29 +308,39 @@ const ManageOverDraft = () => {
                   <Column
                     field="overDraftDate"
                     header="Date"
+<<<<<<< HEAD
                     body={(d) => formatDate(d.overDraftDate)}
+=======
+                    body={(d) => {
+                      const date = new Date(d.overDraftDate);
+                      const day = date.getDate().toString().padStart(2, "0");
+                      const month = date.toLocaleString("en-US", { month: "short" });
+                      const year = date.getFullYear();
+                      return `${day}-${month}-${year}`;
+                    }}
+>>>>>>> a559928087df7ea1f73ebe586b7426b5c897c19d
                     sortable
                   />
                   <Column field="overDraftType" header="Type" sortable />
                   <Column field="bank" header="Bank" sortable />
                   <Column field="interestType" header="Interest" sortable />
-                  <Column field="odInterest" header="Interest (%)" sortable 
-                  body={(d) => Number(d.odInterest).toLocaleString('en-US', {
-                    style: 'decimal',
-                    minimumFractionDigits: 2
-                })}
-                />
+                  <Column field="odInterest" header="Interest (%)" sortable
+                    body={(d) => Number(d.odInterest).toLocaleString('en-US', {
+                      style: 'decimal',
+                      minimumFractionDigits: 2
+                    })}
+                  />
                   <Column
                     field="odAmountIDR"
                     header="Amount (IDR)"
                     body={(d) => Number(d.odAmountIDR).toLocaleString('en-US', {
                       style: 'decimal',
                       minimumFractionDigits: 2
-                  })}
+                    })}
                     className="text-end"
                   />
                   <Column field="repayInMonths" header="Repay (Months)" sortable />
-                  <Column field="isSubmitted" style={{textAlign:"center"}} header="Status" body={statusBodyTemplate} sortable />
+                  <Column field="isSubmitted" style={{ textAlign: "center" }} header="Status" body={statusBodyTemplate} sortable />
                   <Column header="Action" body={actionBodyTemplate} />
                 </DataTable>
               </Card>

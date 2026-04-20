@@ -453,7 +453,7 @@ const ManageExpense = () => {
                   header={renderHeader()}
                 >
 
-                  <Column field="expDate" header="Date" body={(d) => format(new Date(d.expDate || d.ExpDate), "dd-MMM-yyyy")} className="text-center" sortable />
+                  <Column field="expDate" header="Date" body={(d) => format(new Date(d.expDate || d.ExpDate), "dd-MMM-yyyy")} className="text-right" sortable />
                   <Column field="voucherNo" header="Reference" className="text-center" sortable />
                   <Column field="dailyVoucher" header="PCV No" className="text-left" sortable />
                   <Column field="expenseDescription" header="Description" className="text-left" sortable />
