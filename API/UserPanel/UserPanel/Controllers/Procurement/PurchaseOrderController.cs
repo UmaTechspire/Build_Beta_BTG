@@ -10,6 +10,7 @@ using Application.Procurement.Purchase_Order.GetPurchaseRequisitionItemsList;
 using Application.Procurement.Purchase_Order.GetPurchaseRequisitionList;
 using Application.Procurement.Purchase_Order.GetSupplierCurrencyList;
 using Application.Procurement.Purchase_Order.UpdatePurchaseOrderItem;
+using Application.Procurement.Purchase_Order.CancelPurchaseOrder;
 using Application.Procurement.Purchase_Requitision.GetAllPurchaseRequitsionitems;
 using Application.Procurement.Purchase_Requitision.GetPurchaseMemoItemsList;
 using Application.Procurement.Purchase_Requitision.GetPurchaseMemoList;
@@ -64,6 +65,13 @@ namespace UserPanel.Controllers.Procurement
 
         [HttpPut("Update")]
         public async Task<IActionResult> Update([FromBody] UpdatePurchaseOrderItemQuery command)
+        {
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
+        [HttpPost("CancelPO")]
+        public async Task<IActionResult> CancelPO([FromBody] CancelPurchaseOrderCommand command)
         {
             var result = await _mediator.Send(command);
             return Ok(result);

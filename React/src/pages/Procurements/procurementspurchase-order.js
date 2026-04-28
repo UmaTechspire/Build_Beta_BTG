@@ -41,6 +41,10 @@ const btnCircleStyle = `
     min-width: 120px;
     color: #333;
 }
+.cancelled-row {
+    background-color: #ffcccc !important;
+    color: #990000 !important;
+}
 `;
 import AsyncSelect from "react-select/async";
 import "primereact/resources/themes/lara-light-blue/theme.css";
@@ -61,6 +65,7 @@ import {
     GetAllPurchaseOrderList,
     GetPOSupplierAutoComplete,
     GetPONOAutoComplete,
+    CancelPurchaseOrder,
     GetByIdPurchaseOrder, GetCommonProcurementPRNoList, GetPRNoBySupplierAndCurrency, GetPurchaseOrderPrint,
     GetAllPO, GetAllItems, GetGRNById, IRNGetBy, ClaimAndPaymentGetById, GetItemNameAutoComplete
 } from "common/data/mastersapi";
@@ -1108,23 +1113,21 @@ const ProcurementsManagePurchaseOrder = () => {
         }).then(async (result) => {
             if (result.isConfirmed) {
                 try {
-                    // Call cancel PO API - this will cancel PO and reset PR approval
-                    const response = await axios.post(
-                        `${process.env.REACT_APP_API_DNAP_URL}/api/PurchaseOrder/CancelPO`,
-                        {
-                            poid: rowData.poid,
-                            userId: UserData?.u_id,
-                            branchId: branchId,
-                            orgId: orgId
-                        }
-                    );
-                    if (response.data.status || response.status === 200) {
+                    // Call cancel PO API using helper - this will cancel PO and reset PR approval
+                    const response = await CancelPurchaseOrder({
+                        poid: rowData.poid,
+                        userId: UserData?.u_id,
+                        branchId: branchId,
+                        orgId: orgId
+                    });
+                    if (response.status) {
                         Swal.fire("Cancelled!", "Purchase Order has been cancelled and PR approval has been reset.", "success");
                         // Refresh the list
-                        const result = await GetAllPurchaseOrderList(0, branchId, 0, orgId, UserData?.u_id);
-                        setPurchaseOrders(Array.isArray(result.data) ? result.data : []);
+                        const resList = await GetAllPurchaseOrderList(0, branchId, 0, orgId, UserData?.u_id);
+                        setPurchaseOrders(Array.isArray(resList.data) ? resList.data : []);
+                        setAllPurchaseOrders(Array.isArray(resList.data) ? resList.data : []);
                     } else {
-                        Swal.fire("Error", response.data.message || "Failed to cancel PO.", "error");
+                        Swal.fire("Error", response.message || "Failed to cancel PO.", "error");
                     }
                 } catch (error) {
                     console.error("Error cancelling PO:", error);
@@ -1424,6 +1427,22 @@ const ProcurementsManagePurchaseOrder = () => {
                         font-size: 13px;
                         color: #495057;
                     }
+                    
+                    /* Cancelled PO row - red highlight */
+                    .p-datatable .p-datatable-tbody > tr.cancelled-row {
+                        background-color: #ffcccc !important;
+                    }
+                    .p-datatable .p-datatable-tbody > tr.cancelled-row > td {
+                        background-color: #ffcccc !important;
+                        color: #990000 !important;
+                    }
+                    .p-datatable .p-datatable-tbody > tr.cancelled-row:hover {
+                        background-color: #ffaaaa !important;
+                    }
+                    .p-datatable .p-datatable-tbody > tr.cancelled-row:hover > td {
+                        background-color: #ffaaaa !important;
+                    }
+
                 `}
             </style>
             <div className="page-content">
@@ -1729,6 +1748,7 @@ const ProcurementsManagePurchaseOrder = () => {
                                         header={header}
                                         onFilter={(e) => setFilters(e.filters)}
                                         className="blue-bg"
+                                        rowClassName={(data) => ({ 'cancelled-row': data.IsCancel === 1 || data.IsCancel === true })}
                                     >
                                         {visibleColumns.find(col => col.field === 'pono') && <Column
                                             field="pono"

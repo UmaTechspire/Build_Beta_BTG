@@ -3703,6 +3703,19 @@ export const GetAllPurchaseOrderList = async (id, branchId, supplierId, orgId, u
         return { status: false, message: err.message || "Something went wrong" };
     }
 };
+
+
+export const CancelPurchaseOrder = async (payload) => {
+    try {
+        const response = await post("/PurchaseOrder/CancelPO", payload);
+        return response;
+    } catch (error) {
+        console.error("API error cancelling purchase order:", error);
+        throw error;
+    }
+};
+
+
 export const GetPrIdDetails = async (id, orgId, branchId) => {
     try {
         debugger

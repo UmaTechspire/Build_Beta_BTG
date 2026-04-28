@@ -874,5 +874,36 @@ namespace Infrastructure.Repositories
             }
         }
 
+
+        public async Task<object> CancelPOAsync(int poid, int userId, int branchId, int orgId)
+        {
+            try
+            {
+                var param = new DynamicParameters();
+                param.Add("@p_poid", poid);
+                param.Add("@p_userid", userId);
+                param.Add("@p_branchid", branchId);
+                param.Add("@p_orgid", orgId);
+
+                var result = await _connection.QueryFirstOrDefaultAsync(PurchaseOrderBackEnd.CancelPurchaseOrderProcedure, param: param, commandType: CommandType.StoredProcedure);
+
+                return new ResponseModel()
+                {
+                    Data = result,
+                    Message = result?.status == 1 ? "Success" : result?.message ?? "Failed",
+                    Status = result?.status == 1
+                };
+            }
+            catch (Exception Ex)
+            {
+                return new ResponseModel()
+                {
+                    Data = null,
+                    Message = "Something went wrong: " + Ex.Message,
+                    Status = false
+                };
+            }
+        }
+
     }
 }

@@ -10,5 +10,6 @@ namespace BackEnd.Procurement.PurchaseOrder
     {
         public static string PurchaseOrderProcedure = "proc_purchaseorder";
         public static string PurchaseORderPrint = "proc_purchaseorder_print";
+        public static string CancelPurchaseOrderProcedure = "proc_cancelPurchaseOrder";
     }
 }

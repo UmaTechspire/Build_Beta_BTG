@@ -25,5 +25,7 @@ namespace Core.Procurement.PurchaseOrder
         Task<object> GetPurchaseorderPrint(int opt, int poid, int branchid, int orgid);
 
         Task<object> GetSupplierCurrencyList(int supplierid, int branchid, int orgid);
+
+        Task<object> CancelPOAsync(int poid, int userId, int branchId, int orgId);
     }
 }
