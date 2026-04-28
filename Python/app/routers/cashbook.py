@@ -145,7 +145,7 @@ async def get_cash_claims(claim_category: Optional[str] = None, db: AsyncSession
                     h.Remarks,
                     h.ApplicationNo
                 )                 as applicant_name,
-                h.TotalAmountInIDR as amount,
+                h.claimamountintc  as amount,
                 h.ApplicationDate as payment_date,
                 mc.claimcategory  as claim_category,
                 COALESCE(mc2.CurrencyCode, 'IDR') as currency_code
