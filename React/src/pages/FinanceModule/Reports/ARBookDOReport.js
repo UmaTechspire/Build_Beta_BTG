@@ -103,6 +103,7 @@ const ARBookDOReport = () => {
     }
   };
 
+
   // --- CONVERT TO INVOICE HANDLER (UPDATED) ---
   const handleConvertSubmit = async () => {
     if (!newInvoiceNo.trim()) {
@@ -134,7 +135,7 @@ const ARBookDOReport = () => {
         toast.success(`Success! Converted ${selectedRows.length} record(s) to ${newInvoiceNo}`);
         setIsConvertModalOpen(false);
         setNewInvoiceNo("");
-        
+
         // Refresh data to remove converted rows from this view
         fetchARBook();
       } else {
@@ -150,7 +151,7 @@ const ARBookDOReport = () => {
   };
 
   const handleReferenceClick = async (rowData) => {
-    const invoiceIdentifier = rowData.invoice_no;
+    const invoiceIdentifier = rowData.invoice_no ? String(rowData.invoice_no).trim() : null;
     if (!invoiceIdentifier) {
       toast.warning("No Reference Number available.");
       return;
@@ -162,7 +163,7 @@ const ARBookDOReport = () => {
 
     try {
       const response = await GetInvoiceDetails(invoiceIdentifier);
-      const data = response.data || response;
+      const data = response ? (response.data || response) : null;
       if (data) {
         setInvoiceDetails(data);
       } else {
@@ -178,8 +179,8 @@ const ARBookDOReport = () => {
 
   const referenceBodyTemplate = (row) => {
     return (
-      <span 
-        className="text-primary fw-bold" 
+      <span
+        className="text-primary fw-bold"
         style={{ cursor: 'pointer', textDecoration: 'underline' }}
         onClick={() => handleReferenceClick(row)}
         title="View Details"
@@ -364,15 +365,15 @@ const ARBookDOReport = () => {
             ) : invoiceDetails ? (
               <>
                 <div className="mb-4 p-3 bg-light rounded border">
-                    <Row>
-                        <Col md="6"><Label className="text-muted small mb-0">Customer</Label><div className="fw-bold">{invoiceDetails.CustomerName}</div></Col>
-                        <Col md="3"><Label className="text-muted small mb-0">Date</Label><div className="fw-bold">{invoiceDetails.Salesinvoicesdate ? format(new Date(invoiceDetails.Salesinvoicesdate), "dd-MMM-yyyy") : "N/A"}</div></Col>
-                        <Col md="3"><Label className="text-muted small mb-0">Currency</Label><div className="fw-bold">{invoiceDetails.CurrencyCode || "IDR"}</div></Col>
-                    </Row>
-                    <Row className="mt-2 text-primary">
-                        <Col md="6"><Label className="text-muted small mb-0">PO Number</Label><div className="fw-bold">{invoiceDetails.PONumber || "-"}</div></Col>
-                        <Col md="6"><Label className="text-muted small mb-0">Total Amount</Label><div className="fw-bold">{parseFloat(invoiceDetails.TotalAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></Col>
-                    </Row>
+                  <Row>
+                    <Col md="6"><Label className="text-muted small mb-0">Customer</Label><div className="fw-bold">{invoiceDetails.CustomerName}</div></Col>
+                    <Col md="3"><Label className="text-muted small mb-0">Date</Label><div className="fw-bold">{invoiceDetails.Salesinvoicesdate ? format(new Date(invoiceDetails.Salesinvoicesdate), "dd-MMM-yyyy") : "N/A"}</div></Col>
+                    <Col md="3"><Label className="text-muted small mb-0">Currency</Label><div className="fw-bold">{invoiceDetails.CurrencyCode || "IDR"}</div></Col>
+                  </Row>
+                  <Row className="mt-2 text-primary">
+                    <Col md="6"><Label className="text-muted small mb-0">PO Number</Label><div className="fw-bold">{invoiceDetails.PONumber || "-"}</div></Col>
+                    <Col md="6"><Label className="text-muted small mb-0">Total Amount</Label><div className="fw-bold">{parseFloat(invoiceDetails.TotalAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></Col>
+                  </Row>
                 </div>
                 <Table bordered hover responsive className="table-sm align-middle">
                   <thead className="table-light text-center">
@@ -389,12 +390,12 @@ const ARBookDOReport = () => {
                       <tr key={idx}>
                         <td className="text-center text-muted">{idx + 1}</td>
                         <td>
-                            <div className="fw-bold">{item.GasName || item.ItemName || "Item"}</div>
-                            {item.Note && <small className="text-muted d-block">{item.Note}</small>}
+                          <div className="fw-bold">{item.GasName || item.ItemName || "Item"}</div>
+                          {item.Note && <small className="text-muted d-block">{item.Note}</small>}
                         </td>
                         <td className="text-center">{item.PickedQty || item.Qty}</td>
                         <td className="text-end">{parseFloat(item.UnitPrice || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                        <td className="text-end">{parseFloat(item.TotalPrice || (item.Qty * item.UnitPrice) || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                        <td className="text-end">{parseFloat(item.TotalPrice || ((item.PickedQty || item.Qty || 0) * (item.UnitPrice || 0)) || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                       </tr>
                     ))}
                   </tbody>

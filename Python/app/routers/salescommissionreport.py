@@ -46,7 +46,7 @@ async def get_sales_commission(
                 "customerName": r.get("CustomerName") or r.get("customerName"),
                 "contactName": r.get("ContactName") or r.get("contactName"),
                 "invoiceDate": r.get("InvoiceDate") or r.get("invoiceDate"),
-                "invoiceId": r.get("InvoiceId") or r.get("invoiceId"),
+                 "invoiceNo": r.get("InvoiceNo") or r.get("salesinvoicenbr"),
                 "qty": r.get("Qty") or r.get("qty"),
                 "gasName": r.get("GasName") or r.get("gasName"),
                 "rate": r.get("Rate") or r.get("rate"),

@@ -14,19 +14,20 @@ DB_PORT = os.getenv("DB_PORT")
 DB_NAME_FINANCE = os.getenv("DB_NAME_FINANCE", "btggasify_finance_live")
 DB_PASS_QUOTED = urllib.parse.quote_plus(DB_PASS)
 
-async def check_columns():
+async def test_query():
     url = f"mysql+aiomysql://{DB_USER}:{DB_PASS_QUOTED}@{DB_HOST}:{DB_PORT}/{DB_NAME_FINANCE}"
     engine = create_async_engine(url)
     
     try:
         async with engine.connect() as conn:
-            print("\n--- tbl_petty_cash columns ---")
-            res = await conn.execute(text("SHOW COLUMNS FROM tbl_petty_cash"))
-            for row in res.fetchall():
-                print(row[0])
+            try:
+                res = await conn.execute(text("SELECT COUNT(*) FROM tbl_petty_cash WHERE isactive = 1"))
+                print(f"Count with isactive=1: {res.scalar()}")
+            except Exception as e:
+                print(f"Query failed: {e}")
                 
     finally:
         await engine.dispose()
 
 if __name__ == "__main__":
-    asyncio.run(check_columns())
+    asyncio.run(test_query())

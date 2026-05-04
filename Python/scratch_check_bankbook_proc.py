@@ -14,19 +14,22 @@ DB_PORT = os.getenv("DB_PORT")
 DB_NAME_FINANCE = os.getenv("DB_NAME_FINANCE", "btggasify_finance_live")
 DB_PASS_QUOTED = urllib.parse.quote_plus(DB_PASS)
 
-async def check_columns():
+async def check_proc():
     url = f"mysql+aiomysql://{DB_USER}:{DB_PASS_QUOTED}@{DB_HOST}:{DB_PORT}/{DB_NAME_FINANCE}"
     engine = create_async_engine(url)
     
     try:
         async with engine.connect() as conn:
-            print("\n--- tbl_petty_cash columns ---")
-            res = await conn.execute(text("SHOW COLUMNS FROM tbl_petty_cash"))
-            for row in res.fetchall():
-                print(row[0])
+            print("\n--- proc_Bank_GetReportTransactions ---")
+            res = await conn.execute(text("SHOW CREATE PROCEDURE proc_Bank_GetReportTransactions"))
+            row = res.fetchone()
+            if row:
+                print(row[2])
+            else:
+                print("Procedure not found")
                 
     finally:
         await engine.dispose()
 
 if __name__ == "__main__":
-    asyncio.run(check_columns())
+    asyncio.run(check_proc())

@@ -588,7 +588,7 @@ async def get_invoice_details(invoiceid: str):
                 FROM {DB_NAME_USER}.InvoiceCommission ic
                 WHERE ic.InvoiceId = :hid
             """)
-            all_comm_res = await conn.execute(all_comm_query, {"hid": int(invoiceid)})
+            all_comm_res = await conn.execute(all_comm_query, {"hid": hid})
             all_comm_rows = all_comm_res.mappings().all()
             
             # Create a lookup map for commissions by GasId

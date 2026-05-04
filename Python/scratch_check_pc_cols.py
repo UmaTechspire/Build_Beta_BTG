@@ -20,7 +20,7 @@ async def check_columns():
     
     try:
         async with engine.connect() as conn:
-            print("\n--- tbl_petty_cash columns ---")
+            print("\n--- Columns in tbl_petty_cash ---")
             res = await conn.execute(text("SHOW COLUMNS FROM tbl_petty_cash"))
             for row in res.fetchall():
                 print(row[0])

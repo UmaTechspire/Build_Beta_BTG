@@ -26,7 +26,7 @@ const gastransformData = (data, valueParam, labelParam) => {
 
 export const GetInvoiceDetails = async (invoicesid) => {
     try {
-        const response = await axios.get(`${PYTHON_API_URL}/pyapi/GetInvoiceDetails?invoiceid=${invoicesid}`);
+        const response = await axios.get(`${PYTHON_API_URL}/pyapi/GetInvoiceDetails?invoiceid=${encodeURIComponent(invoicesid)}`);
 
         if (response.status === 200) {
             return response.data;

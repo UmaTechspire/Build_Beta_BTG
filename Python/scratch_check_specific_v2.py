@@ -14,19 +14,23 @@ DB_PORT = os.getenv("DB_PORT")
 DB_NAME_FINANCE = os.getenv("DB_NAME_FINANCE", "btggasify_finance_live")
 DB_PASS_QUOTED = urllib.parse.quote_plus(DB_PASS)
 
-async def check_columns():
+async def check_records():
     url = f"mysql+aiomysql://{DB_USER}:{DB_PASS_QUOTED}@{DB_HOST}:{DB_PORT}/{DB_NAME_FINANCE}"
     engine = create_async_engine(url)
     
     try:
         async with engine.connect() as conn:
-            print("\n--- tbl_petty_cash columns ---")
-            res = await conn.execute(text("SHOW COLUMNS FROM tbl_petty_cash"))
+            print("\n--- Checking specific PC records (pc_number) ---")
+            res = await conn.execute(text("""
+                SELECT pc_number, category_id, expense_type_id, Amount, ExpenseDescription, VoucherNo
+                FROM tbl_petty_cash
+                WHERE pc_number IN ('PC000417', 'PC000264', 'PC000052', 'PC000042')
+            """))
             for row in res.fetchall():
-                print(row[0])
+                print(dict(row._mapping))
                 
     finally:
         await engine.dispose()
 
 if __name__ == "__main__":
-    asyncio.run(check_columns())
+    asyncio.run(check_records())

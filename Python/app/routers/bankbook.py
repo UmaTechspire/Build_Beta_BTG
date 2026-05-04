@@ -131,16 +131,21 @@ async def get_bank_book_report(
         result = await db.execute(sql, params)
         raw_rows = result.mappings().all()
         
-        # --- FILTER PAYMENTS BY DIRECTOR APPROVAL ---
+        # --- FILTER PAYMENT-TYPE CLAIMS BY DIRECTOR APPROVAL ---
+        # Receipt entries (money IN to bank) should always show once posted.
+        # Only Payment-type entries linked to a Claim need the Director approval gate.
         receipt_ids = [r.get("receipt_id") for r in raw_rows if r.get("receipt_id")]
         if receipt_ids:
-            # We keep rows that are NOT claims (ar_id=0) or ARE approved claims
             approval_sql = text(f"""
                 SELECT r.receipt_id 
                 FROM {DB_NAME_FINANCE}.tbl_ar_receipt r
                 LEFT JOIN {DB_NAME_FINANCE}.tbl_claimAndpayment_header h ON r.ar_id = h.Claim_ID
                 WHERE r.receipt_id IN ({','.join(map(str, receipt_ids))})
-                  AND (r.ar_id = 0 OR r.ar_id IS NULL OR h.PPP_PV_Director_approve = 1)
+                  AND (
+                      r.transaction_type = 'Receipt'  -- Receipts always show (no Director gate)
+                      OR r.ar_id = 0 OR r.ar_id IS NULL  -- Non-claim payments always show
+                      OR h.PPP_PV_Director_approve = 1    -- Claim payments need Director approval
+                  )
             """)
             approval_result = await db.execute(approval_sql)
             approved_ids = {row[0] for row in approval_result.all()}
