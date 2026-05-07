@@ -604,9 +604,23 @@ const AddPurchaseMemo = () => {
         }
     }, [isEditMode, purchase_memo_id]);
 
-    const handleRemoveItem = (index) => {
-        const updatedDetails = supplierAddresses.filter((_, i) => i !== index);
-        setsupplierAddresses(updatedDetails);
+    const handleRemoveItem = (index, remove) => {
+        remove(index);
+        // Shift itemNameOptions to maintain alignment with row indices
+        setItemNameOptions(prev => {
+            const next = { ...prev };
+            const keys = Object.keys(next).map(Number).sort((a, b) => a - b);
+
+            const updated = {};
+            keys.forEach(k => {
+                if (k < index) {
+                    updated[k] = next[k];
+                } else if (k > index) {
+                    updated[k - 1] = next[k];
+                }
+            });
+            return updated;
+        });
     };
     const handleCancel = () => {
         history.push("/procurementspurchase-memo");
@@ -1191,7 +1205,7 @@ const AddPurchaseMemo = () => {
                                                                                     <button
                                                                                         type="button"
                                                                                         className="btn btn-sm btn-danger"
-                                                                                        onClick={() => remove(i)}
+                                                                                        onClick={() => handleRemoveItem(i, remove)}
                                                                                         title="Remove Row"
                                                                                         style={{ background: 'none', border: 'none', padding: 0 }}
                                                                                     >
