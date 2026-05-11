@@ -1021,12 +1021,20 @@ BEGIN
     LEFT JOIN btggasify_live.master_gascode g ON det.gascodeid = g.Id
     WHERE h.customerid = p_customer_id
       AND h.isactive = 1 
+      AND (h.salesinvoicenbr LIKE 'DO%' OR h.salesinvoicenbr LIKE '27%')
+      AND EXISTS (
+          SELECT 1 
+          FROM btggasify_finance_live.tbl_accounts_receivable ar 
+          WHERE ar.invoice_id = h.id 
+            AND ar.is_active = 1
+      )
       AND NOT EXISTS (
           SELECT 1 
           FROM btggasify_live.tbl_salesinvoices_details det_link 
           JOIN btggasify_live.tbl_salesinvoices_header h_link ON det_link.salesinvoicesheaderid = h_link.id
           WHERE TRIM(det_link.DOnumber) = TRIM(h.salesinvoicenbr) COLLATE utf8mb4_general_ci
             AND h_link.isactive = 1
+            AND h_link.id != h.id
       )
     GROUP BY h.id, h.salesinvoicenbr, h.Salesinvoicesdate, h.TotalQty, h.TotalAmount
     ORDER BY h.Salesinvoicesdate ASC;

@@ -373,6 +373,7 @@ BEGIN
         SET inv_amount = inv_amount + v_amt, 
             invoice_amt_idr = invoice_amt_idr + v_amt_idr,
             balance_amount = balance_amount + v_amt,
+            invoice_date = CURDATE(),
             updated_date = NOW()
         WHERE ar_id = v_existing_ar_id;
         
@@ -383,7 +384,9 @@ BEGIN
     ELSE
         -- 3. STANDARD SCENARIO: First time setting this reference or only one record
         UPDATE btggasify_finance_live.tbl_accounts_receivable 
-        SET invoice_no = p_ref COLLATE utf8mb4_general_ci, updated_date = NOW()
+        SET invoice_no = p_ref COLLATE utf8mb4_general_ci, 
+            invoice_date = CURDATE(),
+            updated_date = NOW()
         WHERE ar_id = p_ar_id;
     END IF;
 END //

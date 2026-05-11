@@ -235,13 +235,14 @@ DELIMITER ;
 
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_DSI_CheckDOConverted;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_DSI_CheckDOConverted(IN p_do_num VARCHAR(100))
+CREATE PROCEDURE btggasify_finance_live.proc_DSI_CheckDOConverted(IN p_do_num VARCHAR(100), IN p_exclude_id INT)
 BEGIN
     SELECT h.salesinvoicenbr 
     FROM btggasify_live.tbl_salesinvoices_details d
     JOIN btggasify_live.tbl_salesinvoices_header h ON d.salesinvoicesheaderid = h.id
     WHERE d.DOnumber = p_do_num COLLATE utf8mb4_general_ci
       AND h.isactive = 1
+      AND h.id != p_exclude_id
     LIMIT 1;
 END //
 DELIMITER ;

@@ -711,8 +711,8 @@ async def create_invoice_from_do(payload: ConvertDORequest):
 
                 if do_num_str:
                     # Check if this string exists in any ACTIVE invoice's details
-                    check_do_q = text("CALL proc_DSI_CheckDOConverted(:do_num)")
-                    check_res = await conn.execute(check_do_q, {"do_num": do_num_str})
+                    check_do_q = text("CALL proc_DSI_CheckDOConverted(:do_num, :do_id)")
+                    check_res = await conn.execute(check_do_q, {"do_num": do_num_str, "do_id": do_id})
                     existing_inv = check_res.scalar()
                     
                     if existing_inv:

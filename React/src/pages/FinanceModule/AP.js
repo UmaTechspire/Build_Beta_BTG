@@ -443,9 +443,10 @@ const AP = () => {
 
                 let cumulative = 0;
                 mergedList = mergedList.map(item => {
-                    cumulative += item.IRNAmount;
+                    const balance = (item.IRNAmount || 0) - (item.ClaimAmount || 0);
+                    cumulative += balance;
                     if (Math.abs(cumulative) < 0.001) cumulative = 0;
-                    return { ...item, CumulativeAmount: cumulative };
+                    return { ...item, Balance: balance, CumulativeAmount: cumulative };
                 });
 
                 setLedgerData(mergedList);
@@ -1136,6 +1137,11 @@ const AP = () => {
                                         let val = item.ClaimAmount || 0;
                                         if (Math.abs(val) < 0.001) val = 0;
                                         return val !== 0 ? val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-";
+                                    }} className="text-end" sortable />
+                                    <Column field="Balance" header="Balance" body={(item) => {
+                                        let val = item.Balance || 0;
+                                        if (Math.abs(val) < 0.001) val = 0;
+                                        return val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                                     }} className="text-end" sortable />
                                     <Column field="CumulativeAmount" header="Cumulative" body={(item) => {
                                         let val = item.CumulativeAmount || 0;

@@ -636,21 +636,30 @@ async def bulk_update_ar_reference(db: AsyncSession, ar_ids: List[int], new_refe
 
         updated_count = 0
 
+        # 🟢 Resolve all invoice IDs first
+        query_get_inv = text("SELECT ar_id, invoice_id FROM btggasify_finance_live.tbl_accounts_receivable WHERE ar_id IN :ids")
+        res = await db.execute(query_get_inv, {"ids": tuple(ar_ids)})
+        id_map = {row[0]: row[1] for row in res.fetchall()}
+        
+        if not id_map:
+            return 0
+            
+        # Pick the first invoice ID as primary
+        primary_inv_id = list(id_map.values())[0]
+
         for ar_id in ar_ids:
-            # 🟢 UPDATED: Multiple records can now share the same reference (DB index was dropped)
-            unique_ref = new_reference
+            inv_id = id_map.get(ar_id)
+            if not inv_id: continue
 
             # 1. Update Details (Preserve DO Linkage)
-            preserve_do_query = text("CALL proc_CRUD_BulkUpdatePreserveDO(:id, :ref)")
-            await db.execute(preserve_do_query, {"id": ar_id, "ref": unique_ref})
+            await db.execute(text("CALL proc_CRUD_BulkUpdatePreserveDO(:id, :ref)"), {"id": ar_id, "ref": new_reference})
             
-            # 2. Update Finance AR Table
-            query_finance = text("CALL proc_CRUD_BulkUpdateFinanceAR(:id, :ref)")
-            await db.execute(query_finance, {"ref": unique_ref, "id": ar_id})
+            # 2. Update Finance AR Table (Existing SP handles merging AR amounts)
+            await db.execute(text("CALL proc_CRUD_BulkUpdateFinanceAR(:id, :ref)"), {"id": ar_id, "ref": new_reference})
 
-            # 3. Update Sales Header Table
-            query_sales = text("CALL proc_CRUD_BulkUpdateSalesHeader(:id, :ref)")
-            await db.execute(query_sales, {"ref": unique_ref, "id": ar_id})
+            # 3. Update/Consolidate Sales Header (New SP handles merging headers)
+            await db.execute(text("CALL proc_CRUD_ConsolidateInvoices(:p_id, :s_id, :ref)"), 
+                             {"p_id": primary_inv_id, "s_id": inv_id, "ref": new_reference})
             
             updated_count += 1
 
