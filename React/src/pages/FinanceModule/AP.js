@@ -1126,7 +1126,7 @@ const AP = () => {
                                     }} className="text-end" sortable />
                                     <Column field="grn_no" header="GRN No. / DATE" body={displayGRNNumber} sortable />
                                     <Column field="irn_no" header="IRN No. / DATE" body={displayIRNNumber} sortable />
-                                    <Column field="IRNAmount" header="IRN Amount" body={(item) => {
+                                    <Column field="IRNAmount" header="GRN/IRN Amount" body={(item) => {
                                         let val = item.IRNAmount || 0;
                                         if (Math.abs(val) < 0.001) val = 0;
                                         return val !== 0 ? val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-";

@@ -1,4 +1,4 @@
-﻿using DocumentFormat.OpenXml.Wordprocessing;
+using DocumentFormat.OpenXml.Wordprocessing;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -47,6 +47,8 @@ namespace Core.Procurement.GoodsReceiptNote
         public decimal costperqty { get; set; }
         public decimal amount { get; set; }
         public int porid { get; set; }
+        public decimal UnitPrice { get; set; }
+        public decimal TotalAmount { get; set; }
         public int isactive { get; set; }
         public int userid { get; set; }
         public string createdip { get; set; }

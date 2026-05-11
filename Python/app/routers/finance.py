@@ -183,7 +183,7 @@ def get_ap_ledger(
 
         # Format dates for JSON
         for row in result_rows:
-            for key in ['po_date', 'grn_date', 'ref_date']:
+            for key in ['po_date', 'grn_date', 'ref_date', 'irn_date', 'claim_date']:
                 if row.get(key):
                     row[key] = str(row[key])
 

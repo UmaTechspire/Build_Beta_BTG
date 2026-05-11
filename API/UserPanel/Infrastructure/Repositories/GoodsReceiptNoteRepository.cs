@@ -1,4 +1,4 @@
-﻿using BackEnd.Procurement.GoodsReceiptNote;
+using BackEnd.Procurement.GoodsReceiptNote;
 using BackEnd.Procurement.PurchaseOrder;
 using BackEnd.Procurement.PurchaseRequitision;
 using BackEnd.Shared;
@@ -373,15 +373,25 @@ namespace Infrastructure.Repositories
 
                 var pridToPodidMap = new Dictionary<int, int>();
                 var detailSql = "";
+                var unitPriceDict = new Dictionary<int, decimal>();
+                var porids = Obj.Details.Select(x => x.porid).Where(id => id > 0).Distinct().ToList();
+                if (porids.Any())
+                {
+                    var unitPriceData = await _connection.QueryAsync("SELECT porid, unitprice FROM tbl_purchaseorder_requisitions WHERE porid IN @porids", new { porids });
+                    unitPriceDict = unitPriceData.ToDictionary(x => (int)x.porid, x => (decimal)(x.unitprice ?? 0m));
+                }
+
                 foreach (var detail in Obj.Details)
                 {
                     detail.grnid = grnid;
+                    detail.UnitPrice = unitPriceDict.ContainsKey(detail.porid) ? unitPriceDict[detail.porid] : 0;
+                    detail.TotalAmount = detail.UnitPrice * detail.grnqty;
 
                     detailSql = @"                        
                     INSERT INTO `tbl_grn_detail`(`grnid`,`itemid`,`uomid`,`dono`,`dodate`,`poqty`,`alreadyrecqty`,`balanceqty`,
-                    `grnQty`,`containerno`,`costperqty`,`amount`,`porid`,`isactive`,`createdby`,`createddt`,`createdip`,`branchid`,`orgid`,`poid`)
+                    `grnQty`,`containerno`,`costperqty`,`amount`,`porid`,`isactive`,`createdby`,`createddt`,`createdip`,`branchid`,`orgid`,`poid`, `UnitPrice`, `TotalAmount`)
                     VALUES(@grnid,@itemid,@uomid,@dono,@dodate,@poqty,@alreadyrecqty,@balanceqty,@grnqty,@containerno,@costperqty,@amount,
-                    @porid,1,@userid,Now(),'',@branchid,@orgid,@poid);";
+                    @porid,1,@userid,Now(),'',@branchid,@orgid,@poid, @UnitPrice, @TotalAmount);";
 
 
                     var podid = await _connection.ExecuteAsync(detailSql, new
@@ -402,7 +412,9 @@ namespace Infrastructure.Repositories
                         userid = Obj.Header.userid,
                         branchid = Obj.Header.branchid,
                         orgid = Obj.Header.orgid,
-                        poid = detail.poid
+                        poid = detail.poid,
+                        UnitPrice = detail.UnitPrice,
+                        TotalAmount = detail.TotalAmount
                     });
 
 
@@ -488,21 +500,31 @@ namespace Infrastructure.Repositories
 
            
                 var Result = await _connection.ExecuteAsync(UpdateSoquot);
+                var unitPriceDictUpdate = new Dictionary<int, decimal>();
+                var poridsUpdate = Obj.Details.Select(x => x.porid).Where(id => id > 0).Distinct().ToList();
+                if (poridsUpdate.Any())
+                {
+                    var unitPriceData = await _connection.QueryAsync("SELECT porid, unitprice FROM tbl_purchaseorder_requisitions WHERE porid IN @porids", new { porids = poridsUpdate });
+                    unitPriceDictUpdate = unitPriceData.ToDictionary(x => (int)x.porid, x => (decimal)(x.unitprice ?? 0m));
+                }
+
                 //Update Details
                 foreach (var detail in Obj.Details)
                 {
                     string updateDetailSql = "";
 
                     detail.grnid = Obj.Header.grnid;
+                    detail.UnitPrice = unitPriceDictUpdate.ContainsKey(detail.porid) ? unitPriceDictUpdate[detail.porid] : 0;
+                    detail.TotalAmount = detail.UnitPrice * detail.grnqty;
 
                     if (detail.grndid == 0)
                     {
 
                         updateDetailSql = @"                        
                     INSERT INTO `tbl_grn_detail`(`grnid`,`itemid`,`uomid`,`dono`,`dodate`,`poqty`,`alreadyrecqty`,`balanceqty`,
-                    `grnQty`,`containerno`,`costperqty`,`amount`,`porid`,`isactive`,`createdby`,`createddt`,`createdip`,`branchid`,`orgid`,`poid`)
+                    `grnQty`,`containerno`,`costperqty`,`amount`,`porid`,`isactive`,`createdby`,`createddt`,`createdip`,`branchid`,`orgid`,`poid`, `UnitPrice`, `TotalAmount`)
                     VALUES(@grnid,@itemid,@uomid,@dono,@dodate,@poqty,@alreadyrecqty,@balanceqty,@grnqty,@containerno,@costperqty,@amount,
-                    @porid,1,@userid,Now(),'',@branchid,@orgid,@poid);";
+                    @porid,1,@userid,Now(),'',@branchid,@orgid,@poid, @UnitPrice, @TotalAmount);";
                     }
                     else
                     {
@@ -529,7 +551,9 @@ namespace Infrastructure.Repositories
                                        branchid = @branchid,
                                        orgid = @orgid,
                                        poid = @poid,
-                                       isactive=1 
+                                       isactive=1,
+                                       UnitPrice = @UnitPrice,
+                                       TotalAmount = @TotalAmount
                                        WHERE grndid = @grndid;";
                     }
                     await _connection.ExecuteAsync(updateDetailSql, new
@@ -551,7 +575,9 @@ namespace Infrastructure.Repositories
                         branchid = Obj.Header.branchid,
                         orgid = Obj.Header.orgid,
                         poid = detail.poid,
-                        grnid=detail.grnid
+                        grnid=detail.grnid,
+                        UnitPrice = detail.UnitPrice,
+                        TotalAmount = detail.TotalAmount
                     });
                 }
 

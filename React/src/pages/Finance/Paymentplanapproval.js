@@ -179,29 +179,16 @@ const Paymentplanapproval = ({ selectedType, setSelectedType }) => {
       return;
     }
 
-    Swal.fire({
-      title: "Are you sure?",
-      text: "Are you sure you want to submit?",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
-      confirmButtonText: "Yes",
-      cancelButtonText: "No",
-    }).then(async (result) => {
-      if (result.isConfirmed) {
-        await GetSeqNo();
+    await GetSeqNo();
 
-        if (Claimheader.alravailable == 1) {
-          setConvertFromDate(Claimheader.FromDate ? new Date(Claimheader.FromDate) : null);
-          setConvertToDate(Claimheader.ToDate ? new Date(Claimheader.ToDate) : null);
-        } else {
-          setConvertFromDate(null);
-          setConvertToDate(null);
-        }
-        setConvertModalVisible(true);
-      }
-    });
+    if (Claimheader.alravailable == 1) {
+      setConvertFromDate(Claimheader.FromDate ? new Date(Claimheader.FromDate) : null);
+      setConvertToDate(Claimheader.ToDate ? new Date(Claimheader.ToDate) : null);
+    } else {
+      setConvertFromDate(null);
+      setConvertToDate(null);
+    }
+    setConvertModalVisible(true);
   };
   const handleConvertSubmit = async (type) => {
     if (!convertFromDate || !convertToDate) {
@@ -212,6 +199,28 @@ const Paymentplanapproval = ({ selectedType, setSelectedType }) => {
       Swal.fire("Warning", "Claim record is not available.", "warning");
       return;
     }
+
+    if (type === 1) {
+      Swal.fire({
+        title: "Are you sure?",
+        text: "Click Yes to confirm the Submit",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#3085d6",
+        cancelButtonColor: "#d33",
+        confirmButtonText: "Yes",
+        cancelButtonText: "No",
+      }).then((result) => {
+        if (result.isConfirmed) {
+          processSubmit(type);
+        }
+      });
+    } else {
+      processSubmit(type);
+    }
+  };
+
+  const processSubmit = async (type) => {
 
 
 
