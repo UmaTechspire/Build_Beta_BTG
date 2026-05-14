@@ -504,7 +504,11 @@ const AddPurchaseRequisition = () => {
                     peymenttermid: item.peymenttermid,
                     deliverytermid: item.deliverytermid
                 }));
-                setSuppliers(options);
+                // Robust deduplication: trim, collapse spaces, and case-insensitive check
+                const uniqueOptions = Array.from(
+                    new Map(options.map(item => [item.label.trim().replace(/\s+/g, ' ').toUpperCase(), item])).values()
+                );
+                setSuppliers(uniqueOptions);
             }
 
             if (paymentTermsRes.status) {
