@@ -617,6 +617,38 @@ def get_payment_summary_seq_no(orgid: int, branchid: int, userid: int):
         if cursor: cursor.close()
         if conn: conn.close()
 
+# --- NEW: Resolve Claim Application Number → Claim_ID (for BankBook Details popup) ---
+@router.get("/get-id-by-no")
+def get_claim_id_by_no(claim_no: str):
+    """
+    Resolves a Claim ApplicationNo (e.g. 'CLM0003750') to its database Claim_ID.
+    Used by BankBook to fetch the correct claim details without relying on
+    fragile digit-stripping from the application number string.
+    """
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection_sync()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute(
+            "SELECT Claim_ID FROM tbl_claimAndpayment_header WHERE ApplicationNo = %s AND IsActive = 1 LIMIT 1",
+            (claim_no,)
+        )
+        row = cursor.fetchone()
+
+        if row:
+            return {"status": True, "claim_id": row["Claim_ID"]}
+
+        return {"status": False, "message": f"No active claim found for application number '{claim_no}'"}
+
+    except Exception as e:
+        print(f"Error resolving claim number: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+
 # --- NEW: Get All Claims (Migration from .NET proc_claimAndpayment OPT=1) ---
 @router.get("/get_all")
 def get_all_claims(

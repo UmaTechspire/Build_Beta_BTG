@@ -137,28 +137,42 @@ const BankBook = () => {
 
         try {
             if (isClaim) {
-                // Find 'CLM' part in string if exists, otherwise fallback to first part
+                // Extract the CLM application number from the VoucherNo string
                 const pureClaimNo = (voucherNo || "").split(" - ").find(p => p.trim().startsWith("CLM"))?.split(" ")[0] || (voucherNo || "").split(" - ")[0];
 
-                // 1. Fetch ALL claims to find the one with matching ApplicationNo
-                // Searching by ApplicationNo is the only reliable way since digits in string != Claim_ID necessarily
-                const listRes = await GetAllClaimAndPayment(0, 0, 1, 1, 0);
                 let claimId = null;
 
-                if (listRes?.status && listRes.data) {
-                    const match = listRes.data.find(c => c.claimno === pureClaimNo);
-                    if (match) {
-                        claimId = match.Claim_ID;
+                // STEP 1 (Primary): Resolve CLM application number → Claim_ID directly.
+                // This queries tbl_claimAndpayment_header.ApplicationNo — simple, no joins, always accurate.
+                try {
+                    const resolveRes = await axios.get(`${PYTHON_API_URL}/api/claim/get-id-by-no`, {
+                        params: { claim_no: pureClaimNo }
+                    });
+                    if (resolveRes.data?.status && resolveRes.data?.claim_id) {
+                        claimId = resolveRes.data.claim_id;
+                    }
+                } catch (resolveErr) {
+                    console.warn("Direct claim ID lookup failed, trying list fallback...", resolveErr);
+                }
+
+                // STEP 2 (Fallback): Search the full claims list by ApplicationNo.
+                // This may miss claims whose detail rows are inactive, but kept as a safety net.
+                if (!claimId) {
+                    const listRes = await GetAllClaimAndPayment(0, 0, 1, 1, 0);
+                    if (listRes?.status && listRes.data) {
+                        const match = listRes.data.find(c => c.claimno === pureClaimNo);
+                        if (match) {
+                            claimId = match.Claim_ID;
+                        }
                     }
                 }
 
-                // Fallback to parsing digits if not found in list (though list is better)
-                if (!claimId) {
-                    claimId = parseInt(pureClaimNo.replace(/\D/g, ''), 10);
-                }
+                // NOTE: The digit-stripping fallback (parseInt("CLM0003750".replace(/\D/g,''))) has been
+                // intentionally removed — extracting "3750" from "CLM0003750" and treating it as a
+                // Claim_ID primary key is incorrect and fetches completely unrelated claim records.
 
                 if (!claimId || isNaN(claimId)) {
-                    toast.error("Invalid claim reference format.");
+                    toast.error("Unable to find claim details. Please check the claim reference.");
                     setLoadingClaimDetail(false);
                     return;
                 }

@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using System.Dynamic;
 using BackEnd.Master;
 using Core.Abstractions;
