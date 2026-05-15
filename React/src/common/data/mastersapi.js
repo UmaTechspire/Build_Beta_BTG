@@ -3915,8 +3915,7 @@ export const GetAllGRNList = async (supplierId, grnNo, orgId, branchId, userid, 
 export const GetPOSupplierDetails = async (opt, orgId, branchId, searchtext, grnid) => {
     try {
         if (orgId === 0) orgId = 1;
-        const encoded = encodeURIComponent(searchtext || '%');
-        const res = await get(`/GoodsReceiptNote/GetSupplierAutoComplete?orgid=${orgId}&branchid=${branchId}&suppliername=${encoded}`);
+        const res = await get(`/GoodsReceiptNote/GetPOSupplierList?orgid=${orgId}&BranchId=${branchId}&grnid=${grnid}`);
         return res;
     } catch (error) {
         console.error("Failed to fetch PO Supplier Details", error);
@@ -4230,7 +4229,7 @@ export const GetGRNSupplierAutoComplete = async (orgId, branchId, searchText = '
     try {
         const encoded = encodeURIComponent(searchText);
         const res = await get(
-            `/GoodsReceiptNote/GetSupplierAutoComplete?orgid=${orgId}&branchid=${branchId}&suppliername=${encoded}`
+            `/GoodsReceiptNote/GetGrnSupplierAutocomplete?orgid=${orgId}&branchid=${branchId}&suppliername=${encoded}`
         );
         return res;
     } catch (error) {
@@ -4336,9 +4335,9 @@ export const GetAllSuppliers = async (
     }
 };
 
-export const ChangeSupplierStatus = async (supplierId, status) => {
+export const ChangeSupplierStatus = async (branchId, orgId, supplierId, isActive, userId) => {
     try {
-        return await post(`/SupplierMaster/ChangeStatus`, { supplierId, status });
+        return await put(`/SupplierMaster/Update-supplier-status?branchid=${branchId}&orgid=${orgId}&supplierid=${supplierId}&isactive=${isActive}&userid=${userId}`);
     } catch (error) {
         console.error("Failed to change supplier status", error);
         return { status: false, message: error.message };
