@@ -93,9 +93,9 @@ export const postInvoiceToAR = async (payload) => {
 
 export const GetCustomerFilter = async (branchId = 1, searchtext) => {
     try {
-        const response = await get(`/ordermngmaster/GetCustomerFilter?branchid=${branchId}&searchtext=${searchtext}`);
+        const response = await get(`/journal/get-party-list/customer`, { usePython: true });
         if (response?.status) {
-            return transformData(response.data, "CustomerID", "CustomerName");
+            return transformData(response.data, "id", "name");
         } else {
             throw new Error(response?.message || "Failed");
         }
@@ -167,4 +167,4 @@ export const deleteARReceipt = async (receiptId) => {
         console.error("deleteARReceipt error:", error);
         throw error;
     }
-};
+};

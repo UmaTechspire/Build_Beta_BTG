@@ -146,8 +146,12 @@ const ProcurementsAddGRN = () => {
       // 1️⃣ Load suppliers
       const supplierResp = await GetPOSupplierDetails(0, orgId, branchId, '%', 0);
       const suppliersArray = Array.isArray(supplierResp.data) ? supplierResp.data : [supplierResp.data];
-      const supplierOptions = suppliersArray.map(s => ({ value: s.supplierid || s.SupplierId || s.id, label: s.suppliername || s.SupplierName || s.name }));
-      setSuppliers(supplierOptions);
+      const supplierOptions = suppliersArray.map(s => ({ value: s.supplierid, label: s.suppliername }));
+
+      const uniqueOptions = Array.from(
+        new Map(supplierOptions.map(item => [item.label.trim().replace(/\s+/g, ' ').toUpperCase(), item])).values()
+      );
+      setSuppliers(uniqueOptions);
 
       // 2️⃣ Edit mode: preload GRN data
       if (grnData) {
@@ -175,8 +179,11 @@ const ProcurementsAddGRN = () => {
     // Supplier
     const supplierResp = await GetPOSupplierDetails(0, 1, 1, '%', header.grnid);
     const suppliersArray = Array.isArray(supplierResp.data) ? supplierResp.data : [supplierResp.data];
-    const supplierOptions = suppliersArray.map(s => ({ value: s.supplierid || s.SupplierId || s.id, label: s.suppliername || s.SupplierName || s.name }));
-    setSuppliers(supplierOptions);
+    const supplierOptions = suppliersArray.map(s => ({ value: s.supplierid, label: s.suppliername }));
+    const uniqueOptions = Array.from(
+      new Map(supplierOptions.map(item => [item.label.trim().replace(/\s+/g, ' ').toUpperCase(), item])).values()
+    );
+    setSuppliers(uniqueOptions);
     const selectedSupplier = supplierOptions.find(s => s.value === header.supplierid) || null;
 
     // All POs of supplier

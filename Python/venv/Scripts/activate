@@ -41,12 +41,12 @@ case "$(uname)" in
     CYGWIN*|MSYS*|MINGW*)
         # transform D:\path\to\venv to /d/path/to/venv on MSYS and MINGW
         # and to /cygdrive/d/path/to/venv on Cygwin
-        VIRTUAL_ENV=$(cygpath 'D:\OFFICIAL\BTG\BETA LATEST CODE\BTG-GASIFY-COMBINED\Python\venv')
+        VIRTUAL_ENV=$(cygpath 'C:\Users\kabil\OneDrive\ドキュメント\Test2\BTG-GASIFY-COMBINED\Python\venv')
         export VIRTUAL_ENV
         ;;
     *)
         # use the path as-is
-        export VIRTUAL_ENV='D:\OFFICIAL\BTG\BETA LATEST CODE\BTG-GASIFY-COMBINED\Python\venv'
+        export VIRTUAL_ENV='C:\Users\kabil\OneDrive\ドキュメント\Test2\BTG-GASIFY-COMBINED\Python\venv'
         ;;
 esac
 

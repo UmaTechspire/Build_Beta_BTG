@@ -8,7 +8,7 @@ if defined _OLD_CODEPAGE (
     "%SystemRoot%\System32\chcp.com" 65001 > nul
 )
 
-set "VIRTUAL_ENV=D:\OFFICIAL\BTG\BETA LATEST CODE\BTG-GASIFY-COMBINED\Python\venv"
+set "VIRTUAL_ENV=C:\Users\kabil\OneDrive\ドキュメント\Test2\BTG-GASIFY-COMBINED\Python\venv"
 
 if not defined PROMPT set PROMPT=$P$G
 
