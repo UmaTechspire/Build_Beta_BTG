@@ -302,6 +302,25 @@ async def get_cash_book_report(
         data = []
         running_balance = 0.0 
         
+        # --- 4. INJECT OPENING BALANCE ---
+        if f_date_parsed:
+            opening_sql = text("CALL proc_Cash_GetOpeningBalance(:currency_id, :from_date)")
+            opening_result = await db.execute(opening_sql, {
+                "currency_id": int(currency_id) if currency_id else 0,
+                "from_date": f_date_parsed
+            })
+            opening_row = opening_result.mappings().first()
+
+            if opening_row:
+                op_item = dict(opening_row)
+                op_cash_in = float(op_item.get("CashIn", 0))
+                op_cash_out = float(op_item.get("CashOut", 0))
+                
+                # Calculate brought forward balance
+                running_balance = op_cash_in - op_cash_out
+                op_item["Balance"] = running_balance
+                data.append(op_item)
+        
         for item in combined_data:
             cash_in = float(item.get("CashIn", 0))
             cash_out = float(item.get("CashOut", 0))

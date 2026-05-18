@@ -10,7 +10,7 @@
 -- 1. proc_AR_GetARBook
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_AR_GetARBook;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_AR_GetARBook(
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_AR_GetARBook(
     IN p_org_id INT,
     IN p_branch_id INT,
     IN p_customer_id INT,
@@ -275,7 +275,7 @@ DELIMITER ;
 -- 2. proc_AR_GetOutstandingInvoices
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_AR_GetOutstandingInvoices;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_AR_GetOutstandingInvoices(
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_AR_GetOutstandingInvoices(
     IN p_customer_id INT,
     IN p_receipt_id  INT,
     IN p_from_date   DATE,
@@ -291,7 +291,7 @@ BEGIN
     
     -- 1. INVOICES (and general AR records)
     SELECT
-        ar.invoice_id                                           AS invoice_id, -- SI Header ID
+        ar.invoice_id                                           AS invoice_id, -- Link to SI Header
         ar.invoice_no                                           AS invoice_no,
         'INV'                                                   AS record_type,
         (SELECT d.PONumber FROM btggasify_live.tbl_salesinvoices_details d
@@ -301,7 +301,7 @@ BEGIN
         ar.inv_amount                                           AS total_amount,
         cur.CurrencyCode                                        AS currencycode,
 
-        -- Allocated Here (Accurate join via ar_id)
+        -- Allocated Here (Accurate join via internal ar_id, grouping-aware)
         (SELECT COALESCE(SUM(ra.payment_amount), 0)
          FROM btggasify_finance_live.tbl_receipt_ag_ar ra
          WHERE ra.ar_id = ar.ar_id
@@ -314,7 +314,7 @@ BEGIN
            )
         )                                                       AS allocated_here,
 
-        -- Balance Due (Ledger Balance - other grouping-aware allocations)
+        -- Balance Due (Ledger Balance minus other grouping-aware allocations and Credit Notes)
         (ar.inv_amount 
             - (SELECT COALESCE(SUM(ra3.payment_amount), 0)
                FROM btggasify_finance_live.tbl_receipt_ag_ar ra3
@@ -339,7 +339,7 @@ BEGIN
     WHERE ar.is_active = 1
       AND (ar.doc_type = 'INV' OR ar.doc_type IS NULL OR ar.doc_type = '')
       AND (
-          -- Case 1: Formally linked to this receipt (ALWAYS SHOW)
+          -- Case 1: Formally linked to this receipt (ALWAYS SHOW, bypasses all filters)
           EXISTS (
               SELECT 1 FROM btggasify_finance_live.tbl_receipt_ag_ar ra_v
               WHERE ra_v.ar_id = ar.ar_id
@@ -352,13 +352,13 @@ BEGIN
                 )
           )
           OR
-          -- Case 2: Outstanding for this customer
+          -- Case 2: Normal Outstanding Invoices for this customer
           (
             ar.customer_id = p_customer_id
             AND (p_from_date IS NULL OR ar.invoice_date >= p_from_date)
             AND (p_to_date   IS NULL OR ar.invoice_date <= p_to_date)
             AND (ar.inv_amount - ar.already_received) > 0.01
-            -- Filter out DOs that are part of a consolidated invoice (Standard Business Rule)
+            -- Standard Business Filter: Filter out DOs that are part of a consolidated invoice
             AND (h.id IS NULL OR (
                 h.salesinvoicenbr NOT LIKE 'DO %'
                 AND h.salesinvoicenbr NOT IN (
@@ -441,7 +441,7 @@ DELIMITER ;
 -- 3. proc_AR_GetCustomerAddress
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_AR_GetCustomerAddress;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_AR_GetCustomerAddress(IN p_customer_id INT)
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_AR_GetCustomerAddress(IN p_customer_id INT)
 BEGIN
     SELECT 
         c.Id as customer_id,
@@ -457,7 +457,7 @@ DELIMITER ;
 -- 4. proc_AR_GetPendingList
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_AR_GetPendingList;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_AR_GetPendingList(
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_AR_GetPendingList(
     IN p_department VARCHAR(10),
     IN p_user_id INT
 )
@@ -488,7 +488,7 @@ DELIMITER ;
 -- 5. proc_AR_GetCurrencyIds
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_AR_GetCurrencyIds;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_AR_GetCurrencyIds()
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_AR_GetCurrencyIds()
 BEGIN
     SELECT CurrencyId, CurrencyCode FROM btggasify_live.master_currency;
 END //
@@ -502,7 +502,7 @@ DELIMITER ;
 -- 6. proc_Bank_GetDailyEntries
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_Bank_GetDailyEntries;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_Bank_GetDailyEntries()
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_Bank_GetDailyEntries()
 BEGIN
     SELECT 
         r.receipt_id,
@@ -555,7 +555,7 @@ DELIMITER ;
 -- 7. proc_Bank_GetReport
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_Bank_GetReport;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_Bank_GetReport(
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_Bank_GetReport(
     IN p_from_date DATE,
     IN p_to_date DATE,
     IN p_bank_id INT,
@@ -608,7 +608,7 @@ DELIMITER ;
 -- 8. proc_Cash_GetDailyEntries
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_Cash_GetDailyEntries;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_Cash_GetDailyEntries()
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_Cash_GetDailyEntries()
 BEGIN
     SELECT 
         r.receipt_id,
@@ -648,7 +648,7 @@ DELIMITER ;
 -- 9. proc_Cash_GetReport
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_Cash_GetReport;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_Cash_GetReport(
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_Cash_GetReport(
     IN p_from_date DATE,
     IN p_to_date DATE,
     IN p_bank_id INT,
@@ -708,7 +708,7 @@ DELIMITER ;
 -- 10. proc_OD_GetList
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_OD_GetList;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_OD_GetList(
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_OD_GetList(
     IN p_overdraftid INT,
     IN p_overdrafttype VARCHAR(50),
     IN p_voucherno VARCHAR(50)
@@ -731,7 +731,7 @@ DELIMITER ;
 -- 11. proc_PC_GetList
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_PC_GetList;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_PC_GetList(
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_PC_GetList(
     IN p_pettycashid INT,
     IN p_exptype INT,
     IN p_voucherno VARCHAR(50),
@@ -759,7 +759,7 @@ DELIMITER ;
 -- 12. proc_PC_GetExchangeRate
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_PC_GetExchangeRate;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_PC_GetExchangeRate(IN p_currency_id INT)
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_PC_GetExchangeRate(IN p_currency_id INT)
 BEGIN
     SELECT COALESCE(ExchangeRate, 1) as rate FROM btggasify_live.master_currency WHERE CurrencyId = p_currency_id;
 END //
@@ -768,7 +768,7 @@ DELIMITER ;
 -- 13. proc_PC_GetExpenseCategories
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_PC_GetExpenseCategories;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_PC_GetExpenseCategories()
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_PC_GetExpenseCategories()
 BEGIN
     SELECT * FROM btggasify_masterpanel_live.master_expense_category;
 END //
@@ -777,7 +777,7 @@ DELIMITER ;
 -- 14. proc_PC_GetExpenseTypes
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_PC_GetExpenseTypes;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_PC_GetExpenseTypes(IN p_category_id INT)
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_PC_GetExpenseTypes(IN p_category_id INT)
 BEGIN
     SELECT * FROM btggasify_masterpanel_live.master_expense_type 
     WHERE 1=1
@@ -788,7 +788,7 @@ DELIMITER ;
 -- 15. proc_PC_GetCurrencies
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_PC_GetCurrencies;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_PC_GetCurrencies()
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_PC_GetCurrencies()
 BEGIN
     SELECT * FROM btggasify_live.master_currency;
 END //
@@ -802,7 +802,7 @@ DELIMITER ;
 -- 16. proc_Jnl_GetCustomers
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_Jnl_GetCustomers;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_Jnl_GetCustomers()
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_Jnl_GetCustomers()
 BEGIN
     SELECT Id as id, CustomerName as name FROM btggasify_live.master_customer WHERE IsActive = 1;
 END //
@@ -811,7 +811,7 @@ DELIMITER ;
 -- 17. proc_Jnl_GetSuppliers
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_Jnl_GetSuppliers;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_Jnl_GetSuppliers()
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_Jnl_GetSuppliers()
 BEGIN
     SELECT SupplierId as id, SupplierName as name FROM btggasify_masterpanel_live.master_supplier WHERE IsActive = 1;
 END //
@@ -820,7 +820,7 @@ DELIMITER ;
 -- 18. proc_Jnl_GetBanks
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_Jnl_GetBanks;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_Jnl_GetBanks()
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_Jnl_GetBanks()
 BEGIN
     SELECT BankId as id, BankName as name FROM btggasify_masterpanel_live.master_bank WHERE IsActive = 1;
 END //
@@ -829,7 +829,7 @@ DELIMITER ;
 -- 19. proc_Jnl_GetGLCodes
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_Jnl_GetGLCodes;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_Jnl_GetGLCodes()
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_Jnl_GetGLCodes()
 BEGIN
     SELECT id, GLcode, description FROM btggasify_finance_live.tbl_GLcodemaster WHERE isActive = 1;
 END //
@@ -838,7 +838,7 @@ DELIMITER ;
 -- 20. proc_Jnl_InsertDetail
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_Jnl_InsertDetail;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_Jnl_InsertDetail(
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_Jnl_InsertDetail(
     IN p_journal_id INT, IN p_gl_code VARCHAR(50), IN p_type VARCHAR(20),
     IN p_description VARCHAR(500), IN p_amount DECIMAL(18,2), IN p_reference_no VARCHAR(100)
 )
@@ -852,7 +852,7 @@ DELIMITER ;
 -- 21. proc_Jnl_UpdatePosted
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_Jnl_UpdatePosted;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_Jnl_UpdatePosted(IN p_journal_id INT, IN p_is_posted TINYINT)
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_Jnl_UpdatePosted(IN p_journal_id INT, IN p_is_posted TINYINT)
 BEGIN
     UPDATE btggasify_finance_live.tbl_journal_master SET is_posted = p_is_posted WHERE journal_id = p_journal_id;
 END //
@@ -861,7 +861,7 @@ DELIMITER ;
 -- 22. proc_Jnl_GetHeader
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_Jnl_GetHeader;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_Jnl_GetHeader(IN p_journal_id INT)
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_Jnl_GetHeader(IN p_journal_id INT)
 BEGIN
     SELECT journal_id as id, journal_no, DATE_FORMAT(journal_date, '%Y-%m-%d') as journal_date, 
            description, party_type, party_id, party_name, reference_no, 
@@ -874,7 +874,7 @@ DELIMITER ;
 -- 23. proc_Jnl_GetDetails
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_Jnl_GetDetails;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_Jnl_GetDetails(IN p_journal_id INT)
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_Jnl_GetDetails(IN p_journal_id INT)
 BEGIN
     SELECT detail_id as id, gl_code, type, description, amount, reference_no 
     FROM btggasify_finance_live.tbl_journal_details
@@ -885,7 +885,7 @@ DELIMITER ;
 -- 24. proc_Jnl_UpdateHeader
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_Jnl_UpdateHeader;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_Jnl_UpdateHeader(
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_Jnl_UpdateHeader(
     IN p_journal_id INT, IN p_journal_date DATE, IN p_description VARCHAR(500),
     IN p_party_type VARCHAR(50), IN p_party_id INT, IN p_party_name VARCHAR(200),
     IN p_reference_no VARCHAR(100), IN p_total_amount DECIMAL(18,2), 
@@ -903,7 +903,7 @@ DELIMITER ;
 -- 25. proc_Jnl_DeleteDetails
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_Jnl_DeleteDetails;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_Jnl_DeleteDetails(IN p_journal_id INT)
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_Jnl_DeleteDetails(IN p_journal_id INT)
 BEGIN
     DELETE FROM btggasify_finance_live.tbl_journal_details WHERE journal_id = p_journal_id;
 END //
@@ -912,7 +912,7 @@ DELIMITER ;
 -- 26. proc_Jnl_GetAll
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_Jnl_GetAll;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_Jnl_GetAll()
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_Jnl_GetAll()
 BEGIN
     SELECT journal_id as id, journal_no as journalNo, 
            DATE_FORMAT(journal_date, '%Y-%m-%d') as date, 
@@ -930,7 +930,7 @@ DELIMITER ;
 -- 27. proc_DNCN_GetCustomers
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_DNCN_GetCustomers;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_DNCN_GetCustomers()
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_DNCN_GetCustomers()
 BEGIN
     SELECT Id, CustomerName FROM btggasify_live.master_customer WHERE IsActive = 1 ORDER BY CustomerName ASC;
 END //
@@ -939,7 +939,7 @@ DELIMITER ;
 -- 28. proc_DNCN_GetAllCN
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_DNCN_GetAllCN;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_DNCN_GetAllCN()
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_DNCN_GetAllCN()
 BEGIN
     SELECT cn.*, mc.CurrencyCode 
     FROM btggasify_finance_live.Credit_Notes cn
@@ -951,7 +951,7 @@ DELIMITER ;
 -- 29. proc_DNCN_GetAllDN
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_DNCN_GetAllDN;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_DNCN_GetAllDN()
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_DNCN_GetAllDN()
 BEGIN
     SELECT dn.*, mc.CurrencyCode 
     FROM btggasify_finance_live.Debit_Notes dn
@@ -963,7 +963,7 @@ DELIMITER ;
 -- 30. proc_DNCN_GetCNById
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_DNCN_GetCNById;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_DNCN_GetCNById(IN p_id INT)
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_DNCN_GetCNById(IN p_id INT)
 BEGIN
     SELECT cn.*, mc.CurrencyCode 
     FROM btggasify_finance_live.Credit_Notes cn
@@ -975,7 +975,7 @@ DELIMITER ;
 -- 31. proc_DNCN_GetDNById
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_DNCN_GetDNById;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_DNCN_GetDNById(IN p_id INT)
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_DNCN_GetDNById(IN p_id INT)
 BEGIN
     SELECT dn.*, mc.CurrencyCode 
     FROM btggasify_finance_live.Debit_Notes dn
@@ -992,7 +992,7 @@ DELIMITER ;
 -- 32. proc_DSI_CheckDuplicate
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_DSI_CheckDuplicate;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_DSI_CheckDuplicate(
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_DSI_CheckDuplicate(
     IN p_invoice_nbr VARCHAR(100), IN p_exclude_id INT
 )
 BEGIN
@@ -1005,7 +1005,7 @@ DELIMITER ;
 -- 33. proc_DSI_GetExchangeRate
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_DSI_GetExchangeRate;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_DSI_GetExchangeRate(IN p_currency_id INT)
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_DSI_GetExchangeRate(IN p_currency_id INT)
 BEGIN
     SELECT COALESCE(ExchangeRate, 1) as rate FROM btggasify_live.master_currency WHERE CurrencyId = p_currency_id;
 END //
@@ -1014,7 +1014,7 @@ DELIMITER ;
 -- 34. proc_DSI_GetAllInvoices
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_DSI_GetAllInvoices;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_DSI_GetAllInvoices(
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_DSI_GetAllInvoices(
     IN p_from_date DATE, IN p_to_date DATE, IN p_customer_id INT, IN p_is_ar INT
 )
 BEGIN
@@ -1049,7 +1049,7 @@ DELIMITER ;
 -- 35. proc_DSI_GetHeader
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_DSI_GetHeader;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_DSI_GetHeader(IN p_input_val VARCHAR(100))
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_DSI_GetHeader(IN p_input_val VARCHAR(100))
 BEGIN
     SELECT 
         h.id AS InvoiceId, 
@@ -1070,7 +1070,7 @@ DELIMITER ;
 -- 36. proc_DSI_GetDetails
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_DSI_GetDetails;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_DSI_GetDetails(IN p_header_id INT)
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_DSI_GetDetails(IN p_header_id INT)
 BEGIN
     SELECT 
         d.id AS Id,
@@ -1097,7 +1097,7 @@ DELIMITER ;
 -- 37. proc_DSI_GetAvailableDOs
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_DSI_GetAvailableDOs;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_DSI_GetAvailableDOs(IN p_customer_id INT)
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_DSI_GetAvailableDOs(IN p_customer_id INT)
 BEGIN
     SELECT 
         h.id as do_id,
@@ -1134,7 +1134,7 @@ DELIMITER ;
 -- 38. proc_DSI_GetGasItems
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_DSI_GetGasItems;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_DSI_GetGasItems()
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_DSI_GetGasItems()
 BEGIN
     SELECT Id, GasName FROM btggasify_live.master_gascode WHERE IsActive = 1 ORDER BY GasName ASC;
 END //
@@ -1143,7 +1143,7 @@ DELIMITER ;
 -- 39. proc_DSI_GetSalesDetails
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_DSI_GetSalesDetails;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_DSI_GetSalesDetails(
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_DSI_GetSalesDetails(
     IN p_from_date DATE, IN p_to_date DATE, IN p_customer_id INT,
     IN p_item_id INT, IN p_sp_id INT
 )
@@ -1177,7 +1177,7 @@ DELIMITER ;
 -- 40. proc_DSI_GetItemFilter
 DROP PROCEDURE IF EXISTS btggasify_finance_live.proc_DSI_GetItemFilter;
 DELIMITER //
-CREATE PROCEDURE btggasify_finance_live.proc_DSI_GetItemFilter()
+CREATE DEFINER='btgsogdbu53r'@'%' PROCEDURE btggasify_finance_live.proc_DSI_GetItemFilter()
 BEGIN
     SELECT Id as value, GasName as label FROM btggasify_live.master_gascode WHERE IsActive = 1 ORDER BY GasName;
 END //

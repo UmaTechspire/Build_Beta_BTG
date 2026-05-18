@@ -401,8 +401,7 @@ const CashBook = () => {
                             options={{
                                 altInput: true,
                                 altFormat: "d-M-Y",
-                                dateFormat: "Y-m-d",
-                                maxDate: toDate || null
+                                dateFormat: "Y-m-d"
                             }}
                             style={{ height: "38px" }}
                         />
@@ -420,9 +419,7 @@ const CashBook = () => {
                             options={{
                                 altInput: true,
                                 altFormat: "d-M-Y",
-                                dateFormat: "Y-m-d",
-                                minDate: fromDate || null,
-                                maxDate: today
+                                dateFormat: "Y-m-d"
                             }}
                             style={{ height: "38px" }}
                         />
