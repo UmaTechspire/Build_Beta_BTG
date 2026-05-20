@@ -1085,11 +1085,13 @@ BEGIN
         COALESCE(d.DOnumber, '') AS DOnumber,
         COALESCE(d.PONumber, '') AS PONumber,
         COALESCE(d.uomid, 0) AS uomid,
+        COALESCE(u.UOM, '') AS uom_code,
         COALESCE(d.Note, '') AS Note,
         COALESCE(d.SellingPrice, 0) AS SellingPrice,
         COALESCE(d.SellingTotal, 0) AS SellingTotal
     FROM btggasify_live.tbl_salesinvoices_details d
     LEFT JOIN btggasify_live.master_gascode g ON d.gascodeid = g.Id
+    LEFT JOIN btggasify_live.master_uom u ON d.uomid = u.Id
     WHERE d.salesinvoicesheaderid = p_header_id;
 END //
 DELIMITER ;

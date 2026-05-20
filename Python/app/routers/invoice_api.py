@@ -759,8 +759,8 @@ async def create_invoice_from_do(payload: ConvertDORequest):
                     # C. Insert Detail
                     det_query = text(f"""
                         INSERT INTO {DB_NAME_USER}.tbl_salesinvoices_details
-                        (salesinvoicesheaderid, gascodeid, PickedQty, UnitPrice, TotalPrice, Price, Currencyid, ExchangeRate, DOnumber, Note, SellingPrice, SellingTotal)
-                        VALUES (:hid, :gas, :qty, :price, :total, :calc_price, :cur, :rate, :do_str, '', :sp, :st)
+                        (salesinvoicesheaderid, gascodeid, PickedQty, UnitPrice, TotalPrice, Price, Currencyid, ExchangeRate, uomid, DOnumber, Note, SellingPrice, SellingTotal)
+                        VALUES (:hid, :gas, :qty, :price, :total, :calc_price, :cur, :rate, :uom, :do_str, '', :sp, :st)
                     """)
                     await conn.execute(det_query, {
                         "hid": new_invoice_id,
@@ -771,6 +771,7 @@ async def create_invoice_from_do(payload: ConvertDORequest):
                         "calc_price": line_calc_price,
                         "cur": row.Currencyid,
                         "rate": rate_val,
+                        "uom": row.uomid,
                         "do_str": do_number_str,
                         "sp": row.SellingPrice,
                         "st": row.SellingTotal

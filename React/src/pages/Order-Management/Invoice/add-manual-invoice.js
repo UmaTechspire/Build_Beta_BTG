@@ -439,7 +439,8 @@ const AddManualInvoice = () => {
               ConvertedCurrencyId: item.Currencyid,
               Exchangerate: item.ExchangeRate,
 
-              Uom: "", UomId: 0,
+              Uom: item.uom_code || (UOMList.find(u => u.UoMId === Number(item.uomid || item.UomId))?.UoM) || "",
+              UomId: item.uomid || item.UomId || 0,
 
               poNumber: detailsData.PONumber || "",
               doNumber: doNumber,
@@ -1593,7 +1594,7 @@ const AddManualInvoice = () => {
                                                 <td>
                                                   <Input type="text"
                                                     disabled={isDisabled}
-                                                    value={formatInputNumber(manualinvoiceDetails[index]?.sellingPrice)}
+                                                    value={formatInputNumber(manualinvoiceDetails[index]?.sellingPrice || 0)}
                                                     id={`SellingPrice-${index}`}
                                                     onChange={e => handleSellingPriceChange(index, e.target.value)}
                                                     className="text-end"
@@ -1608,7 +1609,7 @@ const AddManualInvoice = () => {
                                                 <td>
                                                   <Input type="text"
                                                     disabled={isDisabled}
-                                                    value={formatInputNumber(manualinvoiceDetails[index]?.sellingTotal)}
+                                                    value={formatInputNumber(manualinvoiceDetails[index]?.sellingTotal || 0)}
                                                     id={`SellingTotal-${index}`}
                                                     onChange={e => handleSellingTotalChange(index, e.target.value)}
                                                     className="text-end"
