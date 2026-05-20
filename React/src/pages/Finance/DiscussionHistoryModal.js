@@ -105,55 +105,70 @@ const DiscussionHistoryModal = ({ isOpen, toggle, claimId, currentUser, mode, se
                     {loading ? (
                         <div className="text-center">Loading...</div>
                     ) : (
-                        historyText.split('\n').filter(line => line.trim() !== "").map((line, index) => {
-                            // Expected format: "[Username at Timestamp]: Message"
-                            // Example: "[Mery at 2026-01-16 13:54:10]: CAN YOU CHECK"
+                        (() => {
+                            const parseHistoryText = (text) => {
+                                if (!text) return [];
+                                const lines = text.split('\n');
+                                const messages = [];
+                                const regex = /^\[(.*?)\sat\s(.*?)\]:\s(.*)$/;
 
-                            const regex = /^\[(.*?)\sat\s(.*?)\]:\s(.*)$/;
-                            const match = line.match(regex);
+                                lines.forEach((line) => {
+                                    const match = line.match(regex);
+                                    if (match) {
+                                        messages.push({
+                                            senderName: match[1],
+                                            timestamp: match[2],
+                                            messageContent: match[3]
+                                        });
+                                    } else {
+                                        if (messages.length > 0) {
+                                            messages[messages.length - 1].messageContent += '\n' + line;
+                                        } else if (line.trim() !== "") {
+                                            messages.push({
+                                                senderName: "Unknown",
+                                                timestamp: "",
+                                                messageContent: line
+                                            });
+                                        }
+                                    }
+                                });
+                                return messages;
+                            };
 
-                            let senderName = "Unknown";
-                            let timestamp = "";
-                            let messageContent = line;
-                            let isMe = false;
+                            return parseHistoryText(historyText).map((msg, index) => {
+                                const { senderName, timestamp, messageContent } = msg;
+                                let isMe = false;
 
-                            if (match) {
-                                senderName = match[1];
-                                timestamp = match[2];
-                                messageContent = match[3];
-
-                                // Check if the sender is the current user
-                                // You might need to adjust this comparison based on exactly how currentUser is populated
                                 const currentUserName = currentUser?.username || currentUser?.FullName;
                                 if (currentUserName && senderName.toLowerCase() === currentUserName.toLowerCase()) {
                                     isMe = true;
                                 }
-                            }
 
-                            return (
-                                <div key={index} className={`d-flex ${isMe ? 'justify-content-end' : 'justify-content-start'} mb-3`}>
-                                    <div
-                                        className="p-3 shadow-sm"
-                                        style={{
-                                            maxWidth: '75%',
-                                            borderRadius: '15px',
-                                            backgroundColor: isMe ? '#5b73e8' : '#ffffff',
-                                            color: isMe ? '#ffffff' : '#000000',
-                                            borderBottomRightRadius: isMe ? '0' : '15px',
-                                            borderBottomLeftRadius: !isMe ? '0' : '15px'
-                                        }}
-                                    >
-                                        <div className="d-flex justify-content-between align-items-center mb-1">
-                                            <small className="fw-bold me-3" style={{ opacity: 0.9 }}>{senderName}</small>
-                                            <small style={{ fontSize: '0.75rem', opacity: 0.8 }}>{timestamp}</small>
+                                return (
+                                    <div key={index} className={`d-flex ${isMe ? 'justify-content-end' : 'justify-content-start'} mb-3`}>
+                                        <div
+                                            className="p-3 shadow-sm"
+                                            style={{
+                                                maxWidth: '75%',
+                                                borderRadius: '15px',
+                                                backgroundColor: isMe ? '#5b73e8' : '#ffffff',
+                                                color: isMe ? '#ffffff' : '#000000',
+                                                borderBottomRightRadius: isMe ? '0' : '15px',
+                                                borderBottomLeftRadius: !isMe ? '0' : '15px'
+                                            }}
+                                        >
+                                            <div className="d-flex justify-content-between align-items-center mb-1">
+                                                <small className="fw-bold me-3" style={{ opacity: 0.9 }}>{senderName}</small>
+                                                {timestamp && <small style={{ fontSize: '0.75rem', opacity: 0.8 }}>{timestamp}</small>}
+                                            </div>
+                                            <p className="mb-0" style={{ whiteSpace: 'pre-wrap', fontFamily: 'Inter, sans-serif', fontSize: '14px' }}>
+                                                {messageContent}
+                                            </p>
                                         </div>
-                                        <p className="mb-0" style={{ whiteSpace: 'pre-wrap', fontFamily: 'Inter, sans-serif', fontSize: '14px' }}>
-                                            {messageContent}
-                                        </p>
                                     </div>
-                                </div>
-                            );
-                        })
+                                );
+                            });
+                        })()
                     )}
                     {(!historyText && !loading) && <div className="text-center text-muted">No discussion history yet.</div>}
                 </div>
