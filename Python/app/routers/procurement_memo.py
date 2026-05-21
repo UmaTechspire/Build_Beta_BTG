@@ -60,9 +60,15 @@ class CreateUpdateMemoCommand(BaseModel):
     header: MemoHeader
     details: List[MemoDetail]
 
-class DeleteMemoCommand(BaseModel):
+class DeleteMemoCommandInner(BaseModel):
     memoId: int
-    userId: int
+    inActiveBy: Optional[int] = None
+    inActiveIP: Optional[str] = None
+
+class DeleteMemoCommand(BaseModel):
+    delete: Optional[DeleteMemoCommandInner] = None
+    memoId: Optional[int] = None
+    userId: Optional[int] = None
 
 # --- Helper Functions ---
 
@@ -345,11 +351,19 @@ def delete_memo(command: DeleteMemoCommand):
     conn = None
     cursor = None
     try:
+        if command.delete:
+            memo_id = command.delete.memoId
+        else:
+            memo_id = command.memoId
+            
+        if memo_id is None:
+            raise HTTPException(status_code=400, detail="memoId is required")
+
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         
         sql = "UPDATE tbl_purchasememo_header SET IsActive=0 WHERE Memo_ID = %s"
-        cursor.execute(sql, (command.memoId,))
+        cursor.execute(sql, (memo_id,))
         
         conn.commit()
         
