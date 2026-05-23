@@ -131,7 +131,7 @@ def update_payment_summary_sync(payload: PaymentSummarySyncRequest):
             "message": "Payment Summary synchronized successfully!"
         }
 
-    except Exception as e:
+    except Exception as e: 
         print(f"Error synchronizing Payment Summary: {str(e)}")
         if conn: conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))

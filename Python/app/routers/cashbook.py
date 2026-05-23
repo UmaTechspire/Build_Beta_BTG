@@ -251,7 +251,9 @@ async def get_cash_book_report(
             # Keep rows that are NOT claims or are approved claims
             rows = [r for r in rows if (not r.get("receipt_id")) or (r.get("receipt_id") in approved_ids)]
         
-        # --- 2. FETCH PPP CASH WITHDRAWS DIRECTLY ---
+        # --- 2. FETCH PPP CASH WITHDRAWS DIRECTLY (WITH APPROVAL VALIDATION) ---
+        # NOTE: PPP withdrawals are NOW filtered by approval status to prevent unapproved PPPs from showing
+        # Only include PPPs where claims have been approved by the claim module (either via PPP-PV or regular PPP paths)
         # NetCashWithdraw is always in IDR. Skip PPP rows entirely if a non-IDR currency filter is active.
         IDR_CURRENCY_ID = 3
         include_ppp = (currency_id == 0 or currency_id == IDR_CURRENCY_ID)
@@ -264,14 +266,27 @@ async def get_cash_book_report(
                     DATE_FORMAT(s.CreatedDate, '%d-%b-%Y') as Date,
                     s.NetCashWithdraw
                 FROM {DB_NAME_FINANCE}.tbl_PaymentSummary_header s
+                INNER JOIN {DB_NAME_FINANCE}.tbl_claimAndpayment_header h ON s.SummaryId = h.SummaryId
                 WHERE DATE(s.CreatedDate) >= :f_date_parsed AND DATE(s.CreatedDate) <= :t_date_parsed
                   AND s.NetCashWithdraw > 0
+                  AND h.IsActive = 1
+                  AND COALESCE(h.IsRejected, 0) = 0
+                  AND (
+                    -- PPP-PV Approval Path
+                    (COALESCE(h.PPP_PV_Director_approve, 0) = 1 OR COALESCE(h.PPP_PV_Commissioner_approveone, 0) = 1)
+                    -- OR Regular PPP Approval Path (All levels approved)
+                    OR (
+                      COALESCE(h.ppp_gm_approvalone, 0) = 1 
+                      AND COALESCE(h.ppp_director_approveone, 0) = 1
+                    )
+                  )
             """)
             ppp_result = await db.execute(ppp_sql, params)
             ppp_rows = ppp_result.mappings().all()
 
         combined_data = [dict(r) for r in rows]
 
+        # Process only approved PPP records (already filtered by SQL query above)
         for row in ppp_rows:
             net_withdraw = float(row['NetCashWithdraw'] or 0)
             
