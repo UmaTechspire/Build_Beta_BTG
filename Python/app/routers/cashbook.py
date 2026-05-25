@@ -273,15 +273,16 @@ async def get_cash_book_report(
                   AND COALESCE(h.ppp_IsRejected, 0) = 0
                   AND COALESCE(h.ppp_pv_IsRejected, 0) = 0
                   AND COALESCE(h.finance_cancel, 0) = 0
-                  AND (
+                GROUP BY s.SummaryId, s.PaymentNo, s.CreatedDate, s.NetCashWithdraw
+                HAVING MIN(
+                  CASE 
                     -- PPP-PV Approval Path
-                    (COALESCE(h.PPP_PV_Director_approve, 0) = 1 OR COALESCE(h.PPP_PV_Commissioner_approveone, 0) = 1)
-                    -- OR Regular PPP Approval Path (All levels approved)
-                    OR (
-                      COALESCE(h.ppp_gm_approvalone, 0) = 1 
-                      AND COALESCE(h.ppp_director_approvalone, 0) = 1
-                    )
-                  )
+                    WHEN (COALESCE(h.PPP_PV_Director_approve, 0) = 1 OR COALESCE(h.PPP_PV_Commissioner_approveone, 0) = 1) THEN 1
+                    -- Regular PPP Approval Path (GM & Director approved)
+                    WHEN (COALESCE(h.ppp_gm_approvalone, 0) = 1 AND COALESCE(h.ppp_director_approvalone, 0) = 1) THEN 1
+                    ELSE 0 
+                  END
+                ) = 1
             """)
             ppp_result = await db.execute(ppp_sql, params)
             ppp_rows = ppp_result.mappings().all()
