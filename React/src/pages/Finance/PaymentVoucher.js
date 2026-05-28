@@ -367,15 +367,24 @@ const PaymentVoucher = ({ VoucherId }) => {
 
                 <td style={styles.rightLabel}><strong>Date</strong></td>
                 <td style={styles.dotValue}> :  </td>
+                <td style={styles.rightValue}>  {header.paymentDate}</td>
+              </tr>
+              <tr>
+                <td style={styles.leftLabel}>
+                  {(header.paymentMethod === "Cash" || details[0]?.accountName) ? <strong>Account Name</strong> : null}
+                </td>
+                <td style={styles.dotValue}>
+                  {(header.paymentMethod === "Cash" || details[0]?.accountName) ? " : " : null}
+                </td>
+                <td style={styles.leftValue}>
+                  {header.paymentMethod === "Cash" ? "Cash in hand" : (details[0]?.accountName || "")}
+                </td>
+                <td style={styles.leftValue}> </td>
+
+                <td style={styles.rightLabel}><strong>Issue Date</strong></td>
+                <td style={styles.dotValue}> :  </td>
                 <td style={styles.rightValue}>  {header.voucherDate}</td>
               </tr>
-              {(header.paymentMethod === "Cash" || details[0]?.accountName) && (
-                <tr>
-                  <td style={styles.leftLabel}><strong>Account Name</strong></td>
-                  <td style={styles.dotValue}> : </td>
-                  <td style={styles.leftValue}> {header.paymentMethod === "Cash" ? "Cash in hand" : details[0]?.accountName}</td>
-                </tr>
-              )}
               {header.isSupplier == 1 && (
                 <tr>
                   <td style={styles.leftLabel}><strong>PO & WO</strong></td>
@@ -678,7 +687,8 @@ const styles = {
   },
 
   leftLabel: {
-    width: "80px",
+    width: "120px",
+    whiteSpace: "nowrap",
     textAlign: "left",
     padding: "4px 2px",
     verticalAlign: "top",
@@ -709,7 +719,8 @@ const styles = {
   },
 
   rightLabel: {
-    width: "20px",
+    width: "80px",
+    whiteSpace: "nowrap",
     textAlign: "left",
     padding: "4px 2px",
     verticalAlign: "top",

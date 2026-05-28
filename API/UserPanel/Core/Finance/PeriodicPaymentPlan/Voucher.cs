@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -16,6 +16,7 @@ namespace Core.Finance.PeriodicPaymentPlan
         public int IsSupplier { get; set; }
         public string AmountInWord { get; set; }
         public string VoucherDate { get; set; }
+        public string PaymentDate { get; set; }
         public string VoucherNo { get; set; }
         public string PaymentTo { get; set; }
         public string PaymentMethod { get; set; }
