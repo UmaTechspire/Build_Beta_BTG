@@ -316,7 +316,7 @@ BEGIN
     LEFT JOIN btggasify_live.master_currency mc ON r.currencyid = mc.CurrencyId
     LEFT JOIN btggasify_masterpanel_live.master_bank b ON CAST(NULLIF(r.deposit_bank_id, '') AS UNSIGNED) = b.BankId
     LEFT JOIN btggasify_live.master_customer c ON r.customer_id = c.Id
-    WHERE r.customer_id = p_customer_id AND r.is_active = 1 AND r.is_posted = 1
+    WHERE r.customer_id = p_customer_id AND r.is_active = 1 AND r.is_posted = 1 AND IFNULL(r.transaction_type, '') != 'Bank transfer'
 
     ORDER BY ledger_date DESC, created_date DESC;
 END //

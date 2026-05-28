@@ -342,10 +342,10 @@ const VerifyCustomer = () => {
       .filter(inv => inv.selected)
       .map(inv => ({
         invoice_id: inv.id,
-        invoice_no: inv.invNo,
-        payment_type: inv.paymentType,
-        amount_allocated: parseFloat(inv.amount) || 0,
-        record_type: inv.type
+        invoice_no: inv.invNo || "",
+        payment_type: inv.paymentType || "Partial",
+        amount_allocated: parseFloat(String(inv.amount).replace(/,/g, '')) || 0,
+        record_type: inv.type || "INV"
       }))
   });
 

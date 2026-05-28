@@ -122,6 +122,13 @@ const ARBookReport = () => {
             rates[c.CurrencyCode] = c.ExchangeRate || c.Rate || c.SellingRate || 1;
           });
           setCurrencyRates(rates);
+
+          const uniqueCodes = [...new Set(currencyData.map(c => c.CurrencyCode).filter(c => c))];
+          const options = uniqueCodes.map(code => ({
+            label: code,
+            value: code
+          }));
+          setCurrencyOptions(options);
         }
 
         // Load Banks for Receipt Preview
@@ -188,10 +195,6 @@ const ARBookReport = () => {
             toast.warning("Could not filter by item. Showing all records.");
           }
         }
-
-        const uniqueCurrencies = [...new Set(rawData.map(item => item.currencycode || item.CurrencyCode))];
-        const newCurrencyOptions = uniqueCurrencies.filter(c => c).map(c => ({ label: c, value: c }));
-        setCurrencyOptions(newCurrencyOptions);
 
         const convertedData = rawData.map(row => {
           const rawCurrency = row.currencycode || row.CurrencyCode || "";
@@ -1241,6 +1244,26 @@ const ARBookReport = () => {
                     >
                       <Column field="ledger_date" header="Date" sortable body={(row) => format(new Date(row.ledger_date), "dd-MMM-yyyy")} headerStyle={{ whiteSpace: 'nowrap' }} className="text-nowrap" />
                       <Column field="invoice_no" header="Reference No." sortable body={referenceBodyTemplate} headerStyle={{ whiteSpace: 'nowrap' }} />
+                      <Column
+                        field="payment_type"
+                        header="Type"
+                        sortable
+                        align="center"
+                        style={{ minWidth: '150px' }}
+                        body={(r) => {
+                          if (r.receiptsList && r.receiptsList.length > 0) {
+                            return (
+                              <div>
+                                {r.receiptsList.map((rec, i) => (
+                                  <div key={i}>{rec.payment_type || rec.transaction_type || "-"}</div>
+                                ))}
+                              </div>
+                            );
+                          }
+                          return r.payment_type || r.transaction_type || "-";
+                        }}
+                        headerStyle={{ whiteSpace: 'nowrap' }}
+                      />
                       {hasForeignCurrency && (!selectedCurrency || selectedCurrency.value === 'IDR') && (
                         <Column
                           header="Other Currency"

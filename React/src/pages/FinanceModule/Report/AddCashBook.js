@@ -1267,7 +1267,7 @@ const AddCashBook = () => {
 
 
     const printBodyTemplate = (rowData) => {
-        const isReceipt = rowData.transaction_type === 'Receipt';
+        const isReceipt = rowData.transaction_type && rowData.transaction_type.trim().toLowerCase() === 'receipt';
         const isPrintable = isReceipt
             ? rowData.verificationStatus === 'Completed'
             : rowData.is_posted === 1;

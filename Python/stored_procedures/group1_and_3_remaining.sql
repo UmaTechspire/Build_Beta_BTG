@@ -60,6 +60,11 @@ BEGIN
             WHEN ar.doc_type = 'CN' THEN 'Credit Note'
             ELSE 'Invoice'
         END as payment_mode, 
+        CASE 
+            WHEN ar.doc_type = 'DN' THEN 'Debit Note'
+            WHEN ar.doc_type = 'CN' THEN 'Credit Note'
+            ELSE 'Invoice'
+        END as payment_type, 
         '-' as remarks,
         0 as receipt_id, 
         0 as deposit_bank_id, 
@@ -97,6 +102,7 @@ BEGIN
         0 as credit_note_amount, 
         ar.balance_amount as balance, 
         CASE WHEN(IFNULL(r.bank_amount,0) > 0) THEN 'Bank' ELSE 'Cash' END as payment_mode, 
+        r.transaction_type as payment_type, 
         '-' as remarks,
         r.receipt_id, 
         IFNULL(r.deposit_bank_id, 0) as deposit_bank_id, 
@@ -115,6 +121,7 @@ BEGIN
       AND (p_from_date IS NULL OR r.receipt_date >= p_from_date)
       AND (p_to_date IS NULL OR r.receipt_date <= p_to_date)
       AND IFNULL(r.is_submitted, 0) = 1
+      AND IFNULL(r.transaction_type, '') != 'Bank transfer'
 
     UNION ALL
 
@@ -137,6 +144,7 @@ BEGIN
         0 as credit_note_amount, 
         ar.balance_amount as balance, 
         CASE WHEN(IFNULL(r.bank_amount,0) > 0) THEN 'Bank' ELSE 'Cash' END as payment_mode, 
+        r.transaction_type as payment_type, 
         'Direct AR Mapping' as remarks,
         r.receipt_id, 
         IFNULL(r.deposit_bank_id, 0) as deposit_bank_id, 
@@ -155,6 +163,7 @@ BEGIN
       AND (p_from_date IS NULL OR r.receipt_date >= p_from_date)
       AND (p_to_date IS NULL OR r.receipt_date <= p_to_date)
       AND IFNULL(r.is_submitted, 0) = 1
+      AND IFNULL(r.transaction_type, '') != 'Bank transfer'
 
     UNION ALL
 
@@ -176,6 +185,7 @@ BEGIN
         0 as credit_note_amount, 
         0 as balance, 
         'Debit Note' as payment_mode, 
+        'Debit Note' as payment_type, 
         dn.Description as remarks,
         0 as receipt_id, 0 as deposit_bank_id, 
         dn.DebitNoteId as real_invoice_id,
@@ -213,6 +223,7 @@ BEGIN
         cn.Amount as credit_note_amount, 
         0 as balance, 
         'Credit Note' as payment_mode, 
+        'Credit Note' as payment_type, 
         cn.Description as remarks,
         0 as receipt_id, 0 as deposit_bank_id, 
         cn.CreditNoteId as real_invoice_id,
@@ -249,6 +260,7 @@ BEGIN
         0 as credit_note_amount, 
         -((r.cash_amount + r.bank_amount) - IFNULL((SELECT SUM(ra2.payment_amount) FROM btggasify_finance_live.tbl_receipt_ag_ar ra2 WHERE ra2.receipt_id = r.receipt_id AND ra2.is_active = 1), 0)) as balance, 
         CASE WHEN(IFNULL(r.bank_amount,0) > 0) THEN 'Bank' ELSE 'Cash' END as payment_mode, 
+        r.transaction_type as payment_type, 
         'Standalone/Partial Receipt' as remarks, 
         r.receipt_id, 
         IFNULL(r.deposit_bank_id, 0) as deposit_bank_id, 
@@ -266,6 +278,7 @@ BEGIN
       AND (p_from_date IS NULL OR r.receipt_date >= p_from_date)
       AND (p_to_date IS NULL OR r.receipt_date <= p_to_date)
       AND IFNULL(r.is_submitted, 0) = 1
+      AND IFNULL(r.transaction_type, '') != 'Bank transfer'
       AND ((r.cash_amount + r.bank_amount) - IFNULL((SELECT SUM(ra2.payment_amount) FROM btggasify_finance_live.tbl_receipt_ag_ar ra2 WHERE ra2.receipt_id = r.receipt_id AND ra2.is_active = 1), 0)) > 0.01
 
     ORDER BY customer_name, ledger_date, ar_no;
@@ -361,10 +374,11 @@ BEGIN
             -- Standard Business Filter: Filter out DOs that are part of a consolidated invoice
             AND (h.id IS NULL OR (
                 h.salesinvoicenbr NOT LIKE 'DO %'
-                AND h.salesinvoicenbr NOT IN (
-                    SELECT DISTINCT TRIM(DOnumber)
-                    FROM btggasify_live.tbl_salesinvoices_details
-                    WHERE DOnumber IS NOT NULL AND TRIM(DOnumber) != ''
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM btggasify_live.tbl_salesinvoices_details d
+                    WHERE TRIM(d.DOnumber) = h.salesinvoicenbr
+                      AND d.salesinvoicesheaderid != h.id
                 )
             ))
           )

@@ -782,6 +782,16 @@ const AddBankBook = () => {
 
     // --- PRINT RECEIPT FUNCTIONS ---
     const handlePrintPreview = async (rowData) => {
+        const isReceipt = rowData.transaction_type === 'Receipt';
+        const isPrintable = isReceipt
+            ? rowData.verificationStatus === 'Completed'
+            : rowData.is_posted;
+
+        if (!isPrintable) {
+            toast.warn(isReceipt ? "Receipt can only be printed after Marketing Verification is completed." : "Transaction must be posted first.");
+            return;
+        }
+
         setPrintRecord(rowData);
         setIsPrintModalOpen(true);
 
@@ -997,13 +1007,18 @@ const AddBankBook = () => {
     };
 
     const printBodyTemplate = (rowData) => {
+        const isReceipt = rowData.transaction_type && rowData.transaction_type.trim().toLowerCase() === 'receipt';
+        const isPrintable = isReceipt
+            ? rowData.verificationStatus === 'Completed'
+            : rowData.is_posted === 1;
+
         return (
             <div className="d-flex justify-content-center">
                 <i
-                    className="bx bx-printer text-secondary cursor-pointer font-size-22"
-                    onClick={() => handlePrintPreview(rowData)}
-                    title="Print"
-                    style={{ cursor: 'pointer' }}
+                    className={`bx bx-printer font-size-22 ${isPrintable ? 'text-secondary cursor-pointer' : 'text-muted opacity-50'}`}
+                    onClick={() => { if (isPrintable) handlePrintPreview(rowData); }}
+                    title={isPrintable ? "Print" : (isReceipt ? "Pending Verification" : "Pending Posting")}
+                    style={{ cursor: isPrintable ? 'pointer' : 'not-allowed' }}
                 ></i>
             </div>
         );
@@ -1225,7 +1240,7 @@ const AddBankBook = () => {
                                 sortable
                                 filter
                                 body={(rowData) => {
-                                    if (rowData.verificationStatus !== 'Completed') {
+                                    if (!rowData.is_posted) {
                                         return <span title="">-</span>;
                                     }
                                     return (

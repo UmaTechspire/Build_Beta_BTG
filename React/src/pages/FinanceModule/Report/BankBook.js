@@ -38,14 +38,28 @@ const Breadcrumbs = ({ title, breadcrumbItem }) => (
 
 // Format date to yyyy-MM-dd
 const formatDate = (date) => {
+    if (!date) return "";
+    if (typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return date;
+    }
     const d = new Date(date);
+    if (isNaN(d.getTime())) return "";
     const month = (d.getMonth() + 1).toString().padStart(2, "0");
     const day = d.getDate().toString().padStart(2, "0");
     return `${d.getFullYear()}-${month}-${day}`;
 };
 const formatPrintDate = (date) => {
     if (!date) return "-";
-    const d = new Date(date);
+    let d;
+    if (date instanceof Date) {
+        d = date;
+    } else if (typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        const parts = date.split("-");
+        d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    } else {
+        d = new Date(date);
+    }
+    if (isNaN(d.getTime())) return "-";
     const day = d.getDate().toString().padStart(2, "0");
     const month = d.toLocaleString("en-US", { month: "short" });
     const year = d.getFullYear();
@@ -395,8 +409,10 @@ const BankBook = () => {
 
             // Filter other transactions by date range
             const rowDate = item.date ? formatDate(item.date) : null;
-            if (fromDate && rowDate && rowDate < fromDate) return false;
-            if (toDate && rowDate && rowDate > toDate) return false;
+            const fromStr = fromDate ? formatDate(fromDate) : null;
+            const toStr = toDate ? formatDate(toDate) : null;
+            if (fromStr && rowDate && rowDate < fromStr) return false;
+            if (toStr && rowDate && rowDate > toStr) return false;
 
             return true;
         });
@@ -562,7 +578,7 @@ const BankBook = () => {
                         <Flatpickr
                             className="form-control"
                             value={fromDate}
-                            onChange={(date) => setFromDate(date[0])}
+                            onChange={(date) => setFromDate(date[0] ? formatDate(date[0]) : null)}
                             options={{
                                 altInput: true,
                                 altFormat: "d-M-Y",
@@ -576,7 +592,7 @@ const BankBook = () => {
                         <Flatpickr
                             className="form-control"
                             value={toDate}
-                            onChange={(date) => setToDate(date[0])}
+                            onChange={(date) => setToDate(date[0] ? formatDate(date[0]) : null)}
                             options={{
                                 altInput: true,
                                 altFormat: "d-M-Y",
