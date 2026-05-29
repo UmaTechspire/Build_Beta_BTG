@@ -289,10 +289,10 @@ const ARBookDOReport = () => {
                     responsiveLayout="scroll"
                     selection={selectedRows}
                     onSelectionChange={e => setSelectedRows(e.value)}
-                    dataKey="uniqueId"
+                    dataKey="rowKey"
                   >
                     {/* SELECTION COLUMN */}
-                    <Column selectionMode="multiple" headerStyle={{ width: '3em' }}></Column>
+                    <Column selectionMode="multiple" headerStyle={{ width: '3em' }} sortable={false}></Column>
 
                     <Column field="ledger_date" header="Date"
                       body={(row) => format(new Date(row.ledger_date), "dd-MMM-yyyy")}
@@ -318,7 +318,7 @@ const ARBookDOReport = () => {
 
                     <Column field="cumulativeBalance" header="Balance ((A+B)-(C+D))"
                       body={(d) => d.cumulativeBalance?.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                      headerStyle={{ whiteSpace: 'nowrap' }} className="text-end" />                  </DataTable>
+                      headerStyle={{ whiteSpace: 'nowrap' }} className="text-end" sortable={false} />                  </DataTable>
                 </div>
               </CardBody>
             </Card>

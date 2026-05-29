@@ -1,0 +1,912 @@
+[
+    {
+        "ar_id": 8273,
+        "invoice_no": "89573",
+        "customer_name": "PT. RIZKY ZAHRA MANDIRI - LOK BOKSENG",
+        "inv_amount": 66850000.0,
+        "already_received": 66850000.0,
+        "balance_amount": 0.0,
+        "created_ip": "127.0.0.1",
+        "created_date": "2025-12-25 12:00:39"
+    },
+    {
+        "ar_id": 6215,
+        "invoice_no": "83199",
+        "customer_name": "PT. PUTRA MANDAH JAYA",
+        "inv_amount": 9000000.0,
+        "already_received": 4500000.0,
+        "balance_amount": 4500000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-19 17:50:38"
+    },
+    {
+        "ar_id": 6217,
+        "invoice_no": "86740",
+        "customer_name": "PT. PERSADA GALANGAN KAPAL",
+        "inv_amount": 21900000.0,
+        "already_received": 21870000.0,
+        "balance_amount": 30000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-19 17:50:38"
+    },
+    {
+        "ar_id": 6119,
+        "invoice_no": "85313",
+        "customer_name": "PT. BETHESDA PERSADA",
+        "inv_amount": 7786000.0,
+        "already_received": 14394000.0,
+        "balance_amount": -6608000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-19 16:21:23"
+    },
+    {
+        "ar_id": 6120,
+        "invoice_no": "85510",
+        "customer_name": "PT. ASL SHIPYARD",
+        "inv_amount": 130000000.0,
+        "already_received": 130000000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-19 16:21:23"
+    },
+    {
+        "ar_id": 5633,
+        "invoice_no": "87419",
+        "customer_name": "PT. THIESS ENGINEERING INDONESIA",
+        "inv_amount": 960000.0,
+        "already_received": 960000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 5637,
+        "invoice_no": "87538",
+        "customer_name": "PT. SIMATELEX MANUFACTORY BATAM",
+        "inv_amount": 250000.0,
+        "already_received": 4010000.0,
+        "balance_amount": -3760000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 5910,
+        "invoice_no": "89543",
+        "customer_name": "PT. SARFAT MUTIARA BERLIAN",
+        "inv_amount": 6700000.0,
+        "already_received": 6700000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 5911,
+        "invoice_no": "89544",
+        "customer_name": "PT. TETRA BROTHER PERSADA",
+        "inv_amount": 5120000.0,
+        "already_received": 5120000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 5912,
+        "invoice_no": "89545",
+        "customer_name": "PT. TREE NUT ASIA",
+        "inv_amount": 21936000.0,
+        "already_received": 43872000.0,
+        "balance_amount": -21936000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 5913,
+        "invoice_no": "89572",
+        "customer_name": "PT. RIZKY ZAHRA MANDIRI",
+        "inv_amount": 116015000.0,
+        "already_received": 116015000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 5669,
+        "invoice_no": "87779",
+        "customer_name": "PT. TOBACON",
+        "inv_amount": 22900000.0,
+        "already_received": 45800000.0,
+        "balance_amount": -22900000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 5695,
+        "invoice_no": "87927",
+        "customer_name": "PT. PIPA MAS PUTIH",
+        "inv_amount": 24000000.0,
+        "already_received": 24000000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 5714,
+        "invoice_no": "88267",
+        "customer_name": "PT. PIONEER OFFSHORE INDO RAYA",
+        "inv_amount": 11652000.0,
+        "already_received": 11652000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 5724,
+        "invoice_no": "88377",
+        "customer_name": "PT. TIGER TRANS INTERNATIONAL",
+        "inv_amount": 48041605.0,
+        "already_received": 120127588.0,
+        "balance_amount": -72085983.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 5732,
+        "invoice_no": "88448",
+        "customer_name": "PT. SYNERGY OIL NUSANTARA",
+        "inv_amount": 2310000.0,
+        "already_received": 2310000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 5776,
+        "invoice_no": "88715",
+        "customer_name": "PT. SIMATELEX MANUFACTORY BATAM",
+        "inv_amount": 250000.0,
+        "already_received": 250000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 5791,
+        "invoice_no": "88765",
+        "customer_name": "PT. PRECISION PIPE INDONESIA",
+        "inv_amount": 7280000.0,
+        "already_received": 8120000.0,
+        "balance_amount": -840000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 5811,
+        "invoice_no": "89014",
+        "customer_name": "PT. SENTEK INDONESIA",
+        "inv_amount": 3096000.0,
+        "already_received": 13416000.0,
+        "balance_amount": -10320000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 5818,
+        "invoice_no": "89098",
+        "customer_name": "PT. PUTRA BATAM JASA MANDIRI UTAMA",
+        "inv_amount": 200000.0,
+        "already_received": 200000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 5823,
+        "invoice_no": "89148",
+        "customer_name": "PT. SAKHA SOLUTIONS SERVICE",
+        "inv_amount": 950000.0,
+        "already_received": 950000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 5831,
+        "invoice_no": "89174",
+        "customer_name": "PT. PIONEER OFFSHORE INDO RAYA",
+        "inv_amount": 10284000.0,
+        "already_received": 10284000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 5833,
+        "invoice_no": "89177",
+        "customer_name": "PT. S&W INTERNATIONAL",
+        "inv_amount": 1360000.0,
+        "already_received": 1360000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 5834,
+        "invoice_no": "89179",
+        "customer_name": "PT. SCANJET MARINE AB",
+        "inv_amount": 7300000.0,
+        "already_received": 7300000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 5849,
+        "invoice_no": "89284",
+        "customer_name": "PT. TEC INDONESIA",
+        "inv_amount": 6600000.0,
+        "already_received": 6600000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 5851,
+        "invoice_no": "89316",
+        "customer_name": "PT. S&I METAL INDONESIA (KABIL)",
+        "inv_amount": 900000.0,
+        "already_received": 900000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 5857,
+        "invoice_no": "89369",
+        "customer_name": "PT. TITAN JAYA",
+        "inv_amount": 6880000.0,
+        "already_received": 6880000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 5617,
+        "invoice_no": "87201",
+        "customer_name": "PT. SPM SURFACE PRODUCTS",
+        "inv_amount": 12050000.0,
+        "already_received": 67158914.0,
+        "balance_amount": -55108914.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 5621,
+        "invoice_no": "87286",
+        "customer_name": "PT. PATRA JAYA AGUNG",
+        "inv_amount": 990000.0,
+        "already_received": 1650000.0,
+        "balance_amount": -660000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:27:38"
+    },
+    {
+        "ar_id": 4096,
+        "invoice_no": "83866",
+        "customer_name": "PT. UNITED SINDO PERKASA",
+        "inv_amount": 97920000.0,
+        "already_received": 97920000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:25:04"
+    },
+    {
+        "ar_id": 4120,
+        "invoice_no": "86679",
+        "customer_name": "PT. VETCO GRAY INDONESIA",
+        "inv_amount": 9960000.0,
+        "already_received": 9960000.0,
+        "balance_amount": 9960000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:25:04"
+    },
+    {
+        "ar_id": 4165,
+        "invoice_no": "88848",
+        "customer_name": "PT. USDA SEROJA JAYA TBK",
+        "inv_amount": 134400000.0,
+        "already_received": 134400000.0,
+        "balance_amount": 134400000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:25:04"
+    },
+    {
+        "ar_id": 4177,
+        "invoice_no": "89159",
+        "customer_name": "WOHLRAB INDONESIA",
+        "inv_amount": 2400000.0,
+        "already_received": 2400000.0,
+        "balance_amount": 2400000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:25:04"
+    },
+    {
+        "ar_id": 4095,
+        "invoice_no": "83863",
+        "customer_name": "PT. UNITED SINDO PERKASA",
+        "inv_amount": 176000000.0,
+        "already_received": 176000000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:25:04"
+    },
+    {
+        "ar_id": 4866,
+        "invoice_no": "88399",
+        "customer_name": "PT. BOOGEISS RIDHA TAMA",
+        "inv_amount": 360000.0,
+        "already_received": 360000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 4867,
+        "invoice_no": "88400",
+        "customer_name": "PT. HO WAH GENTING",
+        "inv_amount": 1520000.0,
+        "already_received": 1520000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 4879,
+        "invoice_no": "88424",
+        "customer_name": "PT. BLUE STEEL INDUSTRIES",
+        "inv_amount": 11900000.0,
+        "already_received": 30300000.0,
+        "balance_amount": -18400000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 4880,
+        "invoice_no": "88425",
+        "customer_name": "PT. BLUE STEEL INDUSTRIES",
+        "inv_amount": 18400000.0,
+        "already_received": 18400000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 4372,
+        "invoice_no": "86758",
+        "customer_name": "PT. MULTI MARINE PERKASA",
+        "inv_amount": 8400000.0,
+        "already_received": 8400000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 4643,
+        "invoice_no": "87877",
+        "customer_name": "PT. GAHARA SAMUDRA BERLIAN",
+        "inv_amount": 91200000.0,
+        "already_received": 91200000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 4644,
+        "invoice_no": "87886",
+        "customer_name": "PT. MERAH PUTIH SHIPYARD",
+        "inv_amount": 237110000.0,
+        "already_received": 237110000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5176,
+        "invoice_no": "89082",
+        "customer_name": "PT. BANGUN ADYABAHAN PERKASA",
+        "inv_amount": 2368000.0,
+        "already_received": 2368000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 4411,
+        "invoice_no": "86986",
+        "customer_name": "PT. BETHESDA PERSADA",
+        "inv_amount": 1090000.0,
+        "already_received": 1090000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5181,
+        "invoice_no": "89087",
+        "customer_name": "PT. BLUE STEEL INDUSTRIES",
+        "inv_amount": 3680000.0,
+        "already_received": 20742500.0,
+        "balance_amount": -17062500.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5441,
+        "invoice_no": "89516",
+        "customer_name": "PT. AMALIA MARINE UTAMA",
+        "inv_amount": 9920000.0,
+        "already_received": 22602500.0,
+        "balance_amount": -12682500.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5445,
+        "invoice_no": "89524",
+        "customer_name": "PT. PERINTIS SARANA ASTRA",
+        "inv_amount": 1130000.0,
+        "already_received": 1130000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5194,
+        "invoice_no": "89112",
+        "customer_name": "PT. INDUSTRI PIPA INDONESIA",
+        "inv_amount": 3380000.0,
+        "already_received": 3380000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 4684,
+        "invoice_no": "87971",
+        "customer_name": "PT. CITRA PERDANA PRAKARSA",
+        "inv_amount": 5190000.0,
+        "already_received": 9520000.0,
+        "balance_amount": -4330000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5196,
+        "invoice_no": "89115",
+        "customer_name": "PT. ANUGERAH BATAM HANDAL",
+        "inv_amount": 9150000.0,
+        "already_received": 18300000.0,
+        "balance_amount": -9150000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5199,
+        "invoice_no": "89121",
+        "customer_name": "PT. MANDIRI BERJAYA SHIPBUILDING",
+        "inv_amount": 23360000.0,
+        "already_received": 23360000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 4696,
+        "invoice_no": "88073",
+        "customer_name": "PT. BLUE STEEL INDUSTRIES",
+        "inv_amount": 7000000.0,
+        "already_received": 14360000.0,
+        "balance_amount": -7360000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5477,
+        "invoice_no": "89563",
+        "customer_name": "PT. BINGAS MANUFACTURING",
+        "inv_amount": 259710000.0,
+        "already_received": 259710000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 4968,
+        "invoice_no": "88616",
+        "customer_name": "PT. DHARMA SENTOSA MARINDO",
+        "inv_amount": 24400000.0,
+        "already_received": 30500000.0,
+        "balance_amount": -6100000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5480,
+        "invoice_no": "89566",
+        "customer_name": "PT. GLOBAL BATAM MARITIM",
+        "inv_amount": 5700000.0,
+        "already_received": 5700000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 4972,
+        "invoice_no": "88625",
+        "customer_name": "PT. ACME MONACO ASIA",
+        "inv_amount": 5120000.0,
+        "already_received": 10160000.0,
+        "balance_amount": -5040000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 4982,
+        "invoice_no": "88644",
+        "customer_name": "PT. BATAM SLOP AND SLUDGE TREATMENT CENTRE",
+        "inv_amount": 8772000.0,
+        "already_received": 8772000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 4983,
+        "invoice_no": "88645",
+        "customer_name": "PT. BATAM SLOP AND SLUDGE TREATMENT CENTRE",
+        "inv_amount": 2600000.0,
+        "already_received": 2600000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 4216,
+        "invoice_no": "83655",
+        "customer_name": "PT. KHO KONSTRUKSI INDONESIA",
+        "inv_amount": 16320000.0,
+        "already_received": 16320000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5501,
+        "invoice_no": "89611",
+        "customer_name": "PT. JAYA SEJATI",
+        "inv_amount": 97942000.0,
+        "already_received": 247942000.0,
+        "balance_amount": -150000000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5502,
+        "invoice_no": "89620",
+        "customer_name": "PT. ADAM BAJA PRIMA",
+        "inv_amount": 31200000.0,
+        "already_received": 31200000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5503,
+        "invoice_no": "89621",
+        "customer_name": "PT. BANDAR MULTI TEKNIK",
+        "inv_amount": 900000.0,
+        "already_received": 27600000.0,
+        "balance_amount": -26700000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 4480,
+        "invoice_no": "87358",
+        "customer_name": "PT. BUMI NATURA INDONESIA",
+        "inv_amount": 2190000.0,
+        "already_received": 2190000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5255,
+        "invoice_no": "89216",
+        "customer_name": "PT. HONGFU TECHNOLOGY INDUSTRY",
+        "inv_amount": 321000.0,
+        "already_received": 321000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5260,
+        "invoice_no": "89223",
+        "customer_name": "PT. ANUGERAH SUKSES METALINDO",
+        "inv_amount": 4061000.0,
+        "already_received": 4061000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5008,
+        "invoice_no": "88713",
+        "customer_name": "PT. MARINDO ALFA SENTOSA",
+        "inv_amount": 14040000.0,
+        "already_received": 14040000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5266,
+        "invoice_no": "89230",
+        "customer_name": "PT. MITRA TEKNIK PERTAMA",
+        "inv_amount": 1341000.0,
+        "already_received": 1341000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 4501,
+        "invoice_no": "87429",
+        "customer_name": "PT. MARCOPOLO SHIPYARD",
+        "inv_amount": 362600000.0,
+        "already_received": 362600000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5273,
+        "invoice_no": "89239",
+        "customer_name": "PT. CIPTA PERSADA MULIA",
+        "inv_amount": 4650000.0,
+        "already_received": 4650000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 4510,
+        "invoice_no": "87452",
+        "customer_name": "PT. MARCOPOLO SHIPYARD",
+        "inv_amount": 416600000.0,
+        "already_received": 416600000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 4259,
+        "invoice_no": "85500",
+        "customer_name": "PT. BETHESDA PERSADA",
+        "inv_amount": 1090000.0,
+        "already_received": 8720000.0,
+        "balance_amount": -7630000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5290,
+        "invoice_no": "89258",
+        "customer_name": "PT. BUANA CIPTA MANDALA (LOK NEXUS)",
+        "inv_amount": 64960000.0,
+        "already_received": 64960000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5044,
+        "invoice_no": "88792",
+        "customer_name": "PT. MARCOPOLO SHIPYARD",
+        "inv_amount": 306225000.0,
+        "already_received": 306225000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 4790,
+        "invoice_no": "88272",
+        "customer_name": "ETOWA PACKAGING INDONESIA",
+        "inv_amount": 860000.0,
+        "already_received": 860000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5047,
+        "invoice_no": "88796",
+        "customer_name": "PT. BINGAS MANUFACTURING",
+        "inv_amount": 260370000.0,
+        "already_received": 260370000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5307,
+        "invoice_no": "89278",
+        "customer_name": "PT. ANUGERAH BATAM HANDAL",
+        "inv_amount": 9150000.0,
+        "already_received": 9150000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5308,
+        "invoice_no": "89279",
+        "customer_name": "PT. BATAM TEKNIK",
+        "inv_amount": 450000.0,
+        "already_received": 1350000.0,
+        "balance_amount": -900000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5330,
+        "invoice_no": "89308",
+        "customer_name": "PT. APPIPA INDONESIA",
+        "inv_amount": 1200000.0,
+        "already_received": 1200000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 4308,
+        "invoice_no": "86249",
+        "customer_name": "PT. BETHESDA PERSADA",
+        "inv_amount": 8876000.0,
+        "already_received": 8876000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5076,
+        "invoice_no": "88855",
+        "customer_name": "PT. ELANG DWI MITRA",
+        "inv_amount": 42300000.0,
+        "already_received": 42300000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5337,
+        "invoice_no": "89315",
+        "customer_name": "PT. FTS INDONESIA",
+        "inv_amount": 880000.0,
+        "already_received": 880000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5338,
+        "invoice_no": "89317",
+        "customer_name": "PT. HAN HONG METAL INDONESIA",
+        "inv_amount": 2770000.0,
+        "already_received": 2770000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 4827,
+        "invoice_no": "88324",
+        "customer_name": "PT. BLUE STEEL INDUSTRIES",
+        "inv_amount": 3500000.0,
+        "already_received": 14000000.0,
+        "balance_amount": -10500000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5342,
+        "invoice_no": "89326",
+        "customer_name": "PT. GLOBAL BATAM MARITIM",
+        "inv_amount": 5180000.0,
+        "already_received": 5180000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 4580,
+        "invoice_no": "87614",
+        "customer_name": "PT. NEXELITE CP INDONESIA",
+        "inv_amount": 1960000.0,
+        "already_received": 1960000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5096,
+        "invoice_no": "88898",
+        "customer_name": "PT. GRAHA TRISAKA INDUSTRI",
+        "inv_amount": 14400000.0,
+        "already_received": 14400000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5098,
+        "invoice_no": "88901",
+        "customer_name": "PT. NUSANTARA PERKASA MINDO",
+        "inv_amount": 52930000.0,
+        "already_received": 52930000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5358,
+        "invoice_no": "89351",
+        "customer_name": "PT. BOSTON ORIENTAL SHIPBUILDING & SHIPYARD",
+        "inv_amount": 12150000.0,
+        "already_received": 12150000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5369,
+        "invoice_no": "89365",
+        "customer_name": "PT. GALAKSI MARITIM (PT. ASIANFAST INDUSTRIES )",
+        "inv_amount": 4960000.0,
+        "already_received": 4960000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5371,
+        "invoice_no": "89367",
+        "customer_name": "PT. PERINTIS SARANA ASTRA",
+        "inv_amount": 730000.0,
+        "already_received": 730000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 5116,
+        "invoice_no": "88984",
+        "customer_name": "PT. PANASONIC INDUSTRIAL DEVICES BATAM",
+        "inv_amount": 3450000.0,
+        "already_received": 10850000.0,
+        "balance_amount": -7400000.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    },
+    {
+        "ar_id": 4607,
+        "invoice_no": "87746",
+        "customer_name": "PT. ELITE SOLAR",
+        "inv_amount": 1402896000.0,
+        "already_received": 1402896000.0,
+        "balance_amount": 0.0,
+        "created_ip": "Migration_Fix",
+        "created_date": "2025-12-18 21:22:40"
+    }
+]

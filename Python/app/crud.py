@@ -88,7 +88,7 @@ async def create_ar_receipt(db: AsyncSession, command: schemas.CreateARCommand):
             created_records.extend([record_a, record_b])
         elif item.transaction_type == 'Cash Deposit':
             amt = abs(item.bank_amount) if item.bank_amount else (abs(item.cash_amount) if item.cash_amount else 0)
-            cash_amount = amt
+            cash_amount = -amt
             bank_amount = amt
             
             db_receipt = ARReceipt(
@@ -401,7 +401,7 @@ async def update_ar_receipt(db: AsyncSession, command: schemas.CreateARCommand):
             bank_amount = -abs(item.bank_amount) if item.bank_amount else 0
         elif item.transaction_type == 'Cash Deposit':
             amt = abs(item.bank_amount) if item.bank_amount else (abs(item.cash_amount) if item.cash_amount else 0)
-            cash_amount = amt
+            cash_amount = -amt
             bank_amount = amt
         else:
             cash_amount = item.cash_amount

@@ -535,6 +535,9 @@ const BankBook = () => {
     const renderHeader = () => {
         return (
             <div className="d-flex justify-content-end align-items-center">
+                <span className="fst-italic me-3" style={{ fontSize: '12px', color: 'firebrick' }}>
+                    * Pls click the <strong style={{ fontWeight: 900, fontSize: '15px' }}>x</strong> to change to <strong style={{ fontWeight: 900, fontSize: '15px' }}>/</strong> for currency exchange rate value
+                </span>
                 <input
                     type="text"
                     placeholder="Keyword Search"
