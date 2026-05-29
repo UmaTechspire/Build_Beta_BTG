@@ -365,7 +365,7 @@ const PaymentVoucher = ({ VoucherId }) => {
                 <td style={styles.leftValue}> {header.paymentMethod}</td>
                 <td style={styles.leftValue}> </td>
 
-                <td style={styles.rightLabel}><strong>Date</strong></td>
+                <td style={styles.rightLabel}><strong>PV Dt.</strong></td>
                 <td style={styles.dotValue}> :  </td>
                 <td style={styles.rightValue}>  {header.paymentDate}</td>
               </tr>
@@ -381,7 +381,7 @@ const PaymentVoucher = ({ VoucherId }) => {
                 </td>
                 <td style={styles.leftValue}> </td>
 
-                <td style={styles.rightLabel}><strong>Issue Date</strong></td>
+                <td style={styles.rightLabel}><strong>Payment Dt.</strong></td>
                 <td style={styles.dotValue}> :  </td>
                 <td style={styles.rightValue}>  {header.voucherDate}</td>
               </tr>
