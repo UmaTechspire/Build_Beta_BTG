@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using System.Dynamic;
 using BackEnd.Procurement.PurchaseOrder;
 using Core.Abstractions;
@@ -1131,9 +1131,9 @@ namespace Infrastructure.Repositories
 
                 await _connection.ExecuteAsync(insertDetailSql, new { newPoid, poid, originalCreatedBy, branchid, orgid });
 
-                // 3. Insert Requisitions - scale all amounts proportionally to the pending balance qty
-                //    Pending qty = Original qty - GRN received qty (min 0)
-                //    Scale factor = pending_qty / original_qty  (avoids recalculating tax formula)
+                // 3. Insert Requisitions - scale all amounts proportionally to the GRN received qty
+                //    Blanket PO qty = GRN received qty
+                //    Scale factor = grn_rec_Qty / original_qty  (avoids recalculating tax formula)
                 //    This preserves EXACTLY the same formula used when the original PO was saved.
                 var insertReqSql = @"
                     INSERT INTO `tbl_purchaseorder_requisitions`
@@ -1144,19 +1144,19 @@ namespace Infrastructure.Repositories
                     @newPoid, 
                     (SELECT podid FROM tbl_purchaseorder_detail WHERE poid = @newPoid AND prid = por.prid LIMIT 1),
                     prmid, prdid, prid, itemid, uomid, 
-                    -- Pending qty = Original qty - GRN received qty (never negative)
-                    GREATEST(0, por.qty - IFNULL(por.grn_rec_Qty, 0)),
+                    -- GRN received qty
+                    IFNULL(por.grn_rec_Qty, 0),
                     unitprice,
-                    -- Scale all stored financial values proportionally to pending qty / original qty
-                    CASE WHEN por.qty > 0 THEN ROUND(por.totalvalue    * GREATEST(0, por.qty - IFNULL(por.grn_rec_Qty, 0)) / por.qty, 2) ELSE 0 END,
+                    -- Scale all stored financial values proportionally to GRN received qty / original qty
+                    CASE WHEN por.qty > 0 THEN ROUND(por.totalvalue    * IFNULL(por.grn_rec_Qty, 0) / por.qty, 2) ELSE 0 END,
                     taxperc,
-                    CASE WHEN por.qty > 0 THEN ROUND(por.taxvalue      * GREATEST(0, por.qty - IFNULL(por.grn_rec_Qty, 0)) / por.qty, 2) ELSE 0 END,
-                    CASE WHEN por.qty > 0 THEN ROUND(por.subtotal      * GREATEST(0, por.qty - IFNULL(por.grn_rec_Qty, 0)) / por.qty, 2) ELSE 0 END,
+                    CASE WHEN por.qty > 0 THEN ROUND(por.taxvalue      * IFNULL(por.grn_rec_Qty, 0) / por.qty, 2) ELSE 0 END,
+                    CASE WHEN por.qty > 0 THEN ROUND(por.subtotal      * IFNULL(por.grn_rec_Qty, 0) / por.qty, 2) ELSE 0 END,
                     discountperc,
-                    CASE WHEN por.qty > 0 THEN ROUND(por.discountvalue * GREATEST(0, por.qty - IFNULL(por.grn_rec_Qty, 0)) / por.qty, 2) ELSE 0 END,
-                    CASE WHEN por.qty > 0 THEN ROUND(por.nettotal      * GREATEST(0, por.qty - IFNULL(por.grn_rec_Qty, 0)) / por.qty, 2) ELSE 0 END,
+                    CASE WHEN por.qty > 0 THEN ROUND(por.discountvalue * IFNULL(por.grn_rec_Qty, 0) / por.qty, 2) ELSE 0 END,
+                    CASE WHEN por.qty > 0 THEN ROUND(por.nettotal      * IFNULL(por.grn_rec_Qty, 0) / por.qty, 2) ELSE 0 END,
                     1, NOW(), @originalCreatedBy, @branchid, @orgid, vatperc,
-                    CASE WHEN por.qty > 0 THEN ROUND(por.vatvalue      * GREATEST(0, por.qty - IFNULL(por.grn_rec_Qty, 0)) / por.qty, 2) ELSE 0 END,
+                    CASE WHEN por.qty > 0 THEN ROUND(por.vatvalue      * IFNULL(por.grn_rec_Qty, 0) / por.qty, 2) ELSE 0 END,
                     itemgroupid, IFNULL(por.grn_rec_Qty, 0)
                     FROM tbl_purchaseorder_requisitions por WHERE poid = @poid AND isactive = 1;";
 
