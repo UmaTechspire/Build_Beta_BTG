@@ -3730,8 +3730,20 @@ export const GetPendingGRNQty = async (poid) => {
         const response = await get(`/PurchaseOrder/GetPendingGRNQty?poid=${poid}`);
         return response;
     } catch (error) {
-        console.error("API error fetching pending GRN quantity:", error);
-        throw error;
+        console.error("Failed to fetch pending GRN qty:", error);
+        return { status: false, data: 0 };
+    }
+};
+
+export const GetGRNsByPO = async (poid) => {
+    try {
+        const response = await axios.get(`${PYTHON_API_URL}/procurement/GetGRNsByPO`, {
+            params: { poid }
+        });
+        return response.data;
+    } catch (error) {
+        console.error("Failed to fetch GRNs for PO:", error);
+        return { status: false, data: [] };
     }
 };
 

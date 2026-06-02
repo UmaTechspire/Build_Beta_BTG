@@ -283,4 +283,37 @@ async def get_remarks_history(prid: int):
         if conn:
             conn.close()
 
+@router.get("/GetGRNsByPO")
+async def get_grns_by_po(poid: int):
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection_sync()
+        cursor = conn.cursor(dictionary=True)
+        query = """
+        SELECT
+            gh.grnno AS GRNNo,
+            im.groupid,
+            ig.groupname AS ItemGroup,
+            im.itemname AS ItemName,
+            gd.grnQty AS Qty,
+            um.UOM AS Uom,
+            gd.UnitPrice AS UnitPrice,
+            gd.TotalAmount AS TotalAmount
+        FROM tbl_grn_detail gd
+        JOIN tbl_grn_header gh ON gh.grnid = gd.grnid
+        LEFT JOIN btggasify_masterpanel_live.master_item im ON im.itemid = gd.itemid
+        LEFT JOIN btggasify_masterpanel_live.master_itemgroup ig ON ig.groupid = im.groupid
+        LEFT JOIN btggasify_live.master_uom um ON um.Id = gd.uomid
+        WHERE gd.poid = %s
+        """
+        cursor.execute(query, (poid,))
+        results = cursor.fetchall()
+        return {"status": True, "data": results}
+    except Exception as e:
+        print("ERROR:", e)
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
 
