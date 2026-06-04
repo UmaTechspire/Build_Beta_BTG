@@ -25,9 +25,23 @@ namespace Infrastructure.Repositories
             try
             {
                 var list = await _connection.QueryAsync(ProcurementDNCNBackEnd.proc_SupplierDNCN_GetAllCN, commandType: CommandType.StoredProcedure);
+                var listObjects = list.Select(x => (IDictionary<string, object>)x).ToList();
+                if (listObjects.Any())
+                {
+                    var invoiceMappings = await _connection.QueryAsync<(int CreditNoteId, string InvoiceNo)>(
+                        "SELECT CreditNoteId, InvoiceNo FROM btggasify_finance_live.credit_invoice;");
+                    var mappingDict = invoiceMappings.ToDictionary(m => m.CreditNoteId, m => m.InvoiceNo);
+                    foreach (var row in listObjects)
+                    {
+                        if (row.TryGetValue("CreditNoteId", out var idObj) && idObj != null && int.TryParse(idObj.ToString(), out int cnId))
+                        {
+                            row["InvoiceNo"] = mappingDict.TryGetValue(cnId, out var invNo) ? invNo : null;
+                        }
+                    }
+                }
                 return new ResponseModel()
                 {
-                    Data = list.ToList(),
+                    Data = listObjects,
                     Message = "Success",
                     Status = true
                 };
@@ -72,9 +86,23 @@ namespace Infrastructure.Repositories
             try
             {
                 var list = await _connection.QueryAsync(ProcurementDNCNBackEnd.proc_SupplierDNCN_GetAllDN, commandType: CommandType.StoredProcedure);
+                var listObjects = list.Select(x => (IDictionary<string, object>)x).ToList();
+                if (listObjects.Any())
+                {
+                    var invoiceMappings = await _connection.QueryAsync<(int DebitNoteId, string InvoiceNo)>(
+                        "SELECT DebitNoteId, InvoiceNo FROM btggasify_finance_live.debit_invoice;");
+                    var mappingDict = invoiceMappings.ToDictionary(m => m.DebitNoteId, m => m.InvoiceNo);
+                    foreach (var row in listObjects)
+                    {
+                        if (row.TryGetValue("DebitNoteId", out var idObj) && idObj != null && int.TryParse(idObj.ToString(), out int dnId))
+                        {
+                            row["InvoiceNo"] = mappingDict.TryGetValue(dnId, out var invNo) ? invNo : null;
+                        }
+                    }
+                }
                 return new ResponseModel()
                 {
-                    Data = list.ToList(),
+                    Data = listObjects,
                     Message = "Success",
                     Status = true
                 };
@@ -124,8 +152,36 @@ namespace Infrastructure.Repositories
                     var invoiceNo = await _connection.QueryFirstOrDefaultAsync<string>(
                         "SELECT InvoiceNo FROM btggasify_finance_live.credit_invoice WHERE CreditNoteId = @Id LIMIT 1;", new { Id = id });
                     
+                    int? invoiceHdrId = null;
+                    if (!string.IsNullOrEmpty(invoiceNo))
+                    {
+                        invoiceHdrId = await _connection.QueryFirstOrDefaultAsync<int?>(
+                            "SELECT receiptnote_hdr_id FROM btggasify_purchase_live.tbl_IRNReceipt_detail WHERE (receiptno = @InvoiceNo OR docno = @InvoiceNo) AND isactive = 1 LIMIT 1;",
+                            new { InvoiceNo = invoiceNo });
+                    }
+
                     var dict = (IDictionary<string, object>)row;
                     dict["InvoiceNo"] = invoiceNo;
+                    dict["InvoiceHdrId"] = invoiceHdrId;
+
+                    if (!dict.ContainsKey("GasName") || dict["GasName"] == null)
+                    {
+                        if (dict.TryGetValue("GasCodeId", out var gasId) && gasId != null)
+                        {
+                            var gasName = await _connection.QueryFirstOrDefaultAsync<string>(
+                                "SELECT itemname FROM btggasify_masterpanel_live.master_item WHERE itemid = @Id LIMIT 1;", new { Id = gasId });
+                            dict["GasName"] = gasName;
+                        }
+                    }
+                    if (!dict.ContainsKey("UOM") || dict["UOM"] == null)
+                    {
+                        if (dict.TryGetValue("UomId", out var uomId) && uomId != null)
+                        {
+                            var uomName = await _connection.QueryFirstOrDefaultAsync<string>(
+                                "SELECT UOM FROM btggasify_live.master_uom WHERE Id = @Id LIMIT 1;", new { Id = uomId });
+                            dict["UOM"] = uomName;
+                        }
+                    }
 
                     return new ResponseModel()
                     {
@@ -196,8 +252,36 @@ namespace Infrastructure.Repositories
                     var invoiceNo = await _connection.QueryFirstOrDefaultAsync<string>(
                         "SELECT InvoiceNo FROM btggasify_finance_live.debit_invoice WHERE DebitNoteId = @Id LIMIT 1;", new { Id = id });
                     
+                    int? invoiceHdrId = null;
+                    if (!string.IsNullOrEmpty(invoiceNo))
+                    {
+                        invoiceHdrId = await _connection.QueryFirstOrDefaultAsync<int?>(
+                            "SELECT receiptnote_hdr_id FROM btggasify_purchase_live.tbl_IRNReceipt_detail WHERE (receiptno = @InvoiceNo OR docno = @InvoiceNo) AND isactive = 1 LIMIT 1;",
+                            new { InvoiceNo = invoiceNo });
+                    }
+
                     var dict = (IDictionary<string, object>)row;
                     dict["InvoiceNo"] = invoiceNo;
+                    dict["InvoiceHdrId"] = invoiceHdrId;
+
+                    if (!dict.ContainsKey("GasName") || dict["GasName"] == null)
+                    {
+                        if (dict.TryGetValue("GasCodeId", out var gasId) && gasId != null)
+                        {
+                            var gasName = await _connection.QueryFirstOrDefaultAsync<string>(
+                                "SELECT itemname FROM btggasify_masterpanel_live.master_item WHERE itemid = @Id LIMIT 1;", new { Id = gasId });
+                            dict["GasName"] = gasName;
+                        }
+                    }
+                    if (!dict.ContainsKey("UOM") || dict["UOM"] == null)
+                    {
+                        if (dict.TryGetValue("UomId", out var uomId) && uomId != null)
+                        {
+                            var uomName = await _connection.QueryFirstOrDefaultAsync<string>(
+                                "SELECT UOM FROM btggasify_live.master_uom WHERE Id = @Id LIMIT 1;", new { Id = uomId });
+                            dict["UOM"] = uomName;
+                        }
+                    }
 
                     return new ResponseModel()
                     {

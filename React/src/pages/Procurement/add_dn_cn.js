@@ -15,14 +15,15 @@ import Select from "react-select";
 import Flatpickr from "react-flatpickr";
 import "flatpickr/dist/themes/material_blue.css";
 import { toast } from "react-toastify";
-import { 
-    GetAllSuppliers, 
-    GetAllIRNList, 
-    getLedgerCurrencies, 
+import {
+    GetAllSuppliers,
+    GetAllIRNList,
+    getLedgerCurrencies,
     GetUoM,
     createProcurementDebitNote,
     createProcurementCreditNote,
-    getItemsByInvoiceId
+    getItemsByInvoiceId,
+    GetSupplierCurrency
 } from "../../common/data/mastersapi";
 
 const getUserDetails = () => {
@@ -52,6 +53,16 @@ const formatCreditNoteNo = (val) => {
         return `BTG/CN/${clean.padStart(5, "0")}`;
     }
     return `BTG/CN/${clean}`;
+};
+
+const formatDateToLocal = (date) => {
+    if (!date) return null;
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return null;
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 };
 
 const ProcurementAddDnCn = () => {
@@ -165,7 +176,7 @@ const ProcurementAddDnCn = () => {
                     .filter(inv => parseFloat(inv.balancepaymentamount || inv.BalancePaymentAmount || 0) > 0)
                     .map(inv => ({
                         value: inv.receiptnote_hdr_id || inv.Id,
-                        label: `${inv.receipt_no || inv.InvoiceNo || inv.invoice_no} (${Number(inv.totalamount || inv.TotalAmount || 0).toLocaleString()})`
+                        label: inv.invoice_no || inv.InvoiceNo || inv.receiptno || inv.receipt_no
                     }));
             }
             return [];
@@ -182,8 +193,24 @@ const ProcurementAddDnCn = () => {
             if (value && value.value) {
                 const invOptions = await fetchSupplierInvoices(value.value);
                 newHeader.invoiceOptions = invOptions;
+
+                try {
+                    const currencyRes = await GetSupplierCurrency(value.value, 1);
+                    if (currencyRes && currencyRes.status && currencyRes.data && currencyRes.data.length > 0) {
+                        const supCurId = currencyRes.data[0].currencyid;
+                        const matchedOpt = currencyOptions.find(
+                            c => Number(c.value) === Number(supCurId)
+                        );
+                        if (matchedOpt) {
+                            newHeader.currency = matchedOpt;
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error auto-selecting supplier currency:", e);
+                }
             } else {
                 newHeader.invoiceOptions = [];
+                newHeader.currency = null;
             }
         }
         setDebitHeader(newHeader);
@@ -263,8 +290,24 @@ const ProcurementAddDnCn = () => {
             if (value && value.value) {
                 const invOptions = await fetchSupplierInvoices(value.value);
                 newHeader.invoiceOptions = invOptions;
+
+                try {
+                    const currencyRes = await GetSupplierCurrency(value.value, 1);
+                    if (currencyRes && currencyRes.status && currencyRes.data && currencyRes.data.length > 0) {
+                        const supCurId = currencyRes.data[0].currencyid;
+                        const matchedOpt = currencyOptions.find(
+                            c => Number(c.value) === Number(supCurId)
+                        );
+                        if (matchedOpt) {
+                            newHeader.currency = matchedOpt;
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error auto-selecting supplier currency:", e);
+                }
             } else {
                 newHeader.invoiceOptions = [];
+                newHeader.currency = null;
             }
         }
         setCreditHeader(newHeader);
@@ -380,9 +423,9 @@ const ProcurementAddDnCn = () => {
             for (const row of validDebitRows) {
                 const payload = {
                     DebitNoteNo: formattedDnNo,
-                    Date: debitHeader.date ? debitHeader.date.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                    Date: debitHeader.date ? formatDateToLocal(debitHeader.date) : formatDateToLocal(new Date()),
                     DebitAmount: parseFloat(row.amount),
-                    Description: row.description || (row.gas ? row.gas.label : ""),
+                    Description: row.description || "",
                     SupplierId: debitHeader.supplier.value,
                     InvoiceNo: row.invoiceNo ? row.invoiceNo.label.split(" ")[0] : null,
                     CurrencyId: debitHeader.currency ? debitHeader.currency.value : 1,
@@ -405,9 +448,9 @@ const ProcurementAddDnCn = () => {
             for (const row of validCreditRows) {
                 const payload = {
                     CreditNoteNo: formattedCnNo,
-                    Date: creditHeader.date ? creditHeader.date.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                    Date: creditHeader.date ? formatDateToLocal(creditHeader.date) : formatDateToLocal(new Date()),
                     CreditAmount: parseFloat(row.amount),
-                    Description: row.description || (row.gas ? row.gas.label : ""),
+                    Description: row.description || "",
                     SupplierId: creditHeader.supplier.value,
                     InvoiceNo: row.invoiceNo ? row.invoiceNo.label.split(" ")[0] : null,
                     CurrencyId: creditHeader.currency ? creditHeader.currency.value : 1,
@@ -455,6 +498,19 @@ const ProcurementAddDnCn = () => {
 
     return (
         <div className="page-content">
+            <style>{`
+                /* Chrome, Safari, Edge, Opera */
+                input.no-spinner::-webkit-outer-spin-button,
+                input.no-spinner::-webkit-inner-spin-button {
+                    -webkit-appearance: none;
+                    margin: 0;
+                }
+
+                /* Firefox */
+                input.no-spinner[type=number] {
+                    -moz-appearance: textfield;
+                }
+            `}</style>
             <Container fluid>
                 <Breadcrumbs title="Procurement" breadcrumbItem="Add DN/CN" />
 
@@ -512,35 +568,35 @@ const ProcurementAddDnCn = () => {
                             <Table className="table-bordered mb-0 align-middle">
                                 <thead className="table-light">
                                     <tr>
-                                        <th style={{ minWidth: '150px' }}>Purchase Invoice (IRN)</th>
-                                        <th style={{ minWidth: '180px' }}>Item Name</th>
-                                        <th style={{ minWidth: '100px' }}>UOM</th>
-                                        <th style={{ minWidth: '80px' }}>Qty</th>
-                                        <th style={{ minWidth: '120px' }}>Unit Price</th>
-                                        <th style={{ minWidth: '120px' }}>Total Amount</th>
-                                        <th style={{ minWidth: '180px' }}>Description</th>
-                                        <th style={{ width: '40px' }}></th>
+                                        <th style={{ width: '180px', minWidth: '180px' }}>Invoice No</th>
+                                        <th style={{ width: '250px', minWidth: '250px' }}>Item Name</th>
+                                        <th style={{ width: '140px', minWidth: '140px' }}>UOM</th>
+                                        <th style={{ width: '90px', minWidth: '90px' }}>Qty</th>
+                                        <th style={{ width: '120px', minWidth: '120px' }}>Unit Price</th>
+                                        <th style={{ width: '140px', minWidth: '140px' }}>Total Amount</th>
+                                        <th style={{ minWidth: '220px' }}>Description</th>
+                                        {debitRows.length > 1 && <th style={{ width: '40px', minWidth: '40px' }}></th>}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {debitRows.map((row, index) => (
                                         <tr key={index}>
-                                            <td className="p-1">
+                                            <td className="p-1" style={{ width: '180px', minWidth: '180px' }}>
                                                 <Select
                                                     value={row.invoiceNo}
                                                     onChange={(opt) => handleDebitChange(index, "invoiceNo", opt)}
                                                     options={debitHeader.invoiceOptions}
-                                                    placeholder="Select IRN"
+                                                    placeholder="Invoice"
                                                     menuPortalTarget={document.body}
                                                     styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
                                                 />
                                             </td>
-                                            <td className="p-1">
+                                            <td className="p-1" style={{ width: '250px', minWidth: '250px' }}>
                                                 <Select
                                                     value={row.gas}
                                                     onChange={(opt) => handleDebitChange(index, "gas", opt)}
-                                                    options={(row.itemOptions || []).filter(option => 
-                                                        !debitRows.some((otherRow, otherIndex) => 
+                                                    options={(row.itemOptions || []).filter(option =>
+                                                        !debitRows.some((otherRow, otherIndex) =>
                                                             otherIndex !== index && otherRow.gas && String(otherRow.gas.value) === String(option.value)
                                                         )
                                                     )}
@@ -549,7 +605,7 @@ const ProcurementAddDnCn = () => {
                                                     styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
                                                 />
                                             </td>
-                                            <td className="p-1">
+                                            <td className="p-1" style={{ width: '140px', minWidth: '140px' }}>
                                                 <Select
                                                     value={row.uom}
                                                     onChange={(opt) => handleDebitChange(index, "uom", opt)}
@@ -559,54 +615,59 @@ const ProcurementAddDnCn = () => {
                                                     styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
                                                 />
                                             </td>
-                                            <td className="p-1">
+                                            <td className="p-1" style={{ width: '90px', minWidth: '90px' }}>
                                                 <Input
                                                     type="number"
                                                     bsSize="sm"
                                                     value={row.qty}
+                                                    className="no-spinner"
+                                                    style={{ textAlign: 'right' }}
                                                     onChange={(e) => handleDebitChange(index, "qty", e.target.value)}
                                                 />
                                             </td>
-                                            <td className="p-1">
+                                            <td className="p-1" style={{ width: '120px', minWidth: '120px' }}>
                                                 <Input
                                                     type="text"
                                                     bsSize="sm"
                                                     value={row.unitPrice}
                                                     placeholder="0.00"
+                                                    style={{ textAlign: 'right' }}
                                                     onChange={(e) => {
                                                         const val = e.target.value;
                                                         if (/^\d*\.?\d*$/.test(val)) handleDebitChange(index, "unitPrice", val);
                                                     }}
                                                 />
                                             </td>
-                                            <td className="p-1">
+                                            <td className="p-1" style={{ width: '140px', minWidth: '140px' }}>
                                                 <Input
                                                     type="text"
                                                     bsSize="sm"
                                                     readOnly
                                                     disabled
                                                     value={formatAmountInternal(row.amount)}
+                                                    style={{ textAlign: 'right' }}
                                                 />
                                             </td>
-                                            <td className="p-1">
+                                            <td className="p-1" style={{ minWidth: '220px' }}>
                                                 <Input
                                                     type="text"
                                                     bsSize="sm"
                                                     value={row.description}
+                                                    maxLength={25}
                                                     onChange={(e) => handleDebitChange(index, "description", e.target.value)}
                                                 />
                                             </td>
-                                            <td className="text-center p-1">
-                                                {debitRows.length > 1 && (
+                                            {debitRows.length > 1 && (
+                                                <td className="text-center p-1" style={{ width: '40px', minWidth: '40px' }}>
                                                     <i className="bx bx-trash text-danger font-size-18" style={{ cursor: 'pointer' }} onClick={() => removeDebitRow(index)}></i>
-                                                )}
-                                            </td>
+                                                </td>
+                                            )}
                                         </tr>
                                     ))}
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <td colSpan="7">
+                                        <td colSpan={debitRows.length > 1 ? 8 : 7}>
                                             <div className="d-flex justify-content-end gap-2 mt-3">
                                                 <Button color="primary" onClick={() => handleSaveDebit(false)}>Save</Button>
                                                 <Button color="success" onClick={() => handleSaveDebit(true)}>Post</Button>
@@ -674,35 +735,35 @@ const ProcurementAddDnCn = () => {
                             <Table className="table-bordered mb-0 align-middle">
                                 <thead className="table-light">
                                     <tr>
-                                        <th style={{ minWidth: '150px' }}>Purchase Invoice (IRN)</th>
-                                        <th style={{ minWidth: '180px' }}>Item Name</th>
-                                        <th style={{ minWidth: '100px' }}>UOM</th>
-                                        <th style={{ minWidth: '80px' }}>Qty</th>
-                                        <th style={{ minWidth: '120px' }}>Unit Price</th>
-                                        <th style={{ minWidth: '120px' }}>Total Amount</th>
-                                        <th style={{ minWidth: '180px' }}>Description</th>
-                                        <th style={{ width: '40px' }}></th>
+                                        <th style={{ width: '180px', minWidth: '180px' }}>Invoice No</th>
+                                        <th style={{ width: '250px', minWidth: '250px' }}>Item Name</th>
+                                        <th style={{ width: '140px', minWidth: '140px' }}>UOM</th>
+                                        <th style={{ width: '90px', minWidth: '90px' }}>Qty</th>
+                                        <th style={{ width: '120px', minWidth: '120px' }}>Unit Price</th>
+                                        <th style={{ width: '140px', minWidth: '140px' }}>Total Amount</th>
+                                        <th style={{ minWidth: '220px' }}>Description</th>
+                                        {creditRows.length > 1 && <th style={{ width: '40px', minWidth: '40px' }}></th>}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {creditRows.map((row, index) => (
                                         <tr key={index}>
-                                            <td className="p-1">
+                                            <td className="p-1" style={{ width: '180px', minWidth: '180px' }}>
                                                 <Select
                                                     value={row.invoiceNo}
                                                     onChange={(opt) => handleCreditChange(index, "invoiceNo", opt)}
                                                     options={creditHeader.invoiceOptions}
-                                                    placeholder="Select IRN"
+                                                    placeholder="Invoice"
                                                     menuPortalTarget={document.body}
                                                     styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
                                                 />
                                             </td>
-                                            <td className="p-1">
+                                            <td className="p-1" style={{ width: '250px', minWidth: '250px' }}>
                                                 <Select
                                                     value={row.gas}
                                                     onChange={(opt) => handleCreditChange(index, "gas", opt)}
-                                                    options={(row.itemOptions || []).filter(option => 
-                                                        !creditRows.some((otherRow, otherIndex) => 
+                                                    options={(row.itemOptions || []).filter(option =>
+                                                        !creditRows.some((otherRow, otherIndex) =>
                                                             otherIndex !== index && otherRow.gas && String(otherRow.gas.value) === String(option.value)
                                                         )
                                                     )}
@@ -711,7 +772,7 @@ const ProcurementAddDnCn = () => {
                                                     styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
                                                 />
                                             </td>
-                                            <td className="p-1">
+                                            <td className="p-1" style={{ width: '140px', minWidth: '140px' }}>
                                                 <Select
                                                     value={row.uom}
                                                     onChange={(opt) => handleCreditChange(index, "uom", opt)}
@@ -721,54 +782,59 @@ const ProcurementAddDnCn = () => {
                                                     styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
                                                 />
                                             </td>
-                                            <td className="p-1">
+                                            <td className="p-1" style={{ width: '90px', minWidth: '90px' }}>
                                                 <Input
                                                     type="number"
                                                     bsSize="sm"
                                                     value={row.qty}
+                                                    className="no-spinner"
+                                                    style={{ textAlign: 'right' }}
                                                     onChange={(e) => handleCreditChange(index, "qty", e.target.value)}
                                                 />
                                             </td>
-                                            <td className="p-1">
+                                            <td className="p-1" style={{ width: '120px', minWidth: '120px' }}>
                                                 <Input
                                                     type="text"
                                                     bsSize="sm"
                                                     value={row.unitPrice}
                                                     placeholder="0.00"
+                                                    style={{ textAlign: 'right' }}
                                                     onChange={(e) => {
                                                         const val = e.target.value;
                                                         if (/^\d*\.?\d*$/.test(val)) handleCreditChange(index, "unitPrice", val);
                                                     }}
                                                 />
                                             </td>
-                                            <td className="p-1">
+                                            <td className="p-1" style={{ width: '140px', minWidth: '140px' }}>
                                                 <Input
                                                     type="text"
                                                     bsSize="sm"
                                                     readOnly
                                                     disabled
                                                     value={formatAmountInternal(row.amount)}
+                                                    style={{ textAlign: 'right' }}
                                                 />
                                             </td>
-                                            <td className="p-1">
+                                            <td className="p-1" style={{ minWidth: '220px' }}>
                                                 <Input
                                                     type="text"
                                                     bsSize="sm"
                                                     value={row.description}
+                                                    maxLength={25}
                                                     onChange={(e) => handleCreditChange(index, "description", e.target.value)}
                                                 />
                                             </td>
-                                            <td className="text-center p-1">
-                                                {creditRows.length > 1 && (
+                                            {creditRows.length > 1 && (
+                                                <td className="text-center p-1" style={{ width: '40px', minWidth: '40px' }}>
                                                     <i className="bx bx-trash text-danger font-size-18" style={{ cursor: 'pointer' }} onClick={() => removeCreditRow(index)}></i>
-                                                )}
-                                            </td>
+                                                </td>
+                                            )}
                                         </tr>
                                     ))}
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <td colSpan="7">
+                                        <td colSpan={creditRows.length > 1 ? 8 : 7}>
                                             <div className="d-flex justify-content-end gap-2 mt-3">
                                                 <Button color="primary" onClick={() => handleSaveCredit(false)}>Save</Button>
                                                 <Button color="success" onClick={() => handleSaveCredit(true)}>Post</Button>

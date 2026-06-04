@@ -1247,15 +1247,10 @@ const AP = () => {
                                     className="blue-bg"
                                     showGridlines
                                 >
-                                    <Column field="po_no" header="PO No / DATE/ PO Amt" body={displayLedgerPONumber} sortable alignHeader="center" style={{ width: '16%', minWidth: '11rem' }} />
-                                    <Column field="grn_no" header="GRN No. / DATE/GRN Amt" body={displayLedgerGRNNumber} sortable alignHeader="center" style={{ width: '16%', minWidth: '11rem' }} />
-                                    <Column field="irn_no" header="IRN No. / DATE / IRN Amt (A)" body={displayLedgerIRNNumber} sortable alignHeader="center" style={{ width: '16%', minWidth: '11rem' }} />
-                                    <Column field="claim_no" header="Claim No. / DATE/Claim Amt (C)" body={displayLedgerClaimNumber} sortable alignHeader="center" style={{ width: '16%', minWidth: '11rem' }} />
-                                    <Column field="Balance" header="Balance" body={(item) => {
-                                        let val = item.Balance || 0;
-                                        if (Math.abs(val) < 0.001) val = 0;
-                                        return val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                                    }} className="text-end" sortable style={{ width: '10%', minWidth: '7rem' }} />
+                                    <Column field="po_no" header="PO / Dt / Amt" body={displayLedgerPONumber} sortable alignHeader="center" style={{ width: '16%', minWidth: '11rem' }} />
+                                    <Column field="grn_no" header="GRN / Dt / Amt" body={displayLedgerGRNNumber} sortable alignHeader="center" style={{ width: '16%', minWidth: '11rem' }} />
+                                    <Column field="irn_no" header="IRN / Dt / Amt (A)" body={displayLedgerIRNNumber} sortable alignHeader="center" style={{ width: '16%', minWidth: '11rem' }} />
+                                    <Column field="claim_no" header="Claim / Dt / Amt (C)" body={displayLedgerClaimNumber} sortable alignHeader="center" style={{ width: '16%', minWidth: '11rem' }} headerStyle={{ whiteSpace: 'nowrap' }} />
                                     <Column field="debit_note_amount" header="Debit Note (B)" body={(item) => {
                                         let val = item.debit_note_amount || 0;
                                         if (Math.abs(val) < 0.001) val = 0;
@@ -1274,7 +1269,7 @@ const AP = () => {
                                             );
                                         }
                                         return <div style={{ textAlign: "center" }}>-</div>;
-                                    }} className="text-end" sortable style={{ width: '12%', minWidth: '8rem' }} />
+                                    }} className="text-end" sortable style={{ width: '12%', minWidth: '8rem' }} headerStyle={{ whiteSpace: 'nowrap' }} />
                                     <Column field="credit_note_amount" header="Credit Note (D)" body={(item) => {
                                         let val = item.credit_note_amount || 0;
                                         if (Math.abs(val) < 0.001) val = 0;
@@ -1293,8 +1288,8 @@ const AP = () => {
                                             );
                                         }
                                         return <div style={{ textAlign: "center" }}>-</div>;
-                                    }} className="text-end" sortable style={{ width: '12%', minWidth: '8rem' }} />
-                                    <Column field="CumulativeAmount" header="Balance((A+B)-(C+D))" body={(item) => {
+                                    }} className="text-end" sortable style={{ width: '12%', minWidth: '8rem' }} headerStyle={{ whiteSpace: 'nowrap' }} />
+                                    <Column field="CumulativeAmount" header="Balance (A+B) - (C+D)" body={(item) => {
                                         let val = item.CumulativeAmount || 0;
                                         if (Math.abs(val) < 0.001) val = 0;
                                         return (
@@ -1302,7 +1297,7 @@ const AP = () => {
                                                 {val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </span>
                                         );
-                                    }} className="text-end" sortable style={{ width: '12%', minWidth: '8rem' }} />
+                                    }} className="text-end" sortable style={{ width: '12%', minWidth: '8rem' }} headerStyle={{ whiteSpace: 'nowrap' }} />
                                 </DataTable>
                             </TabPane>
                         </TabContent>

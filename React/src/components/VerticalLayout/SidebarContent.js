@@ -1550,7 +1550,7 @@ class SidebarContent extends Component {
         return (
             <React.Fragment>
                 <SimpleBar className="h-100" ref={this.refDiv}>
-                    <div id="sidebar-menu">
+                    <div id="sidebar-menu" style={{ paddingBottom: "60px" }}>
                         <ul className="metismenu list-unstyled" id="side-menu">
                             <li className="menu-title"></li>
                             {this.state.dynamicMenu && this.state.dynamicMenu.menus && this.renderDynamicMenu(this.state.dynamicMenu.menus)}
