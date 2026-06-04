@@ -1014,3 +1014,32 @@ body[data-sidebar-image="img4"] {
 .actions:hover{
  cursor: pointer;
 }
+
+.sidebar-version {
+  position: absolute;
+  bottom: 15px;
+  left: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  z-index: 99;
+  pointer-events: none;
+  color: #7f8387;
+}
+
+body[data-sidebar="dark"] {
+  .sidebar-version {
+    color: rgba(255, 255, 255, 0.4);
+  }
+}
+
+body[data-sidebar="colored"],
+body[data-sidebar="winter"],
+body[data-sidebar="ladylip"],
+body[data-sidebar="plumplate"],
+body[data-sidebar="strongbliss"],
+body[data-sidebar="greatwhale"] {
+  .sidebar-version {
+    color: rgba(255, 255, 255, 0.6);
+  }
+}
+

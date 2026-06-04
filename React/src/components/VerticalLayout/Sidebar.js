@@ -47,6 +47,11 @@ class Sidebar extends Component {
           <div data-simplebar className="h-100">
             {this.props.type !== "condensed" ? <SidebarContent /> : <SidebarContent />}
           </div>
+          {this.props.type !== "condensed" && (
+            <div className="sidebar-version">
+              V 1.0.0.1
+            </div>
+          )}
           <div className="sidebar-background"></div>
         </div>
       </React.Fragment>

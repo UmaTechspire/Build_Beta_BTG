@@ -115,6 +115,16 @@ const formatCreditNoteNo = (val) => {
     return `BTG/CN/${clean}`;
 };
 
+const formatDateToLocal = (date) => {
+    if (!date) return null;
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return null;
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 const ProcurementEditDnCn = () => {
     const history = useHistory();
     const { id } = useParams();
@@ -235,7 +245,7 @@ const ProcurementEditDnCn = () => {
         }
     };
 
-    const fetchSupplierInvoices = async (supplierId) => {
+    const fetchSupplierInvoices = async (supplierId, currentInvoiceHdrId = 0) => {
         if (!supplierId) return [];
         try {
             const userId = user?.u_id || 0;
@@ -246,11 +256,11 @@ const ProcurementEditDnCn = () => {
                     .filter(inv => {
                         const bal = parseFloat(inv.balancepaymentamount || inv.BalancePaymentAmount || 0);
                         const hdrId = inv.receiptnote_hdr_id || inv.Id;
-                        return bal > 0 || hdrId === loadedInvoiceHdrId;
+                        return bal > 0 || hdrId === currentInvoiceHdrId || hdrId === loadedInvoiceHdrId;
                     })
                     .map(inv => ({
                         value: inv.receiptnote_hdr_id || inv.Id,
-                        label: `${inv.receipt_no || inv.InvoiceNo || inv.invoice_no} (${Number(inv.totalamount || inv.TotalAmount || 0).toLocaleString()})`
+                        label: inv.invoice_no || inv.InvoiceNo || inv.receiptno || inv.receipt_no
                     }));
             }
             return [];
@@ -275,7 +285,9 @@ const ProcurementEditDnCn = () => {
                     const dn = res.data;
                     const supOpt = { value: dn.SupplierId, label: supplierMap[dn.SupplierId] || `Supplier #${dn.SupplierId}` };
                     const currOpt = { value: dn.CurrencyId, label: dn.CurrencyCode || "USD" };
-                    const invList = await fetchSupplierInvoices(dn.SupplierId);
+                    const invoiceHdrId = dn.InvoiceHdrId || 0;
+                    setLoadedInvoiceHdrId(invoiceHdrId);
+                    const invList = await fetchSupplierInvoices(dn.SupplierId, invoiceHdrId);
 
                     setDebitHeader({
                         dnNo: dn.DebitNoteNumber || dn.DebitNoteNo || "",
@@ -284,9 +296,6 @@ const ProcurementEditDnCn = () => {
                         currency: currOpt,
                         invoiceOptions: invList
                     });
-
-                    const invoiceHdrId = dn.InvoiceHdrId || 0;
-                    setLoadedInvoiceHdrId(invoiceHdrId);
                     let itemOptionsList = [];
                     if (invoiceHdrId) {
                         try {
@@ -353,7 +362,9 @@ const ProcurementEditDnCn = () => {
                     const cn = res.data;
                     const supOpt = { value: cn.SupplierId, label: supplierMap[cn.SupplierId] || `Supplier #${cn.SupplierId}` };
                     const currOpt = { value: cn.CurrencyId, label: cn.CurrencyCode || "USD" };
-                    const invList = await fetchSupplierInvoices(cn.SupplierId);
+                    const invoiceHdrId = cn.InvoiceHdrId || 0;
+                    setLoadedInvoiceHdrId(invoiceHdrId);
+                    const invList = await fetchSupplierInvoices(cn.SupplierId, invoiceHdrId);
 
                     setCreditHeader({
                         cnNo: cn.CreditNoteNumber || cn.CreditNoteNo || "",
@@ -362,9 +373,6 @@ const ProcurementEditDnCn = () => {
                         currency: currOpt,
                         invoiceOptions: invList
                     });
-
-                    const invoiceHdrId = cn.InvoiceHdrId || 0;
-                    setLoadedInvoiceHdrId(invoiceHdrId);
                     let itemOptionsList = [];
                     if (invoiceHdrId) {
                         try {
@@ -607,13 +615,14 @@ const ProcurementEditDnCn = () => {
 
         const formattedDnNo = formatDebitNoteNo(debitHeader.dnNo);
         let hasSavedReal = false;
+        let saveError = null;
         for (const row of validRows) {
             const payload = {
                 DebitNoteId: parseInt(id),
                 DebitNoteNo: formattedDnNo,
-                Date: debitHeader.date ? debitHeader.date.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                Date: debitHeader.date ? formatDateToLocal(debitHeader.date) : formatDateToLocal(new Date()),
                 DebitAmount: parseFloat(row.amount),
-                Description: row.description || (row.gas ? row.gas.label : ""),
+                Description: row.description || "",
                 SupplierId: debitHeader.supplier.value,
                 InvoiceNo: row.invoiceNo ? row.invoiceNo.label.split(" ")[0] : null,
                 CurrencyId: debitHeader.currency ? debitHeader.currency.value : 1,
@@ -624,15 +633,24 @@ const ProcurementEditDnCn = () => {
             };
 
             try {
-                await updateProcurementDebitNote(payload);
-                hasSavedReal = true;
+                const res = await updateProcurementDebitNote(payload);
+                if (res && res.status === "success") {
+                    hasSavedReal = true;
+                } else {
+                    saveError = res.message || "Failed to update debit note";
+                }
             } catch (e) {
                 console.error("Error updating supplier debit note", e);
+                saveError = e.message || "Error updating supplier debit note";
             }
         }
 
-        toast.success(hasSavedReal ? "Debit Note updated in database successfully!" : "Debit Note updated (Mocked Local Success)");
-        history.push("/procurement-dn-cn");
+        if (saveError) {
+            toast.error("Failed to update Debit Note: " + saveError);
+        } else {
+            toast.success("Debit Note updated successfully!");
+            history.push("/procurement-dn-cn");
+        }
     };
 
     const handleUpdateCredit = async (isSubmitted) => {
@@ -649,13 +667,14 @@ const ProcurementEditDnCn = () => {
 
         const formattedCnNo = formatCreditNoteNo(creditHeader.cnNo);
         let hasSavedReal = false;
+        let saveError = null;
         for (const row of validRows) {
             const payload = {
                 CreditNoteId: parseInt(id),
                 CreditNoteNo: formattedCnNo,
-                Date: creditHeader.date ? creditHeader.date.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                Date: creditHeader.date ? formatDateToLocal(creditHeader.date) : formatDateToLocal(new Date()),
                 CreditAmount: parseFloat(row.amount),
-                Description: row.description || (row.gas ? row.gas.label : ""),
+                Description: row.description || "",
                 SupplierId: creditHeader.supplier.value,
                 InvoiceNo: row.invoiceNo ? row.invoiceNo.label.split(" ")[0] : null,
                 CurrencyId: creditHeader.currency ? creditHeader.currency.value : 1,
@@ -666,15 +685,24 @@ const ProcurementEditDnCn = () => {
             };
 
             try {
-                await updateProcurementCreditNote(payload);
-                hasSavedReal = true;
+                const res = await updateProcurementCreditNote(payload);
+                if (res && res.status === "success") {
+                    hasSavedReal = true;
+                } else {
+                    saveError = res.message || "Failed to update credit note";
+                }
             } catch (e) {
                 console.error("Error updating supplier credit note", e);
+                saveError = e.message || "Error updating supplier credit note";
             }
         }
 
-        toast.success(hasSavedReal ? "Credit Note updated in database successfully!" : "Credit Note updated (Mocked Local Success)");
-        history.push("/procurement-dn-cn");
+        if (saveError) {
+            toast.error("Failed to update Credit Note: " + saveError);
+        } else {
+            toast.success("Credit Note updated successfully!");
+            history.push("/procurement-dn-cn");
+        }
     };
 
     const formatAmountInternal = (val) => {
@@ -744,7 +772,7 @@ const ProcurementEditDnCn = () => {
                                 <Table className="table-bordered mb-0 align-middle">
                                     <thead className="table-light">
                                         <tr>
-                                            <th style={{ minWidth: '150px' }}>Purchase Invoice (IRN)</th>
+                                            <th style={{ minWidth: '150px' }}>Invoice No</th>
                                             <th style={{ minWidth: '180px' }}>Item Name</th>
                                             <th style={{ minWidth: '100px' }}>UOM</th>
                                             <th style={{ minWidth: '80px' }}>Qty</th>
@@ -908,7 +936,7 @@ const ProcurementEditDnCn = () => {
                                 <Table className="table-bordered mb-0 align-middle">
                                     <thead className="table-light">
                                         <tr>
-                                            <th style={{ minWidth: '150px' }}>Purchase Invoice (IRN)</th>
+                                            <th style={{ minWidth: '150px' }}>Invoice No</th>
                                             <th style={{ minWidth: '180px' }}>Item Name</th>
                                             <th style={{ minWidth: '100px' }}>UOM</th>
                                             <th style={{ minWidth: '80px' }}>Qty</th>

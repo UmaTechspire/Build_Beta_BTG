@@ -94,8 +94,8 @@ const fallbackCreditNotes = [
 const ProcurementDnCn = () => {
     const history = useHistory();
     // Dates
-    const [fromDate, setFromDate] = useState(new Date());
-    const [toDate, setToDate] = useState(new Date());
+    const [fromDate, setFromDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+    const [toDate, setToDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0));
 
     // Toggle State
     const [isDebitOpen, setIsDebitOpen] = useState(true);
@@ -128,7 +128,7 @@ const ProcurementDnCn = () => {
         loadData();
     }, []);
 
-    const loadData = async () => {
+    const loadData = async (from = fromDate, to = toDate) => {
         setLoading(true);
         try {
             // 1. Fetch REAL suppliers dynamically
@@ -140,6 +140,18 @@ const ProcurementDnCn = () => {
                     supplierMap[s.SupplierId || s.supplierid || s.Id] = s.SupplierName || s.suppliername;
                 });
             }
+
+            // Helper function for date filtering
+            const filterByDate = (dateStr) => {
+                if (!dateStr) return false;
+                const dDate = new Date(dateStr);
+                const compareDate = new Date(dDate.getFullYear(), dDate.getMonth(), dDate.getDate());
+                const start = from ? new Date(from.getFullYear(), from.getMonth(), from.getDate()) : null;
+                const end = to ? new Date(to.getFullYear(), to.getMonth(), to.getDate()) : null;
+                if (start && compareDate < start) return false;
+                if (end && compareDate > end) return false;
+                return true;
+            };
 
             // 2. Fetch Debit Notes
             const debitRes = await getAllProcurementDebitNotes();
@@ -156,7 +168,7 @@ const ProcurementDnCn = () => {
                     currency: d.CurrencyCode || "USD",
                     status: d.IsSubmitted ? "Posted" : "Saved"
                 }));
-                setDebitNotes(formattedDebit);
+                setDebitNotes(formattedDebit.filter(d => filterByDate(d.date)));
             } else {
                 // Fallback to procurement mock data for instant visualization
                 const mappedFallbackDebit = fallbackDebitNotes.map(d => {
@@ -166,7 +178,7 @@ const ProcurementDnCn = () => {
                         supplier: matchedSupplier || d.supplier
                     };
                 });
-                setDebitNotes(mappedFallbackDebit);
+                setDebitNotes(mappedFallbackDebit.filter(d => filterByDate(d.date)));
             }
 
             // 3. Fetch Credit Notes
@@ -184,7 +196,7 @@ const ProcurementDnCn = () => {
                     currency: c.CurrencyCode || "USD",
                     status: c.IsSubmitted ? "Posted" : "Saved"
                 }));
-                setCreditNotes(formattedCredit);
+                setCreditNotes(formattedCredit.filter(c => filterByDate(c.date)));
             } else {
                 // Fallback to procurement mock data for instant visualization
                 const mappedFallbackCredit = fallbackCreditNotes.map(c => {
@@ -194,13 +206,23 @@ const ProcurementDnCn = () => {
                         supplier: matchedSupplier || c.supplier
                     };
                 });
-                setCreditNotes(mappedFallbackCredit);
+                setCreditNotes(mappedFallbackCredit.filter(c => filterByDate(c.date)));
             }
         } catch (e) {
             console.error("Error loading Procurement DN/CN data:", e);
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleReset = () => {
+        const defaultFrom = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+        const defaultTo = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0);
+        setFromDate(defaultFrom);
+        setToDate(defaultTo);
+        clearDnFilter();
+        clearCnFilter();
+        loadData(defaultFrom, defaultTo);
     };
 
     const onDnGlobalFilterChange = (e) => {
@@ -413,17 +435,11 @@ const ProcurementDnCn = () => {
                                 </div>
 
                                 <div className="col-12 col-lg-7 d-flex justify-content-end flex-wrap gap-2">
-                                    <button type="button" className="btn btn-info" onClick={loadData}>
+                                    <button type="button" className="btn btn-info" onClick={() => loadData()}>
                                         <i className="bx bx-search-alt label-icon font-size-16 align-middle me-2"></i> Search
                                     </button>
-                                    <button type="button" className="btn btn-danger" onClick={clearDnFilter}>
+                                    <button type="button" className="btn btn-danger" onClick={handleReset}>
                                         <i className="bx bx-window-close label-icon font-size-14 align-middle me-2"></i> Cancel
-                                    </button>
-                                    <button type="button" className="btn btn-secondary">
-                                        <i className="bx bx-export label-icon font-size-16 align-middle me-2"></i> Export
-                                    </button>
-                                    <button type="button" className="btn btn-primary">
-                                        <i className="bx bx-printer label-icon font-size-16 align-middle me-2"></i> Print
                                     </button>
                                     <button type="button" className="btn btn-success" onClick={() => history.push("/procurement-add-dn-cn")}>
                                         <i className="bx bx-plus label-icon font-size-16 align-middle me-2"></i> New
@@ -474,9 +490,9 @@ const ProcurementDnCn = () => {
                             >
                                 <Column field="dnNo" header="Debit Note No" sortable style={{ minWidth: '120px' }} />
                                 <Column field="date" header="Date" body={dateBodyTemplate} sortable style={{ minWidth: '120px', whiteSpace: 'nowrap' }} />
-                                <Column field="description" header="Description" sortable style={{ minWidth: '150px' }} />
                                 <Column field="supplier" header="Supplier" sortable style={{ minWidth: '200px' }} />
-                                <Column field="invoiceNo" header="Purchase Invoice (IRN)" sortable style={{ minWidth: '150px' }} />
+                                <Column field="invoiceNo" header="Invoice No" sortable style={{ minWidth: '150px' }} />
+                                <Column field="description" header="Description" sortable style={{ minWidth: '150px' }} />
                                 <Column field="amount" header="Amount" body={amountBodyTemplate} sortable className="text-end" style={{ minWidth: '120px' }} />
                                 <Column field="currency" header="Currency" sortable className="text-center" style={{ minWidth: '100px' }} />
                                 <Column field="status" header="Status" body={statusBodyTemplate} sortable className="text-center" style={{ minWidth: '100px' }} />
@@ -526,9 +542,9 @@ const ProcurementDnCn = () => {
                             >
                                 <Column field="cnNo" header="Credit Note No" sortable style={{ minWidth: '120px' }} />
                                 <Column field="date" header="Date" body={dateBodyTemplate} sortable style={{ minWidth: '120px', whiteSpace: 'nowrap' }} />
-                                <Column field="description" header="Description" sortable style={{ minWidth: '150px' }} />
                                 <Column field="supplier" header="Supplier" sortable style={{ minWidth: '200px' }} />
-                                <Column field="invoiceNo" header="Purchase Invoice (IRN)" sortable style={{ minWidth: '150px' }} />
+                                <Column field="invoiceNo" header="Invoice No" sortable style={{ minWidth: '150px' }} />
+                                <Column field="description" header="Description" sortable style={{ minWidth: '150px' }} />
                                 <Column field="amount" header="Amount" body={amountBodyTemplate} sortable className="text-end" style={{ minWidth: '120px' }} />
                                 <Column field="currency" header="Currency" sortable className="text-center" style={{ minWidth: '100px' }} />
                                 <Column field="status" header="Status" body={statusBodyTemplate} sortable className="text-center" style={{ minWidth: '100px' }} />

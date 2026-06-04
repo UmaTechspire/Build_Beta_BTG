@@ -335,12 +335,6 @@ const DnCn = () => {
                                     <button type="button" className="btn btn-danger">
                                         <i className="bx bx-window-close label-icon font-size-14 align-middle me-2"></i> Cancel
                                     </button>
-                                    <button type="button" className="btn btn-secondary">
-                                        <i className="bx bx-export label-icon font-size-16 align-middle me-2"></i> Export
-                                    </button>
-                                    <button type="button" className="btn btn-primary">
-                                        <i className="bx bx-printer label-icon font-size-16 align-middle me-2"></i> Print
-                                    </button>
                                     <button type="button" className="btn btn-success" onClick={() => history.push("/add-dn-cn")}>
                                         <i className="bx bx-plus label-icon font-size-16 align-middle me-2"></i> New
                                     </button>
