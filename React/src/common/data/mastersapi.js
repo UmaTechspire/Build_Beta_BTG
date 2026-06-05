@@ -3819,6 +3819,17 @@ export const GetByIdPurchaseOrder = async (id, orgId, branchId) => {
     }
 };
 //#endregion
+//#region GetPORequisitionsBulk
+export const GetPORequisitionsBulk = async (poids, orgId, branchId) => {
+    try {
+        const res = await post("/PurchaseOrder/GetByIdsBulk", { poids, orgid: orgId, branchid: branchId });
+        return res;
+    } catch (err) {
+        console.error('Failed to load purchase order bulk list', err);
+        return { status: false, message: err.message };
+    }
+};
+//#endregion
 //#region
 export const GetCommonPurchaseOrderSeqNo = async (orgid, branchId) => {
     try {

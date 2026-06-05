@@ -173,13 +173,198 @@ const ProcurementEditDnCn = () => {
         const init = async () => {
             setLoading(true);
             try {
-                // Fetch Master Data
-                await fetchSuppliers();
-                await fetchCurrencies();
-                await fetchUOMs();
+                // Fetch Master Data and Note Details in parallel
+                const [suppliersRes, currenciesRes, uomsRes, noteRes] = await Promise.all([
+                    GetAllSuppliers(1, 1).catch(e => { console.error(e); return null; }),
+                    getLedgerCurrencies().catch(e => { console.error(e); return null; }),
+                    GetUoM(1, 0).catch(e => { console.error(e); return null; }),
+                    (type === 'debit' ? getProcurementDebitNoteById(id) : getProcurementCreditNoteById(id)).catch(e => { console.error(e); return null; })
+                ]);
 
-                // Fetch Note Details
-                await loadNoteDetails();
+                // 1. Process Suppliers
+                let supList = [];
+                if (suppliersRes && suppliersRes.status) {
+                    supList = suppliersRes.data || [];
+                    const options = supList.map(s => ({
+                        value: s.SupplierId || s.supplierid || s.Id,
+                        label: s.SupplierName || s.suppliername
+                    }));
+                    setSupplierOptions(options);
+                }
+                const supplierMap = {};
+                supList.forEach(s => {
+                    supplierMap[s.SupplierId || s.supplierid || s.Id] = s.SupplierName || s.suppliername;
+                });
+
+                // 2. Process Currencies
+                if (currenciesRes && currenciesRes.status === "success") {
+                    const allowedCodes = ["IDR", "USD", "MYR", "SGD", "CNY"];
+                    const options = currenciesRes.data
+                        .filter(c => allowedCodes.includes(c.CurrencyCode))
+                        .map(c => ({
+                            value: c.CurrencyId,
+                            label: c.CurrencyCode
+                        }));
+                    setCurrencyOptions(options);
+                }
+
+                // 3. Process UOMs
+                if (Array.isArray(uomsRes)) {
+                    setUomOptions(uomsRes.map(u => ({ value: u.UoMId, label: u.UoM })));
+                }
+
+                // 4. Process Note Details (Debit or Credit)
+                if (type === 'debit') {
+                    if (noteRes && noteRes.status === "success" && noteRes.data) {
+                        const dn = noteRes.data;
+                        const supOpt = { value: dn.SupplierId, label: supplierMap[dn.SupplierId] || `Supplier #${dn.SupplierId}` };
+                        const currOpt = { value: dn.CurrencyId, label: dn.CurrencyCode || "USD" };
+                        const invoiceHdrId = dn.InvoiceHdrId || 0;
+                        setLoadedInvoiceHdrId(invoiceHdrId);
+
+                        // Fetch dependent invoice options and items in parallel
+                        const [invList, itemRes] = await Promise.all([
+                            fetchSupplierInvoices(dn.SupplierId, invoiceHdrId),
+                            invoiceHdrId ? getItemsByInvoiceId(invoiceHdrId).catch(e => null) : Promise.resolve(null)
+                        ]);
+
+                        setDebitHeader({
+                            dnNo: dn.DebitNoteNumber || dn.DebitNoteNo || "",
+                            supplier: supOpt,
+                            date: dn.TransactionDate ? new Date(dn.TransactionDate) : new Date(),
+                            currency: currOpt,
+                            invoiceOptions: invList
+                        });
+
+                        let itemOptionsList = [];
+                        if (itemRes && itemRes.status === "success" && Array.isArray(itemRes.data)) {
+                            itemOptionsList = itemRes.data.map(item => ({
+                                value: item.ItemId || item.itemid,
+                                label: item.ItemName || item.itemname,
+                                uomId: item.UomId || item.uomid,
+                                uomName: item.UomName || item.uomname || item.UOM,
+                                unitPrice: item.UnitPrice || item.unitprice || 0
+                            }));
+                        }
+
+                        const dnAmount = parseFloat(dn.Amount || dn.DebitAmount || 0);
+                        const dnQty = parseFloat(dn.Qty || 1);
+                        const dnUnitPrice = dnQty > 0 ? (dnAmount / dnQty) : 0;
+                        setDebitRows([{
+                            gas: dn.GasCodeId ? { value: dn.GasCodeId, label: dn.GasName || "Item" } : null,
+                            qty: dn.Qty || 1,
+                            uom: dn.UomId ? { value: dn.UomId, label: dn.UOM || "UOM" } : null,
+                            invoiceNo: dn.InvoiceNo ? { value: invoiceHdrId, label: dn.InvoiceNo } : null,
+                            unitPrice: dnUnitPrice.toFixed(2),
+                            amount: dnAmount.toString(),
+                            description: dn.Description || "",
+                            itemOptions: itemOptionsList
+                        }]);
+                    } else {
+                        // Fallback pre-population
+                        const dn = fallbackDebitNotes.find(item => item.DebitNoteId === parseInt(id)) || fallbackDebitNotes[0];
+                        const supOpt = { value: dn.supplierId, label: supplierMap[dn.supplierId] || "PT HALO HALO BANDUNG" };
+                        const currOpt = { value: dn.currencyId, label: dn.currencyId === 4 ? "SGD" : "USD" };
+                        const invList = await fetchSupplierInvoices(dn.supplierId);
+
+                        setDebitHeader({
+                            dnNo: dn.dnNo,
+                            supplier: supOpt,
+                            date: dn.date,
+                            currency: currOpt,
+                            invoiceOptions: invList
+                        });
+
+                        const dnAmount = parseFloat(dn.amount || 0);
+                        const dnQty = parseFloat(dn.qty || 1);
+                        const dnUnitPrice = dnQty > 0 ? (dnAmount / dnQty) : 0;
+                        setDebitRows([{
+                            gas: { value: dn.gasId, label: "Neriki Valve" },
+                            qty: dn.qty,
+                            uom: { value: dn.uomId, label: "Pc" },
+                            invoiceNo: { value: dn.invoiceNo, label: dn.invoiceNo },
+                            unitPrice: dnUnitPrice.toFixed(2),
+                            amount: dnAmount.toString(),
+                            description: dn.description,
+                            itemOptions: []
+                        }]);
+                    }
+                } else {
+                    if (noteRes && noteRes.status === "success" && noteRes.data) {
+                        const cn = noteRes.data;
+                        const supOpt = { value: cn.SupplierId, label: supplierMap[cn.SupplierId] || `Supplier #${cn.SupplierId}` };
+                        const currOpt = { value: cn.CurrencyId, label: cn.CurrencyCode || "USD" };
+                        const invoiceHdrId = cn.InvoiceHdrId || 0;
+                        setLoadedInvoiceHdrId(invoiceHdrId);
+
+                        // Fetch dependent invoice options and items in parallel
+                        const [invList, itemRes] = await Promise.all([
+                            fetchSupplierInvoices(cn.SupplierId, invoiceHdrId),
+                            invoiceHdrId ? getItemsByInvoiceId(invoiceHdrId).catch(e => null) : Promise.resolve(null)
+                        ]);
+
+                        setCreditHeader({
+                            cnNo: cn.CreditNoteNumber || cn.CreditNoteNo || "",
+                            supplier: supOpt,
+                            date: cn.TransactionDate ? new Date(cn.TransactionDate) : new Date(),
+                            currency: currOpt,
+                            invoiceOptions: invList
+                        });
+
+                        let itemOptionsList = [];
+                        if (itemRes && itemRes.status === "success" && Array.isArray(itemRes.data)) {
+                            itemOptionsList = itemRes.data.map(item => ({
+                                value: item.ItemId || item.itemid,
+                                label: item.ItemName || item.itemname,
+                                uomId: item.UomId || item.uomid,
+                                uomName: item.UomName || item.uomname || item.UOM,
+                                unitPrice: item.UnitPrice || item.unitprice || 0
+                            }));
+                        }
+
+                        const cnAmount = parseFloat(cn.Amount || cn.CreditAmount || 0);
+                        const cnQty = parseFloat(cn.Qty || 1);
+                        const cnUnitPrice = cnQty > 0 ? (cnAmount / cnQty) : 0;
+                        setCreditRows([{
+                            gas: cn.GasCodeId ? { value: cn.GasCodeId, label: cn.GasName || "Item" } : null,
+                            qty: cn.Qty || 1,
+                            uom: cn.UomId ? { value: cn.UomId, label: cn.UOM || "UOM" } : null,
+                            invoiceNo: cn.InvoiceNo ? { value: invoiceHdrId, label: cn.InvoiceNo } : null,
+                            unitPrice: cnUnitPrice.toFixed(2),
+                            amount: cnAmount.toString(),
+                            description: cn.Description || "",
+                            itemOptions: itemOptionsList
+                        }]);
+                    } else {
+                        // Fallback pre-population
+                        const cn = fallbackCreditNotes.find(item => item.CreditNoteId === parseInt(id)) || fallbackCreditNotes[0];
+                        const supOpt = { value: cn.supplierId, label: supplierMap[cn.supplierId] || "SMART TECHNOLOGY GAS PT" };
+                        const currOpt = { value: cn.currencyId, label: cn.currencyId === 4 ? "SGD" : "USD" };
+                        const invList = await fetchSupplierInvoices(cn.supplierId);
+
+                        setCreditHeader({
+                            cnNo: cn.cnNo,
+                            supplier: supOpt,
+                            date: cn.date,
+                            currency: currOpt,
+                            invoiceOptions: invList
+                        });
+
+                        const cnAmount = parseFloat(cn.amount || 0);
+                        const cnQty = parseFloat(cn.qty || 1);
+                        const cnUnitPrice = cnQty > 0 ? (cnAmount / cnQty) : 0;
+                        setCreditRows([{
+                            gas: { value: cn.gasId, label: "CO2 Valve c/w Safety" },
+                            qty: cn.qty,
+                            uom: { value: cn.uomId, label: "Pc" },
+                            invoiceNo: { value: cn.invoiceNo, label: cn.invoiceNo },
+                            unitPrice: cnUnitPrice.toFixed(2),
+                            amount: cnAmount.toString(),
+                            description: cn.description,
+                            itemOptions: []
+                        }]);
+                    }
+                }
             } catch (e) {
                 console.error("Initialization error:", e);
             } finally {
@@ -188,62 +373,6 @@ const ProcurementEditDnCn = () => {
         };
         init();
     }, [id]);
-
-    const fetchGasItems = async () => {
-        try {
-            const data = await fetchGasListDSI(1, 0);
-            if (Array.isArray(data)) {
-                setGasOptions(data.map(g => ({ value: g.GasCodeId, label: g.GasName })));
-            }
-        } catch (e) {
-            console.error("Error fetching gas items:", e);
-        }
-    };
-
-    const fetchUOMs = async () => {
-        try {
-            const data = await GetUoM(1, 0);
-            if (Array.isArray(data)) {
-                setUomOptions(data.map(u => ({ value: u.UoMId, label: u.UoM })));
-            }
-        } catch (e) {
-            console.error("Error fetching UOMs:", e);
-        }
-    };
-
-    const fetchSuppliers = async () => {
-        try {
-            const response = await GetAllSuppliers(1, 1);
-            if (response && response.status) {
-                const list = response.data || [];
-                const options = list.map(s => ({
-                    value: s.SupplierId || s.supplierid || s.Id,
-                    label: s.SupplierName || s.suppliername
-                }));
-                setSupplierOptions(options);
-            }
-        } catch (error) {
-            console.error("Error fetching suppliers:", error);
-        }
-    };
-
-    const fetchCurrencies = async () => {
-        try {
-            const response = await getLedgerCurrencies();
-            if (response && response.status === "success") {
-                const allowedCodes = ["IDR", "USD", "MYR", "SGD", "CNY"];
-                const options = response.data
-                    .filter(c => allowedCodes.includes(c.CurrencyCode))
-                    .map(c => ({
-                        value: c.CurrencyId,
-                        label: c.CurrencyCode
-                    }));
-                setCurrencyOptions(options);
-            }
-        } catch (error) {
-            console.error("Error fetching currencies:", error);
-        }
-    };
 
     const fetchSupplierInvoices = async (supplierId, currentInvoiceHdrId = 0) => {
         if (!supplierId) return [];
@@ -267,175 +396,6 @@ const ProcurementEditDnCn = () => {
         } catch (error) {
             console.error("Error fetching supplier invoices:", error);
             return [];
-        }
-    };
-
-    const loadNoteDetails = async () => {
-        try {
-            const supplierRes = await GetAllSuppliers(1, 1);
-            const supList = supplierRes?.data || [];
-            const supplierMap = {};
-            supList.forEach(s => {
-                supplierMap[s.SupplierId || s.supplierid || s.Id] = s.SupplierName || s.suppliername;
-            });
-
-            if (type === 'debit') {
-                const res = await getProcurementDebitNoteById(id);
-                if (res && res.status === "success" && res.data) {
-                    const dn = res.data;
-                    const supOpt = { value: dn.SupplierId, label: supplierMap[dn.SupplierId] || `Supplier #${dn.SupplierId}` };
-                    const currOpt = { value: dn.CurrencyId, label: dn.CurrencyCode || "USD" };
-                    const invoiceHdrId = dn.InvoiceHdrId || 0;
-                    setLoadedInvoiceHdrId(invoiceHdrId);
-                    const invList = await fetchSupplierInvoices(dn.SupplierId, invoiceHdrId);
-
-                    setDebitHeader({
-                        dnNo: dn.DebitNoteNumber || dn.DebitNoteNo || "",
-                        supplier: supOpt,
-                        date: dn.TransactionDate ? new Date(dn.TransactionDate) : new Date(),
-                        currency: currOpt,
-                        invoiceOptions: invList
-                    });
-                    let itemOptionsList = [];
-                    if (invoiceHdrId) {
-                        try {
-                            const itemRes = await getItemsByInvoiceId(invoiceHdrId);
-                            if (itemRes && itemRes.status === "success" && Array.isArray(itemRes.data)) {
-                                itemOptionsList = itemRes.data.map(item => ({
-                                    value: item.ItemId || item.itemid,
-                                    label: item.ItemName || item.itemname,
-                                    uomId: item.UomId || item.uomid,
-                                    uomName: item.UomName || item.uomname || item.UOM,
-                                    unitPrice: item.UnitPrice || item.unitprice || 0
-                                }));
-                            }
-                        } catch (itemErr) {
-                            console.error("Error loading loaded invoice items:", itemErr);
-                        }
-                    }
-
-                    const dnAmount = parseFloat(dn.Amount || dn.DebitAmount || 0);
-                    const dnQty = parseFloat(dn.Qty || 1);
-                    const dnUnitPrice = dnQty > 0 ? (dnAmount / dnQty) : 0;
-                    setDebitRows([{
-                        gas: dn.GasCodeId ? { value: dn.GasCodeId, label: dn.GasName || "Item" } : null,
-                        qty: dn.Qty || 1,
-                        uom: dn.UomId ? { value: dn.UomId, label: dn.UOM || "UOM" } : null,
-                        invoiceNo: dn.InvoiceNo ? { value: invoiceHdrId, label: dn.InvoiceNo } : null,
-                        unitPrice: dnUnitPrice.toFixed(2),
-                        amount: dnAmount.toString(),
-                        description: dn.Description || "",
-                        itemOptions: itemOptionsList
-                    }]);
-                } else {
-                    // Fallback pre-population
-                    const dn = fallbackDebitNotes.find(item => item.DebitNoteId === parseInt(id)) || fallbackDebitNotes[0];
-                    const supOpt = { value: dn.supplierId, label: supplierMap[dn.supplierId] || "PT HALO HALO BANDUNG" };
-                    const currOpt = { value: dn.currencyId, label: dn.currencyId === 4 ? "SGD" : "USD" };
-                    const invList = await fetchSupplierInvoices(dn.supplierId);
-
-                    setDebitHeader({
-                        dnNo: dn.dnNo,
-                        supplier: supOpt,
-                        date: dn.date,
-                        currency: currOpt,
-                        invoiceOptions: invList
-                    });
-
-                    const dnAmount = parseFloat(dn.amount || 0);
-                    const dnQty = parseFloat(dn.qty || 1);
-                    const dnUnitPrice = dnQty > 0 ? (dnAmount / dnQty) : 0;
-                    setDebitRows([{
-                        gas: { value: dn.gasId, label: "Neriki Valve" },
-                        qty: dn.qty,
-                        uom: { value: dn.uomId, label: "Pc" },
-                        invoiceNo: { value: dn.invoiceNo, label: dn.invoiceNo },
-                        unitPrice: dnUnitPrice.toFixed(2),
-                        amount: dnAmount.toString(),
-                        description: dn.description,
-                        itemOptions: []
-                    }]);
-                }
-            } else {
-                const res = await getProcurementCreditNoteById(id);
-                if (res && res.status === "success" && res.data) {
-                    const cn = res.data;
-                    const supOpt = { value: cn.SupplierId, label: supplierMap[cn.SupplierId] || `Supplier #${cn.SupplierId}` };
-                    const currOpt = { value: cn.CurrencyId, label: cn.CurrencyCode || "USD" };
-                    const invoiceHdrId = cn.InvoiceHdrId || 0;
-                    setLoadedInvoiceHdrId(invoiceHdrId);
-                    const invList = await fetchSupplierInvoices(cn.SupplierId, invoiceHdrId);
-
-                    setCreditHeader({
-                        cnNo: cn.CreditNoteNumber || cn.CreditNoteNo || "",
-                        supplier: supOpt,
-                        date: cn.TransactionDate ? new Date(cn.TransactionDate) : new Date(),
-                        currency: currOpt,
-                        invoiceOptions: invList
-                    });
-                    let itemOptionsList = [];
-                    if (invoiceHdrId) {
-                        try {
-                            const itemRes = await getItemsByInvoiceId(invoiceHdrId);
-                            if (itemRes && itemRes.status === "success" && Array.isArray(itemRes.data)) {
-                                itemOptionsList = itemRes.data.map(item => ({
-                                    value: item.ItemId || item.itemid,
-                                    label: item.ItemName || item.itemname,
-                                    uomId: item.UomId || item.uomid,
-                                    uomName: item.UomName || item.uomname || item.UOM,
-                                    unitPrice: item.UnitPrice || item.unitprice || 0
-                                }));
-                            }
-                        } catch (itemErr) {
-                            console.error("Error loading loaded invoice items:", itemErr);
-                        }
-                    }
-
-                    const cnAmount = parseFloat(cn.Amount || cn.CreditAmount || 0);
-                    const cnQty = parseFloat(cn.Qty || 1);
-                    const cnUnitPrice = cnQty > 0 ? (cnAmount / cnQty) : 0;
-                    setCreditRows([{
-                        gas: cn.GasCodeId ? { value: cn.GasCodeId, label: cn.GasName || "Item" } : null,
-                        qty: cn.Qty || 1,
-                        uom: cn.UomId ? { value: cn.UomId, label: cn.UOM || "UOM" } : null,
-                        invoiceNo: cn.InvoiceNo ? { value: invoiceHdrId, label: cn.InvoiceNo } : null,
-                        unitPrice: cnUnitPrice.toFixed(2),
-                        amount: cnAmount.toString(),
-                        description: cn.Description || "",
-                        itemOptions: itemOptionsList
-                    }]);
-                } else {
-                    // Fallback pre-population
-                    const cn = fallbackCreditNotes.find(item => item.CreditNoteId === parseInt(id)) || fallbackCreditNotes[0];
-                    const supOpt = { value: cn.supplierId, label: supplierMap[cn.supplierId] || "SMART TECHNOLOGY GAS PT" };
-                    const currOpt = { value: cn.currencyId, label: cn.currencyId === 4 ? "SGD" : "USD" };
-                    const invList = await fetchSupplierInvoices(cn.supplierId);
-
-                    setCreditHeader({
-                        cnNo: cn.cnNo,
-                        supplier: supOpt,
-                        date: cn.date,
-                        currency: currOpt,
-                        invoiceOptions: invList
-                    });
-
-                    const cnAmount = parseFloat(cn.amount || 0);
-                    const cnQty = parseFloat(cn.qty || 1);
-                    const cnUnitPrice = cnQty > 0 ? (cnAmount / cnQty) : 0;
-                    setCreditRows([{
-                        gas: { value: cn.gasId, label: "CO2 Valve c/w Safety" },
-                        qty: cn.qty,
-                        uom: { value: cn.uomId, label: "Pc" },
-                        invoiceNo: { value: cn.invoiceNo, label: cn.invoiceNo },
-                        unitPrice: cnUnitPrice.toFixed(2),
-                        amount: cnAmount.toString(),
-                        description: cn.description,
-                        itemOptions: []
-                    }]);
-                }
-            }
-        } catch (e) {
-            console.error("Error loading note details:", e);
         }
     };
 
@@ -714,6 +674,19 @@ const ProcurementEditDnCn = () => {
 
     return (
         <div className="page-content">
+            <style>{`
+                /* Chrome, Safari, Edge, Opera */
+                input.no-spinner::-webkit-outer-spin-button,
+                input.no-spinner::-webkit-inner-spin-button {
+                    -webkit-appearance: none;
+                    margin: 0;
+                }
+
+                /* Firefox */
+                input.no-spinner[type=number] {
+                    -moz-appearance: textfield;
+                }
+            `}</style>
             <Container fluid>
                 <Breadcrumbs title="Procurement" breadcrumbItem="Edit DN/CN" />
 
@@ -772,30 +745,30 @@ const ProcurementEditDnCn = () => {
                                 <Table className="table-bordered mb-0 align-middle">
                                     <thead className="table-light">
                                         <tr>
-                                            <th style={{ minWidth: '150px' }}>Invoice No</th>
-                                            <th style={{ minWidth: '180px' }}>Item Name</th>
-                                            <th style={{ minWidth: '100px' }}>UOM</th>
-                                            <th style={{ minWidth: '80px' }}>Qty</th>
-                                            <th style={{ minWidth: '120px' }}>Unit Price</th>
-                                            <th style={{ minWidth: '120px' }}>Total Amount</th>
-                                            <th style={{ minWidth: '180px' }}>Description</th>
-                                            <th style={{ width: '40px' }}></th>
+                                            <th style={{ width: '180px', minWidth: '180px' }}>Invoice No</th>
+                                            <th style={{ width: '250px', minWidth: '250px' }}>Item Name</th>
+                                            <th style={{ width: '140px', minWidth: '140px' }}>UOM</th>
+                                            <th style={{ width: '90px', minWidth: '90px' }}>Qty</th>
+                                            <th style={{ width: '120px', minWidth: '120px' }}>Unit Price</th>
+                                            <th style={{ width: '140px', minWidth: '140px' }}>Total Amount</th>
+                                            <th style={{ minWidth: '220px' }}>Description</th>
+                                            {debitRows.length > 1 && <th style={{ width: '40px', minWidth: '40px' }}></th>}
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {debitRows.map((row, index) => (
                                             <tr key={index}>
-                                                <td className="p-1">
+                                                <td className="p-1" style={{ width: '180px', minWidth: '180px' }}>
                                                     <Select
                                                         value={row.invoiceNo}
                                                         onChange={(opt) => handleDebitChange(index, "invoiceNo", opt)}
                                                         options={debitHeader.invoiceOptions}
-                                                        placeholder="Select IRN"
+                                                        placeholder="Invoice"
                                                         menuPortalTarget={document.body}
                                                         styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
                                                     />
                                                 </td>
-                                                <td className="p-1">
+                                                <td className="p-1" style={{ width: '250px', minWidth: '250px' }}>
                                                     <Select
                                                         value={row.gas}
                                                         onChange={(opt) => handleDebitChange(index, "gas", opt)}
@@ -809,7 +782,7 @@ const ProcurementEditDnCn = () => {
                                                         styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
                                                     />
                                                 </td>
-                                                <td className="p-1">
+                                                <td className="p-1" style={{ width: '140px', minWidth: '140px' }}>
                                                     <Select
                                                         value={row.uom}
                                                         onChange={(opt) => handleDebitChange(index, "uom", opt)}
@@ -819,54 +792,59 @@ const ProcurementEditDnCn = () => {
                                                         styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
                                                     />
                                                 </td>
-                                                <td className="p-1">
+                                                <td className="p-1" style={{ width: '90px', minWidth: '90px' }}>
                                                     <Input
                                                         type="number"
                                                         bsSize="sm"
                                                         value={row.qty}
+                                                        className="no-spinner"
+                                                        style={{ textAlign: 'right' }}
                                                         onChange={(e) => handleDebitChange(index, "qty", e.target.value)}
                                                     />
                                                 </td>
-                                                <td className="p-1">
+                                                <td className="p-1" style={{ width: '120px', minWidth: '120px' }}>
                                                     <Input
                                                         type="text"
                                                         bsSize="sm"
                                                         value={row.unitPrice}
                                                         placeholder="0.00"
+                                                        style={{ textAlign: 'right' }}
                                                         onChange={(e) => {
                                                             const val = e.target.value;
                                                             if (/^\d*\.?\d*$/.test(val)) handleDebitChange(index, "unitPrice", val);
                                                         }}
                                                     />
                                                 </td>
-                                                <td className="p-1">
+                                                <td className="p-1" style={{ width: '140px', minWidth: '140px' }}>
                                                     <Input
                                                         type="text"
                                                         bsSize="sm"
                                                         readOnly
                                                         disabled
                                                         value={formatAmountInternal(row.amount)}
+                                                        style={{ textAlign: 'right' }}
                                                     />
                                                 </td>
-                                                <td className="p-1">
+                                                <td className="p-1" style={{ minWidth: '220px' }}>
                                                     <Input
                                                         type="text"
                                                         bsSize="sm"
                                                         value={row.description}
+                                                        maxLength={25}
                                                         onChange={(e) => handleDebitChange(index, "description", e.target.value)}
                                                     />
                                                 </td>
-                                                <td className="text-center p-1">
-                                                    {debitRows.length > 1 && (
+                                                {debitRows.length > 1 && (
+                                                    <td className="text-center p-1" style={{ width: '40px', minWidth: '40px' }}>
                                                         <i className="bx bx-trash text-danger font-size-18" style={{ cursor: 'pointer' }} onClick={() => removeDebitRow(index)}></i>
-                                                    )}
-                                                </td>
+                                                    </td>
+                                                )}
                                             </tr>
                                         ))}
                                     </tbody>
                                     <tfoot>
                                         <tr>
-                                            <td colSpan="7">
+                                            <td colSpan={debitRows.length > 1 ? 8 : 7}>
                                                 <div className="d-flex justify-content-end gap-2 mt-3">
                                                     <Button color="primary" onClick={() => handleUpdateDebit(false)}>Save</Button>
                                                     <Button color="success" onClick={() => handleUpdateDebit(true)}>Post</Button>
@@ -936,30 +914,30 @@ const ProcurementEditDnCn = () => {
                                 <Table className="table-bordered mb-0 align-middle">
                                     <thead className="table-light">
                                         <tr>
-                                            <th style={{ minWidth: '150px' }}>Invoice No</th>
-                                            <th style={{ minWidth: '180px' }}>Item Name</th>
-                                            <th style={{ minWidth: '100px' }}>UOM</th>
-                                            <th style={{ minWidth: '80px' }}>Qty</th>
-                                            <th style={{ minWidth: '120px' }}>Unit Price</th>
-                                            <th style={{ minWidth: '120px' }}>Total Amount</th>
-                                            <th style={{ minWidth: '180px' }}>Description</th>
-                                            <th style={{ width: '40px' }}></th>
+                                            <th style={{ width: '180px', minWidth: '180px' }}>Invoice No</th>
+                                            <th style={{ width: '250px', minWidth: '250px' }}>Item Name</th>
+                                            <th style={{ width: '140px', minWidth: '140px' }}>UOM</th>
+                                            <th style={{ width: '90px', minWidth: '90px' }}>Qty</th>
+                                            <th style={{ width: '120px', minWidth: '120px' }}>Unit Price</th>
+                                            <th style={{ width: '140px', minWidth: '140px' }}>Total Amount</th>
+                                            <th style={{ minWidth: '220px' }}>Description</th>
+                                            {creditRows.length > 1 && <th style={{ width: '40px', minWidth: '40px' }}></th>}
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {creditRows.map((row, index) => (
                                             <tr key={index}>
-                                                <td className="p-1">
+                                                <td className="p-1" style={{ width: '180px', minWidth: '180px' }}>
                                                     <Select
                                                         value={row.invoiceNo}
                                                         onChange={(opt) => handleCreditChange(index, "invoiceNo", opt)}
                                                         options={creditHeader.invoiceOptions}
-                                                        placeholder="Select IRN"
+                                                        placeholder="Invoice"
                                                         menuPortalTarget={document.body}
                                                         styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
                                                     />
                                                 </td>
-                                                <td className="p-1">
+                                                <td className="p-1" style={{ width: '250px', minWidth: '250px' }}>
                                                     <Select
                                                         value={row.gas}
                                                         onChange={(opt) => handleCreditChange(index, "gas", opt)}
@@ -973,7 +951,7 @@ const ProcurementEditDnCn = () => {
                                                         styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
                                                     />
                                                 </td>
-                                                <td className="p-1">
+                                                <td className="p-1" style={{ width: '140px', minWidth: '140px' }}>
                                                     <Select
                                                         value={row.uom}
                                                         onChange={(opt) => handleCreditChange(index, "uom", opt)}
@@ -983,54 +961,59 @@ const ProcurementEditDnCn = () => {
                                                         styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
                                                     />
                                                 </td>
-                                                <td className="p-1">
+                                                <td className="p-1" style={{ width: '90px', minWidth: '90px' }}>
                                                     <Input
                                                         type="number"
                                                         bsSize="sm"
                                                         value={row.qty}
+                                                        className="no-spinner"
+                                                        style={{ textAlign: 'right' }}
                                                         onChange={(e) => handleCreditChange(index, "qty", e.target.value)}
                                                     />
                                                 </td>
-                                                <td className="p-1">
+                                                <td className="p-1" style={{ width: '120px', minWidth: '120px' }}>
                                                     <Input
                                                         type="text"
                                                         bsSize="sm"
                                                         value={row.unitPrice}
                                                         placeholder="0.00"
+                                                        style={{ textAlign: 'right' }}
                                                         onChange={(e) => {
                                                             const val = e.target.value;
                                                             if (/^\d*\.?\d*$/.test(val)) handleCreditChange(index, "unitPrice", val);
                                                         }}
                                                     />
                                                 </td>
-                                                <td className="p-1">
+                                                <td className="p-1" style={{ width: '140px', minWidth: '140px' }}>
                                                     <Input
                                                         type="text"
                                                         bsSize="sm"
                                                         readOnly
                                                         disabled
                                                         value={formatAmountInternal(row.amount)}
+                                                        style={{ textAlign: 'right' }}
                                                     />
                                                 </td>
-                                                <td className="p-1">
+                                                <td className="p-1" style={{ minWidth: '220px' }}>
                                                     <Input
                                                         type="text"
                                                         bsSize="sm"
                                                         value={row.description}
+                                                        maxLength={25}
                                                         onChange={(e) => handleCreditChange(index, "description", e.target.value)}
                                                     />
                                                 </td>
-                                                <td className="text-center p-1">
-                                                    {creditRows.length > 1 && (
+                                                {creditRows.length > 1 && (
+                                                    <td className="text-center p-1" style={{ width: '40px', minWidth: '40px' }}>
                                                         <i className="bx bx-trash text-danger font-size-18" style={{ cursor: 'pointer' }} onClick={() => removeCreditRow(index)}></i>
-                                                    )}
-                                                </td>
+                                                    </td>
+                                                )}
                                             </tr>
                                         ))}
                                     </tbody>
                                     <tfoot>
                                         <tr>
-                                            <td colSpan="7">
+                                            <td colSpan={creditRows.length > 1 ? 8 : 7}>
                                                 <div className="d-flex justify-content-end gap-2 mt-3">
                                                     <Button color="primary" onClick={() => handleUpdateCredit(false)}>Save</Button>
                                                     <Button color="success" onClick={() => handleUpdateCredit(true)}>Post</Button>

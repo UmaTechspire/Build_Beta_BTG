@@ -1,4 +1,4 @@
-﻿using Application.Procurement.Purchase_Order.CreatePurchaseOrderItem;
+using Application.Procurement.Purchase_Order.CreatePurchaseOrderItem;
 using Application.Procurement.Purchase_Order.GetAllPurchaseOrderItems;
 using Application.Procurement.Purchase_Order.GetPONoAutoComplete;
 using Application.Procurement.Purchase_Order.GetPORequestorAutoComplte;
@@ -13,6 +13,7 @@ using Application.Procurement.Purchase_Order.UpdatePurchaseOrderItem;
 using Application.Procurement.Purchase_Order.CancelPurchaseOrder;
 using Application.Procurement.Purchase_Order.ShortClosurePurchaseOrder;
 using Application.Procurement.Purchase_Order.GetPendingGRNQty;
+using Application.Procurement.Purchase_Order.GetPurchaseOrderItemsBulk;
 using Application.Procurement.Purchase_Order.GetBlanketPOApprovals;
 using Application.Procurement.Purchase_Order.SaveBlanketPOApprove;
 using Application.Procurement.Purchase_Requitision.GetAllPurchaseRequitsionitems;
@@ -64,6 +65,13 @@ namespace UserPanel.Controllers.Procurement
             if (result == null)
                 return NotFound();
 
+            return Ok(result);
+        }
+
+        [HttpPost("GetByIdsBulk")]
+        public async Task<IActionResult> GetByIdsBulk([FromBody] GetPurchaseOrderItemsBulkQuery command)
+        {
+            var result = await _mediator.Send(command);
             return Ok(result);
         }
 

@@ -67,7 +67,7 @@ import {
     GetPOSupplierAutoComplete,
     GetPONOAutoComplete,
     CancelPurchaseOrder,
-    GetByIdPurchaseOrder, GetCommonProcurementPRNoList, GetPRNoBySupplierAndCurrency, GetPurchaseOrderPrint,
+    GetByIdPurchaseOrder, GetCommonProcurementPRNoList, GetPRNoBySupplierAndCurrency, GetPurchaseOrderPrint, GetPORequisitionsBulk,
     ShortClosurePO, GetPendingGRNQty, GetGRNsByPO,
     GetAllPO, GetAllItems, GetGRNById, IRNGetBy, ClaimAndPaymentGetById, GetItemNameAutoComplete
 } from "common/data/mastersapi";
@@ -610,34 +610,41 @@ const ProcurementsManagePurchaseOrder = () => {
                 }
             }
 
+            // Fetch all headers and requisitions in a single bulk request
+            const poids = posToFetch.map(po => po.poid);
+            const bulkRes = await GetPORequisitionsBulk(poids, orgId, branchId);
+
             let detailedPOs = [];
+            if (bulkRes?.status && bulkRes.data) {
+                const headerMap = {};
+                const reqMap = {};
 
-            // To prevent blocking the server, we fetch in smaller chunks
-            const chunkSize = 10;
-            for (let i = 0; i < posToFetch.length; i += chunkSize) {
-                // If not filtering by item name and we already have enough for initial view,
-                // we could potentially stop or lazy load others. But for now, we just chunk it.
-                const chunk = posToFetch.slice(i, i + chunkSize);
-                const chunkDetailed = await Promise.all(
-                    chunk.map(async (po) => {
-                        try {
-                            const res = await GetByIdPurchaseOrder(po.poid, orgId, branchId);
-                            if (res?.status && res.data) {
-                                return {
-                                    header: { ...po, PaymentTerm: res.data.Header?.paymentterm || res.data.Header?.PaymentTermName || res.data.Header?.PaymentTerm || po.PaymentTerm },
-                                    details: res.data.Requisition || [],
-                                };
-                            }
-                        } catch (err) {
-                            console.error("Failed to fetch detail for PO", po.poid);
-                        }
-                        return { header: po, details: [] };
-                    })
-                );
-                detailedPOs = [...detailedPOs, ...chunkDetailed];
+                // Map bulk headers (poid -> paymentterm)
+                if (Array.isArray(bulkRes.data.Headers)) {
+                    bulkRes.data.Headers.forEach(h => {
+                        headerMap[h.poid] = h.paymentterm;
+                    });
+                }
 
-                // Safety break if it's too large and no item filter is used
-                if (!filterItemName && detailedPOs.length >= 100) break;
+                // Map bulk details (poid -> list of details)
+                if (Array.isArray(bulkRes.data.Requisitions)) {
+                    bulkRes.data.Requisitions.forEach(r => {
+                        if (!reqMap[r.poid]) reqMap[r.poid] = [];
+                        reqMap[r.poid].push(r);
+                    });
+                }
+
+                detailedPOs = posToFetch.map(po => {
+                    return {
+                        header: { 
+                            ...po, 
+                            PaymentTerm: headerMap[po.poid] || po.PaymentTerm 
+                        },
+                        details: reqMap[po.poid] || []
+                    };
+                });
+            } else {
+                detailedPOs = posToFetch.map(po => ({ header: po, details: [] }));
             }
 
             if (filterItemName) {

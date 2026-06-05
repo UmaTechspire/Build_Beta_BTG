@@ -1182,5 +1182,67 @@ namespace Infrastructure.Repositories
             }
         }
 
+        public async Task<object> GetByIdsBulkAsync(List<int> poids, int branchid, int orgid)
+        {
+            try
+            {
+                if (poids == null || poids.Count == 0)
+                {
+                    dynamic emptyResult = new ExpandoObject();
+                    emptyResult.Headers = new List<dynamic>();
+                    emptyResult.Requisitions = new List<dynamic>();
+
+                    return new ResponseModel()
+                    {
+                        Data = emptyResult,
+                        Message = "Success",
+                        Status = true
+                    };
+                }
+
+                string sqlHeaders = @"
+                    SELECT h.poid, p.termname AS paymentterm 
+                    FROM tbl_purchaseorder_header h 
+                    LEFT JOIN btggasify_live.master_terms p ON h.paymenttermid = p.id 
+                    WHERE h.poid IN @poids";
+
+                string sqlRequisitions = @"
+                    SELECT rhdr.PR_Number AS prnumber, r.porid, r.poid, r.podid, r.prmid, r.prdid, r.prid, r.itemid, r.uomid, r.qty, r.unitprice, 
+                    ROUND(CAST(r.totalvalue AS DECIMAL(20,4)), 2) AS totalvalue, r.taxperc, 
+                    ROUND(CAST(r.taxvalue AS DECIMAL(20,4)), 2) AS taxvalue, ROUND(CAST(r.subtotal AS DECIMAL(20,4)), 2) AS subtotal, r.discountperc, 
+                    ROUND(CAST(r.discountvalue AS DECIMAL(20,4)), 2) AS discountvalue, ROUND(CAST(r.nettotal AS DECIMAL(20,4)), 2) AS nettotal, r.isactive, r.createdby, r.branchid, r.orgid, 
+                    u.uom, i.itemname, r.vatperc, ROUND(CAST(r.vatvalue AS DECIMAL(20,4)), 2) AS vatvalue, r.itemgroupid, g.groupname 
+                    FROM tbl_purchaseorder_requisitions r 
+                    INNER JOIN btggasify_live.master_uom u ON r.uomid = u.id 
+                    INNER JOIN btggasify_masterpanel_live.master_item i ON r.itemid = i.itemid 
+                    INNER JOIN btggasify_masterpanel_live.master_itemgroup g ON i.groupid = g.groupid 
+                    LEFT JOIN tbl_PurchaseRequisition_Header rhdr ON r.prid = rhdr.prid 
+                    WHERE r.poid IN @poids AND r.isactive = 1";
+
+                var headers = await _connection.QueryAsync<dynamic>(sqlHeaders, new { poids });
+                var requisitions = await _connection.QueryAsync<dynamic>(sqlRequisitions, new { poids });
+
+                dynamic result = new ExpandoObject();
+                result.Headers = headers;
+                result.Requisitions = requisitions;
+
+                return new ResponseModel()
+                {
+                    Data = result,
+                    Message = "Success",
+                    Status = true
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ResponseModel()
+                {
+                    Data = null,
+                    Message = ex.Message,
+                    Status = false
+                };
+            }
+        }
+
     }
 }

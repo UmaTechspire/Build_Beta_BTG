@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -37,5 +37,7 @@ namespace Core.Procurement.PurchaseOrder
         Task<object> SaveBlanketPOApproveAsync(BlanketPOApprovalHdr obj);
 
         Task<object> GetPendingGRNQtyAsync(int poid);
+
+        Task<object> GetByIdsBulkAsync(List<int> poids, int branchid, int orgid);
     }
 }
