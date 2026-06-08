@@ -161,7 +161,11 @@ const Copyclaimpayment = () => {
         //     otherwise: Yup.string().notRequired()
         // }),
         hod: Yup.string().required("HOD is required"),
-        currency: Yup.string().required("Currency is required"),
+        currency: Yup.string()
+            .required("Currency is required")
+            .test("is-valid-currency", "Currency is required", value => {
+                return value !== "0" && value !== 0 && value !== null && value !== undefined && value !== "";
+            }),
         modeOfPaymentId: Yup.string().required("Mode Of PaymentId is required"),
 
 
