@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using System.Security.Claims;
 using BackEnd.Shared;
 using Core.Abstractions;
@@ -153,6 +153,21 @@ namespace Infrastructure.Repositories
                         Message = "Cannot edit this claim. please check the approval status.",
                         Status = false
                     };
+                }
+
+                // Retain the original claimant (CreatedBy) and department (DepartmentId) from the database
+                if (obj.Header.ClaimCategoryId != 1 && obj.Header.ClaimCategoryId != 2)
+                {
+                    var existingClaim = await _connection.QueryFirstOrDefaultAsync<dynamic>(
+                        "SELECT CreatedBy, DepartmentId FROM tbl_claimAndpayment_header WHERE Claim_ID = @ClaimId",
+                        new { ClaimId = obj.Header.ClaimId }
+                    );
+
+                    if (existingClaim != null)
+                    {
+                        obj.Header.ApplicantId = existingClaim.CreatedBy;
+                        obj.Header.DepartmentId = existingClaim.DepartmentId;
+                    }
                 }
                 const string updateHeaderSql = @"
             UPDATE tbl_claimAndpayment_header

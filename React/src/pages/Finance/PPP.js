@@ -948,104 +948,113 @@ const PPP = ({ selectedType, setSelectedType }) => {
         const pageBreakStyle = index < validVoucherList.length - 1 ? 'page-break-after: always; break-after: page;' : '';
 
         combinedHtml += `
-          <div class="voucher-page" style="position: relative; padding: 30px; font-family: Arial, sans-serif; font-size: 14px; color: #000; background-color: #fff; box-sizing: border-box; width: 210mm; height: 148mm; ${pageBreakStyle}">
+          <div class="voucher-page" style="${pageBreakStyle}">
            
-            <div style="display: flex; justify-content: flex-start; align-items: flex-start; margin-bottom: 5px; gap: 15px;">
-              <img src="/logo.png" alt="Logo" style="height: 90px; width: 100px;" />
-              <div style="line-height: 1.3;">
-                <p style="font-weight: bold; margin: 0; font-size: 15px;">${header?.companyName || ""}</p>
-                <p style="margin: 0; font-size: 13px;">${header?.address1 || ""}, ${header?.address2 || ""}, ${header?.address3 || ""}</p>
-                <p style="margin: 0; font-size: 13px;">WebSite ${header?.webSite || ""} E-mail ${header?.email || ""}</p>
-                <p style="margin: 0; font-size: 13px;">Telp ${header?.telePhone || ""}</p>
+            <div class="voucher-header">
+              <img src="/logo.png" alt="Logo" class="voucher-logo" />
+              <div class="company-details">
+                <p class="company-name">${header?.companyName || ""}</p>
+                <p class="company-info">${header?.address1 || ""}, ${header?.address2 || ""}, ${header?.address3 || ""}</p>
+                <p class="company-info">WebSite ${header?.webSite || ""} E-mail ${header?.email || ""}</p>
+                <p class="company-info">Telp ${header?.telePhone || ""}</p>
               </div>
             </div>
 
-            <div style="text-align: center; font-size: 18px; font-weight: bold; margin-top: 10px; margin-bottom: 10px; letter-spacing: 2px; text-transform: uppercase;">
+            <div class="voucher-title">
               ${header?.header || "PAYMENT VOUCHER"}
             </div>
 
-            <table style="width: 100%; border-collapse: separate; font-size: 14px; margin-bottom: 15px;">
+            <table class="info-table">
               <tbody>
                 <tr>
-                  <td style="width: 120px; font-weight: bold;">Payment To</td>
-                  <td style="width: 10px;"> : </td>
-                  <td style="width: 250px;">${header?.paymentTo || ""}</td>
-                  <td></td>
-                  <td style="width: 50px; font-weight: bold;">PV #</td>
-                  <td style="width: 10px;"> : </td>
-                  <td>${header?.voucherNo || ""}</td>
+                  <td class="info-label info-left-label">Payment To</td>
+                  <td class="info-colon"> : </td>
+                  <td class="info-value info-left-value">${header?.paymentTo || ""}</td>
+                  <td class="info-spacer"></td>
+                  <td class="info-label info-right-label">PV #</td>
+                  <td class="info-colon"> : </td>
+                  <td class="info-value info-right-value">${header?.voucherNo || ""}</td>
                 </tr>
                 <tr>
-                  <td style="font-weight: bold;">Payment Method</td>
-                  <td> : </td>
-                  <td>${header?.paymentMethod || ""}</td>
-                  <td></td>
-                  <td style="font-weight: bold;">Date</td>
-                  <td> : </td>
-                  <td>${header?.voucherDate || ""}</td>
+                  <td class="info-label">Payment Method</td>
+                  <td class="info-colon"> : </td>
+                  <td class="info-value">${header?.paymentMethod || ""}</td>
+                  <td class="info-spacer"></td>
+                  <td class="info-label">Payment Date</td>
+                  <td class="info-colon"> : </td>
+                  <td class="info-value">${header?.paymentDate || ""}</td>
+                </tr>
+                <tr>
+                  <td class="info-label">
+                    ${(header?.paymentMethod === "Cash" || details[0]?.accountName) ? 'Account Name' : ''}
+                  </td>
+                  <td class="info-colon">
+                    ${(header?.paymentMethod === "Cash" || details[0]?.accountName) ? ' : ' : ''}
+                  </td>
+                  <td class="info-value">
+                    ${header?.paymentMethod === "Cash" ? 'Cash in hand' : (details[0]?.accountName || "")}
+                  </td>
+                  <td class="info-spacer"></td>
+                  <td class="info-label">Issue Date</td>
+                  <td class="info-colon"> : </td>
+                  <td class="info-value">${header?.voucherDate || ""}</td>
                 </tr>
                 ${header?.isSupplier == 1 ? `
                 <tr>
-                  <td style="font-weight: bold;">Account Name</td>
-                  <td> : </td>
-                  <td>${details[0]?.accountName || ""}</td>
-                  <td></td>
-                  <td></td><td></td><td></td>
-                </tr>
-                <tr>
-                  <td style="font-weight: bold;">PO & WO</td>
-                  <td> : </td>
-                  <td colspan="5">${polist}</td>
+                  <td class="info-label">PO & WO</td>
+                  <td class="info-colon"> : </td>
+                  <td class="info-value" colspan="5">${polist}</td>
                 </tr>
                 ` : ''}
               </tbody>
             </table>
 
-            <table style="width: 100%; border-collapse: collapse; border: 1px solid #000; font-size: 13px;">
+            <table class="items-table">
               <thead>
-                <tr style="background-color: #007bff;">
-                  <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 3%;">No</th>
-                  <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 15%;">Claim No</th>
-                  <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 57%;">Purpose</th>
-                  <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 25%;">Amount ${header?.currencyCode || ""}</th>
+                <tr>
+                  <th style="width: 3%; text-align: center;">No</th>
+                  <th style="width: 15%; text-align: center;">Claim No</th>
+                  <th style="width: 57%; text-align: center;">Purpose</th>
+                  <th style="width: 25%; text-align: center;">Amount ${header?.currencyCode || ""}</th>
                 </tr>
               </thead>
               <tbody>
                 ${details.map((item, idx) => `
                   <tr>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: center;">${idx + 1}</td>
-                    <td style="border: 1px solid #000; padding: 6px;">${item?.claimno || ""}</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: left;">${item?.purpose || ""}</td>
-                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">${(item?.amount || 0).toLocaleString()}</td>
+                    <td style="text-align: center;">${idx + 1}</td>
+                    <td>${item?.claimno || ""}</td>
+                    <td style="text-align: left;">${item?.purpose || ""}</td>
+                    <td style="text-align: right;">${(item?.amount || 0).toLocaleString()}</td>
                   </tr>
                 `).join('')}
-                <tr style="font-weight: bold; background-color: #f2f2f2;">
-                  <td colspan="3" style="border: 1px solid #000; padding: 6px; text-align: center;">TOTAL</td>
-                  <td style="border: 1px solid #000; padding: 6px; text-align: right;">${(total || 0).toLocaleString()}</td>
+                <tr class="total-row">
+                  <td colspan="3" style="text-align: center;">TOTAL</td>
+                  <td style="text-align: right;">${(total || 0).toLocaleString()}</td>
                 </tr>
               </tbody>
             </table>
 
-            <p style="margin-top: 15px; font-size: 14px;"><strong>Amount in Words :</strong> ${words}</p>
+            <p class="words-p"><strong>Amount in Words :</strong> ${words}</p>
 
-            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 25px;">
-              <div style="display: flex; gap: 40px;">
+            <div class="signatures-container">
+              <div class="signatures-left">
                 ${signatures.map(sig => `
-                  <div style="text-align: center;">
-                    <div style="height: 40px;"></div> <span style="font-size: 13px;">${sig?.label || ""}</span>
+                  <div class="signature-box-left">
+                    <div class="signature-space"></div>
+                    <span class="signature-label">${sig?.label || ""}</span>
                   </div>
                 `).join('')}
               </div>
 
               ${header?.paymentMethod == "Cash" || header?.paymentMethod == "Cheque" ? `
-              <div style="text-align: center;">
-                <div style="border: 1px solid black; width: 200px; height: 50px; margin-bottom: 5px;"></div>
-                <span style="font-size: 13px;">Applicant's Signature</span>
+              <div class="signature-box-right">
+                <div class="signature-border-box"></div>
+                <span class="signature-label">Applicant's Signature</span>
               </div>
               ` : ''}
             </div>
 
-            <div style="position: absolute; bottom: 15px; right: 30px; font-size: 10px;">
+            <div class="print-footer">
               Printed on ${new Date().toLocaleString()}
             </div>
           </div>
@@ -1062,10 +1071,154 @@ const PPP = ({ selectedType, setSelectedType }) => {
             <title>Batch Print Vouchers</title>
             <style>
               @page { size: A5 landscape; margin: 0; }
-              body { margin: 0; padding: 0; background-color: #fff; }
+              body { margin: 0; padding: 0; background-color: #fff; font-family: Arial, sans-serif; font-size: 11.5px; color: #000; }
               @media print {
                 body { -webkit-print-color-adjust: exact; }
-                .voucher-page { width: 100%; height: 100%; }
+                .voucher-page { page-break-inside: avoid; break-inside: avoid; }
+              }
+              .voucher-page {
+                position: relative;
+                padding: 20px 25px;
+                box-sizing: border-box;
+                width: 210mm;
+                height: 148mm;
+                display: flex;
+                flex-direction: column;
+                background-color: #fff;
+              }
+              .voucher-header {
+                display: flex;
+                justify-content: flex-start;
+                align-items: flex-start;
+                margin-bottom: 5px;
+                gap: 15px;
+              }
+              .voucher-logo {
+                height: 70px;
+                width: 80px;
+              }
+              .company-details {
+                line-height: 1.3;
+              }
+              .company-name {
+                font-weight: bold;
+                margin: 0;
+                font-size: 14px;
+              }
+              .company-info {
+                margin: 0;
+                font-size: 11px;
+              }
+              .voucher-title {
+                text-align: center;
+                font-size: 16px;
+                font-weight: bold;
+                margin-top: 5px;
+                margin-bottom: 8px;
+                letter-spacing: 2px;
+                text-transform: uppercase;
+              }
+              .info-table {
+                width: 100%;
+                border-collapse: separate;
+                font-size: 12px;
+                margin-bottom: 10px;
+                border: none;
+              }
+              .info-label {
+                font-weight: bold;
+                white-space: nowrap;
+                padding: 3px 2px;
+                vertical-align: top;
+                border: none;
+              }
+              .info-left-label {
+                width: 120px;
+              }
+              .info-right-label {
+                width: 110px;
+              }
+              .info-colon {
+                width: 10px;
+                padding: 3px 2px;
+                vertical-align: top;
+                border: none;
+                text-align: center;
+              }
+              .info-value {
+                padding: 3px 2px;
+                vertical-align: top;
+                border: none;
+              }
+              .info-left-value {
+                width: 250px;
+                word-break: break-word;
+              }
+              .info-right-value {
+                word-break: break-word;
+              }
+              .info-spacer {
+                padding: 3px 2px;
+                vertical-align: top;
+                border: none;
+              }
+              .items-table {
+                width: 100%;
+                border-collapse: collapse;
+                border: 1px solid #000;
+                font-size: 12px;
+              }
+              .items-table th, .items-table td {
+                border: 1px solid #000;
+                padding: 6px;
+              }
+              .items-table th {
+                background-color: #f2f2f2;
+                color: #000;
+                font-weight: bold;
+              }
+              .total-row {
+                font-weight: bold;
+                background-color: #f2f2f2;
+              }
+              .words-p {
+                margin-top: 10px;
+                font-size: 12px;
+                margin-bottom: 10px;
+              }
+              .signatures-container {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-end;
+                margin-top: 15px;
+              }
+              .signatures-left {
+                display: flex;
+                gap: 40px;
+              }
+              .signature-box-left {
+                text-align: center;
+              }
+              .signature-space {
+                height: 35px;
+              }
+              .signature-label {
+                font-size: 11px;
+              }
+              .signature-box-right {
+                text-align: center;
+              }
+              .signature-border-box {
+                border: 1px solid black;
+                width: 180px;
+                height: 45px;
+                margin-bottom: 5px;
+              }
+              .print-footer {
+                margin-top: auto;
+                padding-top: 10px;
+                text-align: right;
+                font-size: 9px;
               }
             </style>
           </head>
