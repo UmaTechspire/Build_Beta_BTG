@@ -159,31 +159,28 @@ const Addclaimpayment = () => {
         claimType: Yup.string().required("Category Type is required"),
         // department required if claimType is "1" or "2"
         department: Yup.string().when("claimType", {
-            is: (val) => val === "1" || val === "2",
+            is: (val) => String(val) === "1" || String(val) === "2",
             then: Yup.string().required("Department is required"),
             otherwise: Yup.string().notRequired()
         }),
 
         // applicant required if claimType is "1" or "2"
         applicant: Yup.string().when("claimType", {
-            is: (val) => val === "1" || val === "2",
+            is: (val) => String(val) === "1" || String(val) === "2",
             then: Yup.string().required("Applicant is required"),
             otherwise: Yup.string().notRequired()
         }),
 
         // supplier required if claimType is "3"
         supplier: Yup.string().when("claimType", {
-            is: "3",
-            then: Yup.string().required("Supplier is required"),
+            is: (val) => String(val) === "3",
+            then: Yup.string()
+                .required("Supplier is required")
+                .test("is-valid-supplier", "Supplier is required", value => {
+                    return value !== "0" && value !== 0 && value !== null && value !== undefined && value !== "";
+                }),
             otherwise: Yup.string().notRequired()
         }),
-
-        // poNumber required if claimType is "3"
-        // poNumber: Yup.string().when("claimType", {
-        //     is: "3",
-        //     then: Yup.string().required("PO Number is required"),
-        //     otherwise: Yup.string().notRequired()
-        // }),
         hod: Yup.string().required("HOD is required"),
         currency: Yup.string()
             .required("Currency is required")

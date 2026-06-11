@@ -276,6 +276,7 @@ const AddInvoiceReceipt = () => {
                 alreadyReceived: header.alreadyrecivedamount,
                 allocated: header.adv_payment,
                 irnStatus: header.irnstatus,
+                isShortClosureSubmitted: header.IsShortClosureSubmitted || header.isShortClosureSubmitted || 0,
                 attachments: attachments.map((a) => ({
                   receiptnote_hdr_id: a.receiptnote_hdr_id,
                   filepath: a.filepath,
@@ -1018,7 +1019,6 @@ const AddInvoiceReceipt = () => {
 
     try {
       const res = await GetInvoiceReceiptAddDetails(branchId, orgId, fromDate, toDate);
-
       if (res?.data?.length > 0) {
         const mappedItems = res.data.map((item) => ({
           receiptnote_hdr_id: 0,
@@ -1042,6 +1042,7 @@ const AddInvoiceReceipt = () => {
           allocated: item.adv_payment ? parseFloat(item.adv_payment).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00',
           attachments: [],
           spc: item.spc || false,
+          isShortClosureSubmitted: item.IsShortClosureSubmitted || item.isShortClosureSubmitted || 0,
         }));
 
         if (isEditMode) {
@@ -1571,7 +1572,7 @@ const AddInvoiceReceipt = () => {
                                 </td>
                                 <td>{item.supplierName}</td>
                                 {/* PO No → Link */}
-                                <td>{item.pono}</td>
+                                <td style={{ whiteSpace: "nowrap" }}>{item.pono}</td>
                                 {/* GRN No → Link */}
                                 <td>
                                   {item.grnNo && typeof item.grnNo === 'string' && item.grnNo.includes(',') ? (
