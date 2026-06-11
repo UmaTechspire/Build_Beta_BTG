@@ -970,16 +970,59 @@ const ProcurementsManagePurchaseOrder = () => {
 
     const handleShowIRNDetails = async (irnid) => {
         const res = await IRNGetBy(irnid, branchId, orgId);
-        if (res?.status) {
-            const poid = res.data?.Header?.poid;
+        if (res?.status && res.data) {
+            const header = res.data.Header;
+            const poid = header?.poid;
+            
+            let requisition = [];
+            let poHeader = {};
+            
             if (poid) {
-                // If there's a linked PO, show the full PO details (with items) as requested
-                handleShowDetails({ poid });
-            } else {
-                // Fallback to basic IRN details if no PO is linked
-                setSelectedIRNDetail(res.data);
-                setIrnDetailVisible(true);
+                try {
+                    const poRes = await GetByIdPurchaseOrder(poid, orgId, branchId);
+                    if (poRes?.status && poRes.data) {
+                        poHeader = poRes.data.Header || {};
+                        requisition = poRes.data.Requisition || [];
+                        
+                        const supplier_id = poHeader.supplierid;
+                        const currency_id = poHeader.currencyid;
+                        const prList = await GetPRNoBySupplierAndCurrency(supplier_id, currency_id, orgId, branchId);
+                        
+                        if (prList?.data?.length > 0) {
+                            requisition = requisition.map((r) => {
+                                const pr = prList?.data?.find((p) => p.prid === r.prid);
+                                return {
+                                    ...r,
+                                    prnumber: pr ? pr.pr_number : "NA",
+                                    PRDisplay: pr ? pr.pr_number : "NA",
+                                };
+                            });
+                        } else {
+                            requisition = requisition.map((r) => ({
+                                ...r,
+                                prnumber: "NA",
+                                PRDisplay: "NA",
+                            }));
+                        }
+                    }
+                } catch (err) {
+                    console.error("Error loading PO details for IRN modal:", err);
+                }
             }
+            
+            setSelectedIRNDetail({
+                IRN_Header: {
+                    irn_no: header.receipt_no || header.Receipt_No,
+                    irn_date: formatDate(header.receipt_Date || header.Receipt_Date),
+                    due_date: formatDate(header.due_dt || header.Due_Dt),
+                    inv_date: formatDate(header.invoice_dt || header.Invoice_Dt),
+                    inv_no: header.invoice_no || header.Invoice_No,
+                    currency: poHeader.currencycode || header.currencycode || "NA"
+                },
+                Header: poHeader,
+                Requisition: requisition
+            });
+            setIrnDetailVisible(true);
         } else {
             Swal.fire("Error", "IRN details not available", "error");
         }
@@ -3062,60 +3105,124 @@ const ProcurementsManagePurchaseOrder = () => {
 
             {/* IRN Details Modal */}
             <Modal isOpen={irnDetailVisible} toggle={() => setIrnDetailVisible(false)} size="xl">
-                <ModalHeader toggle={() => setIrnDetailVisible(false)}>Invoice Receipt Details</ModalHeader>
+                <ModalHeader toggle={() => setIrnDetailVisible(false)}>IRN Details</ModalHeader>
                 <ModalBody>
                     {selectedIRNDetail && (
-                        <div className="mb-4">
-                            <Row>
-                                <Col md={4}>
-                                    <div className="d-flex mb-2">
-                                        <span className="bold-label">Supplier</span>
-                                        <span className="text-uppercase">: {selectedIRNDetail.Header?.suppliername}</span>
-                                    </div>
-                                    <div className="d-flex mb-2">
-                                        <span className="bold-label">PO No.</span>
-                                        <span>: {selectedIRNDetail.Header?.pono}</span>
-                                    </div>
-                                    <div className="d-flex mb-2">
-                                        <span className="bold-label">GRN No.</span>
-                                        <span>: {selectedIRNDetail.Header?.grnno}</span>
-                                    </div>
-                                </Col>
-                                <Col md={4}>
-                                    <div className="d-flex mb-2">
-                                        <span className="bold-label">Invoice No.</span>
-                                        <span>: {selectedIRNDetail.Header?.invoice_no}</span>
-                                    </div>
-                                    <div className="d-flex mb-2">
-                                        <span className="bold-label">Invoice Date</span>
-                                        <span>: {formatDate(selectedIRNDetail.Header?.invoice_dt)}</span>
-                                    </div>
-                                    <div className="d-flex mb-2">
-                                        <span className="bold-label">Receipt Date</span>
-                                        <span>: {formatDate(selectedIRNDetail.Header?.receipt_Date)}</span>
-                                    </div>
-                                </Col>
-                                <Col md={4}>
-                                    <div className="d-flex mb-2">
-                                        <span className="bold-label">Due Date</span>
-                                        <span>: {formatDate(selectedIRNDetail.Header?.due_dt)}</span>
-                                    </div>
-                                    <div className="d-flex mb-2">
-                                        <span className="bold-label">Net Amount</span>
-                                        <span className="fw-bold">: {selectedIRNDetail.Header?.net_amount?.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
-                                    </div>
-                                    <div className="d-flex mb-2">
-                                        <span className="bold-label">Status</span>
-                                        <span>: {selectedIRNDetail.Header?.irnstatus}</span>
-                                    </div>
-                                </Col>
+                        <>
+                            {/* IRN Header Section */}
+                            <Row className="mb-2">
+                                {[
+                                    ["IRN No.", selectedIRNDetail.IRN_Header?.irn_no],
+                                    ["IRN Date", selectedIRNDetail.IRN_Header?.irn_date],
+                                    ["Due Date", selectedIRNDetail.IRN_Header?.due_date],
+                                    ["Inv Date", selectedIRNDetail.IRN_Header?.inv_date],
+                                    ["Inv No.", selectedIRNDetail.IRN_Header?.inv_no],
+                                    ["Currency", selectedIRNDetail.IRN_Header?.currency],
+                                ].map(([label, val], i) => (
+                                    <Col md="4" key={i} className="mb-2 d-flex align-items-center">
+                                        <div className="bold font-size-13" style={{ minWidth: "100px", flexShrink: 0 }}>
+                                            {label}
+                                        </div>
+                                        <div className="mx-2">:</div>
+                                        <div className="text-dark font-size-13 text-nowrap text-truncate">
+                                            {val || "NA"}
+                                        </div>
+                                    </Col>
+                                ))}
                             </Row>
-                        </div>
+
+                            <hr className="my-2" />
+
+                            {/* PO Header Section */}
+                            <Row className="mb-2">
+                                {[
+                                    ["PO No.", (selectedIRNDetail.Header?.IsShortClosureSubmitted === 1 || selectedIRNDetail.Header?.isShortClosureSubmitted === 1 || selectedIRNDetail.Header?.IsShortClosureSubmitted === true || selectedIRNDetail.Header?.isShortClosureSubmitted === true) ? `${selectedIRNDetail.Header?.pono}-1` : selectedIRNDetail.Header?.pono],
+                                    ["PO Date", formatDate(selectedIRNDetail.Header?.podate)],
+                                    ["Supplier", selectedIRNDetail.Header?.suppliername],
+                                ].map(([label, val], i) => (
+                                    <Col md="4" key={i} className="mb-2 d-flex align-items-center">
+                                        <div className="bold font-size-13" style={{ minWidth: "100px", flexShrink: 0 }}>
+                                            {label}
+                                        </div>
+                                        <div className="mx-2">:</div>
+                                        <div className="text-dark font-size-13 text-nowrap text-truncate">
+                                            {val || "NA"}
+                                        </div>
+                                    </Col>
+                                ))}
+                            </Row>
+
+                            <hr className="mb-4" />
+
+                            <DataTable value={selectedIRNDetail.Requisition || []}>
+                                <Column header="#" body={(_, { rowIndex }) => rowIndex + 1} />
+                                <Column field="prnumber" header="PR No." />
+                                <Column field="groupname" header="Item Group" />
+                                <Column field="itemname" header="Item Name" />
+
+                                <Column
+                                    field="qty"
+                                    header="Qty"
+                                    body={(rowData) =>
+                                        rowData.qty?.toLocaleString("en-US", { minimumFractionDigits: 3 })
+                                    }
+                                />
+                                <Column field="uom" header="UOM" />
+                                <Column
+                                    field="unitprice"
+                                    header="Unit Price"
+                                    body={(rowData) =>
+                                        rowData.unitprice?.toLocaleString("en-US", { minimumFractionDigits: 2 })
+                                    }
+                                    footer={selectedIRNDetail.Header?.unitprice?.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                                />
+
+                                <Column
+                                    field="discountvalue"
+                                    header="Discount"
+                                    body={(rowData) =>
+                                        rowData.discountvalue?.toLocaleString("en-US", { minimumFractionDigits: 2 })
+                                    }
+                                    footer={selectedIRNDetail.Header?.discountvalue?.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                                />
+
+                                <Column field="taxperc" header="Tax %" />
+
+                                <Column
+                                    field="taxvalue"
+                                    header="Tax Amt"
+                                    body={(rowData) =>
+                                        rowData.taxvalue?.toLocaleString("en-US", { minimumFractionDigits: 2 })
+                                    }
+                                    footer={selectedIRNDetail.Header?.taxvalue?.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                                />
+
+                                <Column field="vatperc" header="VAT %" />
+
+                                <Column
+                                    field="vatvalue"
+                                    header="VAT Amt"
+                                    body={(rowData) =>
+                                        rowData.vatvalue?.toLocaleString("en-US", { minimumFractionDigits: 2 })
+                                    }
+                                    footer={selectedIRNDetail.Header?.vatvalue?.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                                />
+
+                                <Column
+                                    field="nettotal"
+                                    header="Total Amt"
+                                    body={(rowData) =>
+                                        rowData.nettotal?.toLocaleString("en-US", { minimumFractionDigits: 2 })
+                                    }
+                                    footer={<b>{selectedIRNDetail.Header?.nettotal?.toLocaleString("en-US", { minimumFractionDigits: 2 })}</b>}
+                                />
+                            </DataTable>
+                        </>
                     )}
                 </ModalBody>
                 <ModalFooter>
-                    <button type="button" className="btn btn-close-custom" onClick={() => setIrnDetailVisible(false)}>
-                        <i className="bx bx-window-close label-icon font-size-16 align-middle me-2"></i> Close
+                    <button type="button" className="btn btn-danger" onClick={() => setIrnDetailVisible(false)}>
+                        <i className="bx bx-export label-icon font-size-16 align-middle me-2"></i> Close
                     </button>
                 </ModalFooter>
             </Modal>

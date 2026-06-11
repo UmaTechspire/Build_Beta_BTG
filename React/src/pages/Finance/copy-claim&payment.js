@@ -1724,7 +1724,13 @@ const Copyclaimpayment = () => {
                                                                                                                 label: category.PaymentDescription,
                                                                                                                 PaymentId: category.PaymentId,
                                                                                                                 PaymentDescription: category.PaymentDescription,
-                                                                                                            })) : []).find(option => option.value === item?.description) || null
+                                                                                                            })) : []).find(option => option.value === item?.description) 
+                                                                                                            || (selectedDescriptions[i] ? {
+                                                                                                                value: selectedDescriptions[i].value || selectedDescriptions[i].PaymentId,
+                                                                                                                label: selectedDescriptions[i].label || selectedDescriptions[i].PaymentDescription,
+                                                                                                                PaymentId: selectedDescriptions[i].PaymentId || selectedDescriptions[i].value,
+                                                                                                                PaymentDescription: selectedDescriptions[i].PaymentDescription || selectedDescriptions[i].label
+                                                                                                            } : null)
                                                                                                         }
                                                                                                         onChange={(option) => {
                                                                                                             const newSelection = [...selectedDescriptions];
@@ -1734,6 +1740,7 @@ const Copyclaimpayment = () => {
                                                                                                             setFieldValue(`items[${i}].PaymentDescription`, option?.PaymentDescription || "");
 
                                                                                                         }}
+                                                                                                        onMenuOpen={() => loadDescription(null, i, item.claimType)}
                                                                                                         classNamePrefix="select" isDisabled={!isEditable} isClearable={true} isSearchable={true} components={animatedComponents}
                                                                                                         placeholder="Select Payment Desc"
                                                                                                     />)}
