@@ -846,7 +846,7 @@ const InvoiceReceipt = () => {
               {/* PO Header Section */}
               <Row className="mb-2">
                 {[
-                  ["PO No.", selectedPODetail.Header?.pono],
+                  ["PO No.", (selectedPODetail.Header?.IsShortClosureSubmitted === 1 || selectedPODetail.Header?.isShortClosureSubmitted === 1 || selectedPODetail.Header?.IsShortClosureSubmitted === true || selectedPODetail.Header?.isShortClosureSubmitted === true) ? `${selectedPODetail.Header?.pono}-1` : selectedPODetail.Header?.pono],
                   ["PO Date", formatDate(selectedPODetail.Header?.podate)],
                   ["Supplier", selectedPODetail.Header?.suppliername],
                 ].map(([label, val], i) => (
