@@ -1289,8 +1289,25 @@ const ProcurementsManagePurchaseOrder = () => {
             rowData.grnraised === 1 ||
             rowData.GrnRaised === 1;
 
+        const hasGrn = rowData.grn_no && rowData.grn_no !== "-" && String(rowData.grn_no).trim() !== "";
+        const hasIrn = rowData.irn_no && rowData.irn_no !== "-" && String(rowData.irn_no).trim() !== "";
+        const hasClaim = rowData.claim_no && rowData.claim_no !== "-" && String(rowData.claim_no).trim() !== "";
+        
+        const isShortClosureSubmitted = 
+            rowData.IsShortClosureSubmitted === 1 || 
+            rowData.isShortClosureSubmitted === 1 ||
+            rowData.IsShortClosureSubmitted === true ||
+            rowData.isShortClosureSubmitted === true;
+
+        const isShortClosed = 
+            rowData.IsShortClosure === 1 ||
+            rowData.isShortClosure === 1 ||
+            rowData.IsShortClosure === true ||
+            rowData.isShortClosure === true;
+
         const isCancelled = rowData.IsCancel === 1 || rowData.IsCancel === true;
-        const isDisabled = isGrnRaised || isCancelled;
+
+        const isDisabled = isGrnRaised || hasGrn || hasIrn || hasClaim || isShortClosureSubmitted || isShortClosed || isCancelled;
 
         return (
             <button

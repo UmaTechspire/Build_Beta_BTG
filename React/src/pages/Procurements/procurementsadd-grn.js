@@ -524,6 +524,26 @@ const ProcurementsAddGRN = () => {
   const handleSubmit = async (values, isSubmitted) => {
     setIsSubmitting(true);
 
+    if (!values.supplier || !values.supplier.value) {
+      await Swal.fire({
+        icon: "warning",
+        title: "Validation Error",
+        text: "Supplier is required to create a GRN.",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!values.poNo || !values.poNo.value) {
+      await Swal.fire({
+        icon: "warning",
+        title: "Validation Error",
+        text: "PO No. is required to create a GRN.",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
     const selectedItemsData = items.filter((item) => selectedItems.includes(item.porid));
 
     if (selectedItemsData.length === 0) {
@@ -745,8 +765,13 @@ const ProcurementsAddGRN = () => {
                               value={values.supplier}
                               options={suppliers}
                               onChange={async (option) => {
-                                setFieldValue("supplier", option);
-                                setFieldValue("poNo", []);
+                                setFieldValue("supplier", option || null);
+                                setFieldValue("poNo", null);
+                                setFieldValue("poDate", null);
+                                setFieldValue("items", []);
+                                setItems([]);
+                                setSelectedItems([]);
+                                setPoNo([]);
                                 if (option?.value) {
                                   const sup_Id = option.value;
                                   const orgId = 1;

@@ -882,6 +882,76 @@ namespace Infrastructure.Repositories
         {
             try
             {
+                // Check if PO is short closed or has short closure request submitted
+                string poQuery = "SELECT IsShortClosure, IsShortClosureSubmitted FROM tbl_purchaseorder_header WHERE poid = @poid AND branchid = @branchId AND orgid = @orgId LIMIT 1;";
+                var poHeader = await _connection.QueryFirstOrDefaultAsync<dynamic>(poQuery, new { poid, branchId, orgId });
+                if (poHeader != null)
+                {
+                    var poHeaderDict = poHeader as IDictionary<string, object>;
+                    int isShortClosure = 0;
+                    int isShortClosureSubmitted = 0;
+                    if (poHeaderDict != null)
+                    {
+                        if (poHeaderDict.TryGetValue("IsShortClosure", out var scVal) && scVal != null)
+                        {
+                            isShortClosure = Convert.ToInt32(scVal);
+                        }
+                        if (poHeaderDict.TryGetValue("IsShortClosureSubmitted", out var scsVal) && scsVal != null)
+                        {
+                            isShortClosureSubmitted = Convert.ToInt32(scsVal);
+                        }
+                    }
+
+                    if (isShortClosure == 1 || isShortClosureSubmitted == 1)
+                    {
+                        return new ResponseModel()
+                        {
+                            Data = null,
+                            Message = "Cannot cancel PO because it is a Blanket PO / Short Closed PO.",
+                            Status = false
+                        };
+                    }
+                }
+
+                // Check for GRN
+                string grnQuery = "SELECT COUNT(1) FROM tbl_grn_detail WHERE poid = @poid AND isactive = 1;";
+                int grnCount = await _connection.ExecuteScalarAsync<int>(grnQuery, new { poid });
+                if (grnCount > 0)
+                {
+                    return new ResponseModel()
+                    {
+                        Data = null,
+                        Message = "Cannot cancel PO because GRN exists for this PO.",
+                        Status = false
+                    };
+                }
+
+                // Check for IRN
+                string irnQuery = "SELECT COUNT(1) FROM tbl_IRNReceipt_detail WHERE poid = @poid AND isactive = 1;";
+                int irnCount = await _connection.ExecuteScalarAsync<int>(irnQuery, new { poid });
+                if (irnCount > 0)
+                {
+                    return new ResponseModel()
+                    {
+                        Data = null,
+                        Message = "Cannot cancel PO because IRN exists for this PO.",
+                        Status = false
+                    };
+                }
+
+                // Check for Claim
+                string claimQuery = "SELECT COUNT(1) FROM btggasify_finance_live.tbl_claimAndpayment_Details WHERE poid = @poid AND isactive = 1;";
+                int claimCount = await _connection.ExecuteScalarAsync<int>(claimQuery, new { poid });
+                if (claimCount > 0)
+                {
+                    return new ResponseModel()
+                    {
+                        Data = null,
+                        Message = "Cannot cancel PO because Claim exists for this PO.",
+                        Status = false
+                    };
+                }
+
                 var param = new DynamicParameters();
                 param.Add("@p_poid", poid);
                 param.Add("@p_userid", userId);
@@ -914,7 +984,7 @@ namespace Infrastructure.Repositories
             {
                 // When "Blanket PO" is clicked, we set IsShortClosureSubmitted = 1
                 // and immediately create the short closure/blanket PO (-1 amendment PO)
-                var sql = "UPDATE tbl_purchaseorder_header SET IsShortClosureSubmitted = 1, modifieddt = NOW(), modifiedby = @userId WHERE poid = @poid AND branchid = @branchId AND orgid = @orgId";
+                var sql = "UPDATE tbl_purchaseorder_header SET IsShortClosureSubmitted = 1, IsGrnRaised = 1, modifieddt = NOW(), modifiedby = @userId WHERE poid = @poid AND branchid = @branchId AND orgid = @orgId";
                 var result = await _connection.ExecuteAsync(sql, new { poid, userId, branchId, orgId });
 
                 if (result > 0)
