@@ -254,6 +254,34 @@ namespace Infrastructure.Repositories
 
                     I++;
                 }
+
+                // Check if the related PO(s) are short closed
+                var details = Modellist.Details as IEnumerable<dynamic>;
+                bool isPoShortClosed = false;
+                if (details != null)
+                {
+                    var poIds = new List<int>();
+                    foreach (var d in details)
+                    {
+                        var dDict = d as IDictionary<string, object>;
+                        if (dDict != null && dDict.TryGetValue("poid", out var poidVal) && poidVal != null)
+                        {
+                            if (int.TryParse(poidVal.ToString(), out int pId) && pId > 0)
+                            {
+                                poIds.Add(pId);
+                            }
+                        }
+                    }
+                    poIds = poIds.Distinct().ToList();
+                    if (poIds.Any())
+                    {
+                        string checkPoSql = "SELECT COUNT(1) FROM tbl_purchaseorder_header WHERE poid IN @poIds AND (IFNULL(IsShortClosure, 0) = 1 OR IFNULL(IsShortClosureSubmitted, 0) = 1);";
+                        int scCount = await _connection.ExecuteScalarAsync<int>(checkPoSql, new { poIds });
+                        isPoShortClosed = scCount > 0;
+                    }
+                }
+                Modellist.IsPoShortClosed = isPoShortClosed;
+
                 return new ResponseModel()
                 {
                     Data = Modellist,
@@ -323,6 +351,22 @@ namespace Infrastructure.Repositories
 
             try
             {
+                var poIds = Obj.Details.Select(x => x.poid).Where(id => id > 0).Distinct().ToList();
+                if (poIds.Any())
+                {
+                    string checkPoSql = "SELECT COUNT(1) FROM tbl_purchaseorder_header WHERE poid IN @poIds AND (IFNULL(IsShortClosure, 0) = 1 OR IFNULL(IsShortClosureSubmitted, 0) = 1);";
+                    int scCount = await _connection.ExecuteScalarAsync<int>(checkPoSql, new { poIds });
+                    if (scCount > 0)
+                    {
+                        return new ResponseModel()
+                        {
+                            Data = null,
+                            Message = "This PO has already been Short Closed. Further GRN processing is not allowed.",
+                            Status = false
+                        };
+                    }
+                }
+
                 int IsValidated = 0;
                 string Message = "";
                 Int32 Result = 0;
@@ -474,6 +518,22 @@ namespace Infrastructure.Repositories
         {
             try
             {
+                var poIds = Obj.Details.Select(x => x.poid).Where(id => id > 0).Distinct().ToList();
+                if (poIds.Any())
+                {
+                    string checkPoSql = "SELECT COUNT(1) FROM tbl_purchaseorder_header WHERE poid IN @poIds AND (IFNULL(IsShortClosure, 0) = 1 OR IFNULL(IsShortClosureSubmitted, 0) = 1);";
+                    int scCount = await _connection.ExecuteScalarAsync<int>(checkPoSql, new { poIds });
+                    if (scCount > 0)
+                    {
+                        return new ResponseModel()
+                        {
+                            Data = null,
+                            Message = "This PO has already been Short Closed. Further GRN processing is not allowed.",
+                            Status = false
+                        };
+                    }
+                }
+
                 // 1. Update Header
                 const string headerSql = @"
                                      UPDATE `tbl_grn_header` 

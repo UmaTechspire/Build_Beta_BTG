@@ -636,9 +636,9 @@ const ProcurementsManagePurchaseOrder = () => {
 
                 detailedPOs = posToFetch.map(po => {
                     return {
-                        header: { 
-                            ...po, 
-                            PaymentTerm: headerMap[po.poid] || po.PaymentTerm 
+                        header: {
+                            ...po,
+                            PaymentTerm: headerMap[po.poid] || po.PaymentTerm
                         },
                         details: reqMap[po.poid] || []
                     };
@@ -973,21 +973,21 @@ const ProcurementsManagePurchaseOrder = () => {
         if (res?.status && res.data) {
             const header = res.data.Header;
             const poid = header?.poid;
-            
+
             let requisition = [];
             let poHeader = {};
-            
+
             if (poid) {
                 try {
                     const poRes = await GetByIdPurchaseOrder(poid, orgId, branchId);
                     if (poRes?.status && poRes.data) {
                         poHeader = poRes.data.Header || {};
                         requisition = poRes.data.Requisition || [];
-                        
+
                         const supplier_id = poHeader.supplierid;
                         const currency_id = poHeader.currencyid;
                         const prList = await GetPRNoBySupplierAndCurrency(supplier_id, currency_id, orgId, branchId);
-                        
+
                         if (prList?.data?.length > 0) {
                             requisition = requisition.map((r) => {
                                 const pr = prList?.data?.find((p) => p.prid === r.prid);
@@ -1009,7 +1009,7 @@ const ProcurementsManagePurchaseOrder = () => {
                     console.error("Error loading PO details for IRN modal:", err);
                 }
             }
-            
+
             setSelectedIRNDetail({
                 IRN_Header: {
                     irn_no: header.receipt_no || header.Receipt_No,
@@ -1292,14 +1292,14 @@ const ProcurementsManagePurchaseOrder = () => {
         const hasGrn = rowData.grn_no && rowData.grn_no !== "-" && String(rowData.grn_no).trim() !== "";
         const hasIrn = rowData.irn_no && rowData.irn_no !== "-" && String(rowData.irn_no).trim() !== "";
         const hasClaim = rowData.claim_no && rowData.claim_no !== "-" && String(rowData.claim_no).trim() !== "";
-        
-        const isShortClosureSubmitted = 
-            rowData.IsShortClosureSubmitted === 1 || 
+
+        const isShortClosureSubmitted =
+            rowData.IsShortClosureSubmitted === 1 ||
             rowData.isShortClosureSubmitted === 1 ||
             rowData.IsShortClosureSubmitted === true ||
             rowData.isShortClosureSubmitted === true;
 
-        const isShortClosed = 
+        const isShortClosed =
             rowData.IsShortClosure === 1 ||
             rowData.isShortClosure === 1 ||
             rowData.IsShortClosure === true ||

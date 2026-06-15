@@ -305,7 +305,7 @@ async def get_grns_by_po(poid: int):
         LEFT JOIN btggasify_masterpanel_live.master_item im ON im.itemid = gd.itemid
         LEFT JOIN btggasify_masterpanel_live.master_itemgroup ig ON ig.groupid = im.groupid
         LEFT JOIN btggasify_live.master_uom um ON um.Id = gd.uomid
-        WHERE gd.poid = %s
+        WHERE gd.poid = %s AND gh.IsSubmitted = 1 AND gd.isactive = 1 AND gh.isactive = 1
         """
         cursor.execute(query, (poid,))
         results = cursor.fetchall()

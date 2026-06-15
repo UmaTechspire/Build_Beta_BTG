@@ -80,6 +80,7 @@ const ProcurementsAddGRN = () => {
   const [items, setItems] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
   const isAllSelected = items.length > 0 && selectedItems.length === items.length;
+  const [isPoShortClosed, setIsPoShortClosed] = useState(false);
 
   // useEffect(() => {
   //   if(grnData)console.log("grnData", grnData);    
@@ -176,6 +177,18 @@ const ProcurementsAddGRN = () => {
     const header = grnData.data.Header;
     const details = grnData.data.Details || [];
 
+    const isPoClosed = !!grnData.data?.IsPoShortClosed;
+    setIsPoShortClosed(isPoClosed);
+
+    if (isPoClosed) {
+      Swal.fire({
+        icon: "warning",
+        title: "Restriction",
+        text: "This PO has already been Short Closed. Further GRN processing is not allowed.",
+        confirmButtonColor: "#3085d6"
+      });
+    }
+
     // Supplier
     const supplierResp = await GetPOSupplierDetails(0, 1, 1, '%', header.grnid);
     const suppliersArray = Array.isArray(supplierResp.data) ? supplierResp.data : [supplierResp.data];
@@ -251,9 +264,9 @@ const ProcurementsAddGRN = () => {
           doNo: grnDetail?.dono || item.dono,
           doDate: formatDate(grnDetail?.dodate || item.dodate),
           poQty: item.poqty,
-          alreadyRecQty: grnDetail?.alreadyrecqty ?? item.alreadyrecqty ?? 0,
-          balanceQty: grnDetail?.balanceqty ?? item.balanceqty ?? 0,
-          oribalanceqty: grnDetail?.oribalanceqty ?? item.oribalanceqty ?? 0,
+          alreadyRecQty: item.alreadyrecqty ?? 0,
+          balanceQty: item.balanceqty ?? 0,
+          oribalanceqty: item.oribalanceqty ?? 0,
           grnQty: grnDetail?.grnQty ?? 0,
           containerNo: grnDetail?.containerno || "",
         };
@@ -506,8 +519,12 @@ const ProcurementsAddGRN = () => {
           dono: item.doNo ?? "",
           dodate: formatDate(item.doDate),
           poqty: Number(item.poQty) || 0,
-          alreadyrecqty: item.grnQty ? (Number(item.alreadyRecQty) + Number(item.grnQty)) : item.alreadyRecQty ? item.alreadyRecQty : 0,
-          balanceqty: item.grnQty ? (Number(item.poQty) - Number(item.alreadyRecQty) - Number(item.grnQty)) : item.balanceQty ? item.balanceQty : 0,
+          alreadyrecqty: isSubmitted === 1
+            ? (Number(item.alreadyRecQty || 0) + Number(item.grnQty || 0))
+            : Number(item.alreadyRecQty || 0),
+          balanceqty: isSubmitted === 1
+            ? (Number(item.poQty || 0) - Number(item.alreadyRecQty || 0) - Number(item.grnQty || 0))
+            : (Number(item.poQty || 0) - Number(item.alreadyRecQty || 0)),
           grnqty: parseFloat(item.grnQty) || 0,
           //costperqty: Number(item.costperqty) || 0,
           containerno: item.containerNo ?? "",
@@ -675,7 +692,7 @@ const ProcurementsAddGRN = () => {
                             type="button"
                             className="btn btn-info"
                             onClick={() => handleSubmit(values, 0)}
-                            disabled={isSubmitting || isRestrictedUser}
+                            disabled={isSubmitting || isRestrictedUser || isPoShortClosed}
                           >
                             <i className="bx bx-comment-check label-icon font-size-16 align-middle me-2" ></i>{isEditMode ? "Update" : "Save"}
 
@@ -684,7 +701,7 @@ const ProcurementsAddGRN = () => {
                             type="button"
                             className="btn btn-success fa-pull-right"
                             onClick={() => handleSubmit(values, 1)}// Post  
-                            disabled={isSubmitting || isRestrictedUser}
+                            disabled={isSubmitting || isRestrictedUser || isPoShortClosed}
                           >
                             <i className="bx bxs-save label-icon font-size-16 align-middle me-2"></i>Post
                           </button>
@@ -707,6 +724,7 @@ const ProcurementsAddGRN = () => {
                             <Label>GRN No.</Label>
                             <Field
                               name="grnNo"
+                              disabled={isPoShortClosed}
                               className={`form-control ${errors.grnNo && touched.grnNo ? "is-invalid" : ""
                                 }`}
                             />
@@ -722,6 +740,7 @@ const ProcurementsAddGRN = () => {
                               name="grnDate"
                               className="form-control"
                               value={values.grnDate || null}
+                              disabled={isPoShortClosed}
                               onChange={(date) => {
                                 const selectedDate = date[0];
                                 if (values.poDate && selectedDate) {
@@ -750,6 +769,7 @@ const ProcurementsAddGRN = () => {
                                 altFormat: "d-M-Y",
                                 dateFormat: "Y-m-d",
                                 minDate: values.poDate ? new Date(values.poDate) : null,
+                                clickOpens: !isPoShortClosed,
                               }}
                             />
                             {errors.grnDate && touched.grnDate && (
@@ -764,6 +784,7 @@ const ProcurementsAddGRN = () => {
                               name="supplier"
                               value={values.supplier}
                               options={suppliers}
+                              isDisabled={isPoShortClosed}
                               onChange={async (option) => {
                                 setFieldValue("supplier", option || null);
                                 setFieldValue("poNo", null);
@@ -809,6 +830,7 @@ const ProcurementsAddGRN = () => {
                               name="poNo"
                               value={values.poNo}
                               options={poNo}
+                              isDisabled={isPoShortClosed}
                               menuPortalTarget={document.body}
                               onChange={async (selectedOption) => {
                                 setFieldValue("poNo", selectedOption || null);
@@ -855,7 +877,6 @@ const ProcurementsAddGRN = () => {
                           </FormGroup>
                         </Col>
                       </Row>
-
                       <div className="table-responsive">
                         <table className="table"  >
                           <thead>
@@ -863,6 +884,7 @@ const ProcurementsAddGRN = () => {
                               <th style={{ width: '20px' }}>
                                 <input type="checkbox"
                                   checked={isAllSelected}
+                                  disabled={isPoShortClosed}
                                   onChange={handleSelectAll} />
                               </th>
                               <th>PO No.</th>
@@ -887,6 +909,7 @@ const ProcurementsAddGRN = () => {
                                   <input type="checkbox"
                                     value={item.porid}
                                     checked={selectedItems.includes(item.porid)}
+                                    disabled={isPoShortClosed}
                                     onChange={(e) => handleCheckBoxChange(e, item)} />
                                 </td>
                                 <td>{item.poNo}</td>
@@ -898,6 +921,7 @@ const ProcurementsAddGRN = () => {
                                   <Field
                                     name="doNo"
                                     value={item.doNo}
+                                    disabled={isPoShortClosed}
                                     maxLength="20"
                                     placeholder="Do No."
                                     className={`form-control ${errors.doNo && touched.doNo ? "is-invalid" : ""
@@ -916,6 +940,7 @@ const ProcurementsAddGRN = () => {
                                     className="form-control"
                                     value={item.doDate || null}
                                     placeholder="DD-MM-YYYY"
+                                    disabled={isPoShortClosed}
                                     // onChange={(date) => setFieldValue("doDate", date[0])}
                                     onChange={(date) =>
                                       handleInputChange(index, "doDate", formatDate(date[0]))
@@ -924,6 +949,7 @@ const ProcurementsAddGRN = () => {
                                       altInput: true,
                                       altFormat: "d-M-Y",
                                       dateFormat: "Y-m-d",
+                                      clickOpens: !isPoShortClosed,
                                     }}
                                   />
                                   {errors.doDate && touched.doDate && (
@@ -955,6 +981,7 @@ const ProcurementsAddGRN = () => {
                                     type="text"
                                     className="form-control form-control-sm"
                                     value={item.grnQty ?? ""}
+                                    disabled={isPoShortClosed}
                                     style={{ width: "100px", textAlign: "right" }}
                                     onChange={(e) => {
                                       let input = e.target.value.trim();
@@ -980,6 +1007,7 @@ const ProcurementsAddGRN = () => {
                                     type="text"
                                     className="form-control form-control-sm"
                                     value={item.containerNo}
+                                    disabled={isPoShortClosed}
                                     maxLength="20"
                                     style={{ width: '80px' }}
                                     onChange={(e) =>

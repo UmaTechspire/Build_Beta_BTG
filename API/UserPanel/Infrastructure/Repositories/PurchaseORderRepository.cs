@@ -982,6 +982,27 @@ namespace Infrastructure.Repositories
         {
             try
             {
+                // Validate that there is remaining pending quantity before allowing short close
+                // var sqlPending = @"
+                //     SELECT (
+                //         (SELECT IFNULL(SUM(qty), 0) FROM tbl_purchaseorder_requisitions WHERE poid = @poid AND isactive = 1)
+                //         -
+                //         (SELECT IFNULL(SUM(gd.grnQty), 0) FROM tbl_grn_detail gd 
+                //          JOIN tbl_grn_header gh ON gd.grnid = gh.grnid 
+                //          WHERE gd.poid = @poid AND gd.isactive = 1 AND gh.IsSubmitted = 1)
+                //     ) as PendingQty";
+
+                // var pendingQty = await _connection.QueryFirstOrDefaultAsync<decimal>(sqlPending, new { poid });
+                // if (pendingQty <= 0)
+                // {
+                //     return new ResponseModel()
+                //     {
+                //         Data = null,
+                //         Message = "Cannot short close PO because there is no pending quantity remaining.",
+                //         Status = false
+                //     };
+                // }
+
                 // When "Blanket PO" is clicked, we set IsShortClosureSubmitted = 1
                 // and immediately create the short closure/blanket PO (-1 amendment PO)
                 var sql = "UPDATE tbl_purchaseorder_header SET IsShortClosureSubmitted = 1, IsGrnRaised = 1, modifieddt = NOW(), modifiedby = @userId WHERE poid = @poid AND branchid = @branchId AND orgid = @orgId";
