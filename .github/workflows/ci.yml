@@ -3,7 +3,10 @@ name: Build_Beta_BTG_CI
 on:
   push:
     branches:
-      - '**'
+      - main
+
+permissions:
+  contents: write
 
 jobs:
 
@@ -15,15 +18,31 @@ jobs:
         working-directory: React
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Source
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - run: npm ci
+      - name: Install Dependencies
+        run: npm install
 
-      - run: npm run build
+      - name: Build React
+        run: npm run build
+
+      - name: Commit React Build
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add build
+
+          git commit -m "React Build Updated [skip ci]" || exit 0
+          git push
 
   dotnet-build:
     runs-on: ubuntu-latest
@@ -33,15 +52,31 @@ jobs:
         working-directory: API/UserPanel
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Source
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/setup-dotnet@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
 
-      - run: dotnet restore
+      - name: Restore Packages
+        run: dotnet restore
 
-      - run: dotnet build --configuration Release
+      - name: Publish Application
+        run: dotnet publish -c Release -o publish
+
+      - name: Commit Publish Folder
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add publish
+
+          git commit -m ".NET Publish Updated [skip ci]" || exit 0
+          git push
 
   python-build:
     runs-on: ubuntu-latest
@@ -55,6 +90,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
-      - run: pip install -r requirements.txt
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
