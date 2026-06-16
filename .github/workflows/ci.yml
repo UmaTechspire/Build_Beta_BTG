@@ -1,86 +1,64 @@
 name: Build_Beta_BTG_CI
 
 on:
-push:
-branches:
-- main
+  push:
+    branches:
+      - main
 
 permissions:
-contents: write
+  contents: write
 
 jobs:
-build-and-commit:
+  build-and-commit:
+    runs-on: ubuntu-latest
 
-```
-runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
 
-steps:
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-  - name: Checkout Source
-    uses: actions/checkout@v4
-    with:
-      token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install React Dependencies
+        working-directory: React
+        run: npm install --legacy-peer-deps
 
-  # --------------------
-  # React Build
-  # --------------------
+      - name: Build React
+        working-directory: React
+        run: npm run build
 
-  - name: Setup Node
-    uses: actions/setup-node@v4
-    with:
-      node-version: 20
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
 
-  - name: Install React Dependencies
-    working-directory: React
-    run: npm install --legacy-peer-deps
+      - name: Restore .NET Packages
+        working-directory: API/UserPanel
+        run: dotnet restore
 
-  - name: Build React
-    working-directory: React
-    run: npm run build
+      - name: Publish .NET
+        working-directory: API/UserPanel
+        run: dotnet publish -c Release -o publish
 
-  # --------------------
-  # .NET Publish
-  # --------------------
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-  - name: Setup .NET
-    uses: actions/setup-dotnet@v4
-    with:
-      dotnet-version: 8.0.x
+      - name: Install Python Dependencies
+        working-directory: Python
+        run: pip install -r requirements.txt
 
-  - name: Restore .NET Packages
-    working-directory: API/UserPanel
-    run: dotnet restore
+      - name: Commit Build Output
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-  - name: Publish .NET
-    working-directory: API/UserPanel
-    run: dotnet publish -c Release -o publish
+          git add React/build
+          git add API/UserPanel/publish
 
-  # --------------------
-  # Python Dependencies
-  # --------------------
+          git commit -m "Auto Build Update [skip ci]" || exit 0
 
-  - name: Setup Python
-    uses: actions/setup-python@v5
-    with:
-      python-version: "3.11"
-
-  - name: Install Python Dependencies
-    working-directory: Python
-    run: pip install -r requirements.txt
-
-  # --------------------
-  # Commit Build Files
-  # --------------------
-
-  - name: Commit Build Output
-    run: |
-      git config --global user.name "github-actions[bot]"
-      git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-      git add React/build
-      git add API/UserPanel/publish
-
-      git commit -m "Auto Build Update [skip ci]" || exit 0
-
-      git push origin main
-```
+          git push origin main
