@@ -1,0 +1,17 @@
+name: Build_Beta_BTG_CI
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: CI Started
+        run: echo "Build_Beta_BTG CI Running Successfully"
