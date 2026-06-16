@@ -1,96 +1,86 @@
 name: Build_Beta_BTG_CI
 
 on:
-  push:
-    branches:
-      - main
+push:
+branches:
+- main
 
 permissions:
-  contents: write
+contents: write
 
 jobs:
+build-and-commit:
 
-  react-build:
-    runs-on: ubuntu-latest
+```
+runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: React
+steps:
 
-    steps:
-      - name: Checkout Source
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+  - name: Checkout Source
+    uses: actions/checkout@v4
+    with:
+      token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
+  # --------------------
+  # React Build
+  # --------------------
 
-      - name: Install Dependencies
-        run: npm install --legacy-peer-deps
+  - name: Setup Node
+    uses: actions/setup-node@v4
+    with:
+      node-version: 20
 
-      - name: Build React
-        run: npm run build
+  - name: Install React Dependencies
+    working-directory: React
+    run: npm install --legacy-peer-deps
 
-      - name: Commit React Build
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+  - name: Build React
+    working-directory: React
+    run: npm run build
 
-          git add build
+  # --------------------
+  # .NET Publish
+  # --------------------
 
-          git commit -m "React Build Updated [skip ci]" || exit 0
-          git push
+  - name: Setup .NET
+    uses: actions/setup-dotnet@v4
+    with:
+      dotnet-version: 8.0.x
 
-  dotnet-build:
-    runs-on: ubuntu-latest
+  - name: Restore .NET Packages
+    working-directory: API/UserPanel
+    run: dotnet restore
 
-    defaults:
-      run:
-        working-directory: API/UserPanel
+  - name: Publish .NET
+    working-directory: API/UserPanel
+    run: dotnet publish -c Release -o publish
 
-    steps:
-      - name: Checkout Source
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+  # --------------------
+  # Python Dependencies
+  # --------------------
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 8.0.x
+  - name: Setup Python
+    uses: actions/setup-python@v5
+    with:
+      python-version: "3.11"
 
-      - name: Restore Packages
-        run: dotnet restore
+  - name: Install Python Dependencies
+    working-directory: Python
+    run: pip install -r requirements.txt
 
-      - name: Publish Application
-        run: dotnet publish -c Release -o publish
+  # --------------------
+  # Commit Build Files
+  # --------------------
 
-      - name: Commit Publish Folder
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+  - name: Commit Build Output
+    run: |
+      git config --global user.name "github-actions[bot]"
+      git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add publish
+      git add React/build
+      git add API/UserPanel/publish
 
-          git commit -m ".NET Publish Updated [skip ci]" || exit 0
-          git push
+      git commit -m "Auto Build Update [skip ci]" || exit 0
 
-  python-build:
-    runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: Python
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install Dependencies
-        run: pip install -r requirements.txt
+      git push origin main
+```
