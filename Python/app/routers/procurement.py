@@ -299,9 +299,15 @@ async def get_grns_by_po(poid: int):
             gd.grnQty AS Qty,
             um.UOM AS Uom,
             gd.UnitPrice AS UnitPrice,
-            gd.TotalAmount AS TotalAmount
+            gd.TotalAmount AS TotalAmount,
+            IFNULL(por.discountperc, 0) AS DiscountPerc,
+            IFNULL(por.discountvalue, 0) AS DiscountValue,
+            IFNULL(por.qty, 0) AS POQty,
+            IFNULL(por.taxperc, 0) AS TaxPerc,
+            IFNULL(por.vatperc, 0) AS VatPerc
         FROM tbl_grn_detail gd
         JOIN tbl_grn_header gh ON gh.grnid = gd.grnid
+        LEFT JOIN tbl_purchaseorder_requisitions por ON gd.porid = por.porid
         LEFT JOIN btggasify_masterpanel_live.master_item im ON im.itemid = gd.itemid
         LEFT JOIN btggasify_masterpanel_live.master_itemgroup ig ON ig.groupid = im.groupid
         LEFT JOIN btggasify_live.master_uom um ON um.Id = gd.uomid

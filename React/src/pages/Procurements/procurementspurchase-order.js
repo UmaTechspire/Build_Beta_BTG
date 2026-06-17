@@ -73,6 +73,7 @@ import {
 } from "common/data/mastersapi";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { roundByCurrency } from "common/currencyUtils";
 const initFilters = () => ({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS },
     pono: { operator: FilterOperator.AND, constraints: [{ value: null, matchMode: FilterMatchMode.STARTS_WITH }] },
@@ -1416,7 +1417,46 @@ const ProcurementsManagePurchaseOrder = () => {
             }
 
             const blanketGRNsRes = originalPoid ? await GetGRNsByPO(originalPoid) : null;
-            const blanketGRNs = blanketGRNsRes?.status ? blanketGRNsRes.data : [];
+            let blanketGRNs = blanketGRNsRes?.status ? blanketGRNsRes.data : [];
+
+            const currencyCode = blanketRes.data?.Header?.currencycode || rowData.CurrencyCode || originalRes?.data?.Header?.currencycode || "IDR";
+
+            blanketGRNs = (blanketGRNs || []).map((row) => {
+                const qty = parseFloat(row.Qty) || 0;
+                const unitPrice = parseFloat(row.UnitPrice) || 0;
+                const discountPerc = parseFloat(row.DiscountPerc) || 0;
+                const originalDiscountValue = parseFloat(row.DiscountValue) || 0;
+                const poQty = parseFloat(row.POQty) || 0;
+                const taxPerc = parseFloat(row.TaxPerc) || 0;
+                const vatPerc = parseFloat(row.VatPerc) || 0;
+
+                const subtotal = qty * unitPrice;
+                
+                let discountValue = 0;
+                if (discountPerc > 0) {
+                    discountValue = roundByCurrency((subtotal * discountPerc) / 100, currencyCode);
+                } else if (originalDiscountValue > 0 && poQty > 0) {
+                    discountValue = roundByCurrency((qty * originalDiscountValue) / poQty, currencyCode);
+                }
+
+                const lineAfterDiscount = subtotal - discountValue;
+                const taxValue = roundByCurrency((lineAfterDiscount * taxPerc) / 100, currencyCode);
+                const vatValue = roundByCurrency((lineAfterDiscount * vatPerc) / 100, currencyCode);
+
+                // Withholding tax is subtracted, VAT is added
+                const netTotal = roundByCurrency((lineAfterDiscount - taxValue) + vatValue, currencyCode);
+
+                return {
+                    ...row,
+                    DiscountPerc: discountPerc,
+                    DiscountAmt: discountValue,
+                    TaxPerc: taxPerc,
+                    TaxAmt: taxValue,
+                    VatPerc: vatPerc,
+                    VatAmt: vatValue,
+                    NetTotal: netTotal
+                };
+            });
 
             const originalCreatedByName = localMatch?.createdbyName || originalRes?.data?.Header?.createdbyName || originalRes?.data?.Header?.requestorname || "N/A";
             const blanketCreatedByName = rowData?.createdbyName || blanketRes?.data?.Header?.createdbyName || blanketRes?.data?.Header?.requestorname || "N/A";
@@ -3535,7 +3575,7 @@ const ProcurementsManagePurchaseOrder = () => {
                                     </div>
                                     <div className="d-flex mb-2 align-items-center">
                                         <span style={{ minWidth: "140px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>BlanketPO Value</span>
-                                        <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {(blanketPoViewData.blanketGRNs || []).reduce((s, r) => s + (parseFloat(r.TotalAmount) || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                                        <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {(blanketPoViewData.blanketGRNs || []).reduce((s, r) => s + (parseFloat(r.NetTotal) || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
                                     </div>
                                 </Col>
                                 <Col md={4}>
@@ -3572,7 +3612,12 @@ const ProcurementsManagePurchaseOrder = () => {
                                             <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Qty</th>
                                             <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Uom</th>
                                             <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Unit Price</th>
-                                            <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Total Amount</th>
+                                            <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Discount</th>
+                                            <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Tax %</th>
+                                            <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Tax Amt</th>
+                                            <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>VAT %</th>
+                                            <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>VAT Amt</th>
+                                            <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Total Amt</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -3585,11 +3630,16 @@ const ProcurementsManagePurchaseOrder = () => {
                                                 <td className="text-center">{parseFloat(row.Qty || 0).toLocaleString("en-US", { minimumFractionDigits: 3 })}</td>
                                                 <td className="text-center">{row.Uom || ""}</td>
                                                 <td className="text-center">{parseFloat(row.UnitPrice || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
-                                                <td className="text-center" style={{ color: "#ff5a00", fontWeight: "bold" }}>{parseFloat(row.TotalAmount || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                                                <td className="text-center">{parseFloat(row.DiscountAmt || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                                                <td className="text-center">{row.TaxPerc ?? 0}</td>
+                                                <td className="text-center">{parseFloat(row.TaxAmt || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                                                <td className="text-center">{row.VatPerc ?? 0}</td>
+                                                <td className="text-center">{parseFloat(row.VatAmt || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                                                <td className="text-center" style={{ color: "#ff5a00", fontWeight: "bold" }}>{parseFloat(row.NetTotal || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
                                             </tr>
                                         ))}
                                         {(blanketPoViewData.blanketGRNs || []).length === 0 && (
-                                            <tr><td colSpan={8} className="text-center text-muted">No items found</td></tr>
+                                            <tr><td colSpan={13} className="text-center text-muted">No items found</td></tr>
                                         )}
                                     </tbody>
                                 </table>
