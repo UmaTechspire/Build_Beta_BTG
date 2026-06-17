@@ -59,19 +59,13 @@ jobs:
           git add React/build
           git add API/UserPanel/publish
 
-          git commit -m "Auto Build Update [skip ci]" || exit 0
+          git commit -m "UPDATED-$(TZ='Asia/Kolkata' date +'%d-%m-%Y')" || exit 0
 
           git push origin main
 
       - name: Clone Repo_3
         run: |
           git clone https://x-access-token:${{ secrets.BUILD_READY_TOKEN }}@github.com/UmaTechspire/BETA_BTG_READY.git ready
-
-      - name: Clean Repo3
-        run: |
-          rm -rf ready/dnbackend
-          rm -rf ready/frontend
-          rm -rf ready/pybackend
 
     # React Build -> frontend/build
       - name: Copy React Build
@@ -89,7 +83,7 @@ jobs:
       - name: Copy Python App
         run: |
           mkdir -p ready/pybackend
-          cp -r Python/app ready/pybackend/
+          cp -r Python/app* ready/pybackend/app/
 
       # Remove Python Cache
       - name: Clean Python Cache
@@ -109,6 +103,6 @@ jobs:
 
           git add .
 
-          git commit -m "Auto Deploy From Build_Beta_BTG [skip ci]" || exit 0
+          git commit -m "UPDATED-$(TZ='Asia/Kolkata' date +'%d-%m-%Y')" || exit 0
 
           git push origin main
