@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using System.Dynamic;
 using BackEnd.Procurement.PurchaseOrder;
 using BackEnd.Procurement.InvoiceReceipt;
@@ -827,10 +827,38 @@ namespace Infrastructure.Repositories
 
                         const string updateDetailsSql = @"
                             UPDATE tbl_IRNReceipt_detail 
-                            SET isgenerated = 1 ,spc=@spc
+                            SET `ModeOfPaymentId` = @ModeOfPaymentId, 
+                                `docdate` = @docdate, 
+                                `receiptno` = @invoiceno, 
+                                `receiptdate` = @invoicedate, 
+                                `duedate` = @duedate,
+                                `po_amount` = @poamount,
+                                `adv_payment` = @advpayment,
+                                `balance_payment` = @balancepayment, 
+                                `alreadyrecivedamount` = @alreadyrecivedamount,
+                                `balancepaymentamount` = @balancepaymentamount, 
+                                `modifyby` = @createdby, 
+                                `modifydate` = NOW(),
+                                `isgenerated` = 1,
+                                `spc` = @spc
                             WHERE receiptnote_hdr_id = @receiptnote_hdr_id;";
 
-                        await _connection.ExecuteAsync(updateDetailsSql, new { receiptnote_hdr_id = rec_id,spc=detail1.spc==true ? 1 : 0 });
+                        await _connection.ExecuteAsync(updateDetailsSql, new
+                        {
+                            ModeOfPaymentId = detail1.ModeOfPaymentId,
+                            receiptnote_hdr_id = rec_id,
+                            docdate = detail1.receipt_Date,
+                            invoiceno = detail1.invoiceno,
+                            invoicedate = detail1.invoicedate,
+                            duedate = detail1.duedate,
+                            poamount = detail1.po_amount,
+                            advpayment = detail1.adv_payment,
+                            balancepayment = detail1.balance_payment,
+                            alreadyrecivedamount = detail1.alreadyrecivedamount,
+                            balancepaymentamount = detail1.balancepaymentamount,
+                            createdby = detail1.createdby,
+                            spc = detail1.spc == true ? 1 : 0
+                        });
                         int lastprimaryId = rec_id;
                         var recipquery = "select isgenerated from tbl_IRNReceipt_detail a where receiptnote_hdr_id=" + lastprimaryId + ";";
                         var isgenerated = await _connection.QuerySingleAsync<string>(recipquery);
