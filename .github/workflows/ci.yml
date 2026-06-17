@@ -59,7 +59,7 @@ jobs:
           git add React/build
           git add API/UserPanel/publish
 
-          git commit -m "UPDATED-$(TZ='Asia/Kolkata' date +'%d-%m-%Y')" || exit 0
+          git commit -m "UPDATED-$(TZ='Asia/Kolkata' date +'%d-%m-%Y- %H:%M:%S')" || exit 0
 
           git push origin main
 
@@ -103,6 +103,6 @@ jobs:
 
           git add .
 
-          git commit -m "UPDATED-$(TZ='Asia/Kolkata' date +'%d-%m-%Y')" || exit 0
+          git commit -m "UPDATED-$(TZ='Asia/Kolkata' date +'%d-%m-%Y- %H:%M:%S')" || exit 0
 
           git push origin main
