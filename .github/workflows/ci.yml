@@ -83,7 +83,7 @@ jobs:
       - name: Copy Python App
         run: |
           mkdir -p ready/pybackend
-          cp -r Python/app* ready/pybackend/app/
+          cp -r Python/app/* ready/pybackend/app/
 
       # Remove Python Cache
       - name: Clean Python Cache
