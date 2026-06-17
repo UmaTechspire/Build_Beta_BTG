@@ -62,3 +62,48 @@ jobs:
           git commit -m "Auto Build Update [skip ci]" || exit 0
 
           git push origin main
+
+      - name: Clean Repo3
+        run: |
+          rm -rf ready/dnbackend
+          rm -rf ready/frontend
+          rm -rf ready/pybackend
+
+    # React Build -> frontend/build
+      - name: Copy React Build
+        run: |
+          mkdir -p ready/frontend
+          cp -r React/build ready/frontend/
+
+      # Publish Output -> dnbackend
+      - name: Copy DotNet Publish
+        run: |
+          mkdir -p ready/dnbackend
+          cp -r API/UserPanel/publish/* ready/dnbackend/
+
+      # Python app -> pybackend/app
+      - name: Copy Python App
+        run: |
+          mkdir -p ready/pybackend
+          cp -r Python/app ready/pybackend/
+
+      # Remove Python Cache
+      - name: Clean Python Cache
+        run: |
+          find ready/pybackend -name "__pycache__" -type d -exec rm -rf {} +
+          find ready/pybackend -name "*.pyc" -delete
+
+      # Push Repo3
+      - name: Commit And Push Repo3
+        run: |
+          cd ready
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add .
+
+          git commit -m "Auto Deploy From Build_Beta_BTG [skip ci]" || exit 0
+
+          git push https://x-access-token:${{ secrets.BUILD_READY_TOKEN }}@github.com/UmaTechspire/BETA_BTG_READY.git main
+
