@@ -1758,7 +1758,7 @@ const AddInvoiceReceipt = () => {
                                       const systemBalance = poAmt - (adv + already);
                                       debugger;
                                       // allocated = systemBalance - enteredBalance
-                                      let allocate = oribal - enteredBalance;
+                                      let allocate = systemBalance - enteredBalance;
                                       if (allocate < 0) allocate = 0;
 
                                       // Format Balance and Allocated with commas only (keep decimals as typed)
