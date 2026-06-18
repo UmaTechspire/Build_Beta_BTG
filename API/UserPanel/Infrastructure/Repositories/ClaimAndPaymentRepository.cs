@@ -156,19 +156,17 @@ namespace Infrastructure.Repositories
                 }
 
                 // Retain the original claimant (CreatedBy) and department (DepartmentId) from the database
-                if (obj.Header.ClaimCategoryId != 1 && obj.Header.ClaimCategoryId != 2)
-                {
-                    var existingClaim = await _connection.QueryFirstOrDefaultAsync<dynamic>(
-                        "SELECT CreatedBy, DepartmentId FROM tbl_claimAndpayment_header WHERE Claim_ID = @ClaimId",
-                        new { ClaimId = obj.Header.ClaimId }
-                    );
+                var existingClaim = await _connection.QueryFirstOrDefaultAsync<dynamic>(
+                    "SELECT CreatedBy, DepartmentId FROM tbl_claimAndpayment_header WHERE Claim_ID = @ClaimId",
+                    new { ClaimId = obj.Header.ClaimId }
+                );
 
-                    if (existingClaim != null)
-                    {
-                        obj.Header.ApplicantId = existingClaim.CreatedBy;
-                        obj.Header.DepartmentId = existingClaim.DepartmentId;
-                    }
+                if (existingClaim != null)
+                {
+                    obj.Header.ApplicantId = existingClaim.CreatedBy;
+                    obj.Header.DepartmentId = existingClaim.DepartmentId;
                 }
+                
                 const string updateHeaderSql = @"
             UPDATE tbl_claimAndpayment_header
             SET 

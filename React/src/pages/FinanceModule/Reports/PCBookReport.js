@@ -124,11 +124,10 @@ const PCBookReport = () => {
                 axios.get(`${PYTHON_API_URL}/pettycash/opening-balance?from_date=${from}&orgid=1&branchid=1&currencyid=${curId}`)
             ]);
 
-            if (openingRes.data && openingRes.data.status) {
-                setOpeningBalanceVal(openingRes.data.opening_balance);
-            } else {
-                setOpeningBalanceVal(0);
-            }
+            const opDebit = (openingRes && openingRes.data && openingRes.data.status) ? (openingRes.data.opening_debit || 0) : 0;
+            const opCredit = (openingRes && openingRes.data && openingRes.data.status) ? (openingRes.data.opening_credit || 0) : 0;
+
+            setOpeningBalanceVal(opDebit - opCredit);
 
             const tMap = {};
             if (typesData) {
@@ -175,7 +174,7 @@ const PCBookReport = () => {
             } catch (e) {
                 console.debug("PCBookReport (Reports) - transfer log error:", e);
             }
-            
+
             // 2. Filter by date FIRST
             if (fromDate && toDate) {
                 const f = new Date(fromDate); f.setHours(0, 0, 0, 0);
@@ -187,40 +186,67 @@ const PCBookReport = () => {
             }
 
             // 3. Custom Sorting: Opening Balance at top, then Others by Reference DESC
-            const openingBalanceRow = allItems.find(item => 
-                (item.pc_number && item.pc_number.toUpperCase().includes("OPENING")) ||
-                (item.description && item.description.toUpperCase().includes("OPENING BALANCE"))
+
+            const synthesizedOpeningRow = {
+                pc_number: "OPENING",
+                description: "OPENING BALANCE",
+                expensedescription: "OPENING BALANCE",
+                amount: opDebit - opCredit,
+                amountidr: opDebit - opCredit,
+                debit: opDebit,
+                credit: opCredit,
+                category_id: 0,
+                expense_type_id: 0,
+                expdate: fromDate || new Date(),
+                categoryName: "-",
+                expenseTypename: "-",
+                issubmitted: 1,
+                isOpening: true
+            };
+
+            const others = allItems.filter(item =>
+                !(item.pc_number && String(item.pc_number).toUpperCase().includes("OPENING")) &&
+                !(item.description && String(item.description).toUpperCase().includes("OPENING BALANCE")) &&
+                !(item.expensedescription && String(item.expensedescription).toUpperCase().includes("OPENING BALANCE"))
             );
-            const others = allItems.filter(item => item !== openingBalanceRow);
 
             // Sort others by Date DESC, then Reference No ASC
             others.sort((a, b) => {
                 const dateA = new Date(a.expdate || a.ExpDate);
                 const dateB = new Date(b.expdate || b.ExpDate);
-                
+
                 if (dateB - dateA !== 0) {
                     return dateB - dateA; // Date DESC
                 }
-                
+
                 const refA = a.pc_number || "";
                 const refB = b.pc_number || "";
                 return refA.localeCompare(refB, undefined, { numeric: true, sensitivity: 'base' }); // Ref ASC
             });
 
-            const finalSorted = openingBalanceRow ? [openingBalanceRow, ...others] : others;
+            const finalSorted = [synthesizedOpeningRow, ...others];
 
             let processed = finalSorted.map((row) => {
+                if (row.isOpening) {
+                    return {
+                        ...row,
+                        dailyVoucher: row.dailyvoucher || row.dailyVoucher || generateDailyVoucherID(row.expdate || row.ExpDate),
+                        COA: row.coa || row.COA || row.account_name || "",
+                        description: row.description
+                    };
+                }
+
                 const amount = parseFloat(row.amount || row.Amount) || 0;
                 // Treat category_id === 6 (Transfer) as Debit as well
                 const rawDesc = (row.expensedescription || row.ExpenseDescription || row.description || row.Description || row.remarks || row.Remarks || "").toUpperCase();
                 const isDebit = (
                     row.category_id == 1 ||
-                    rawDesc.includes("OPENING")
+                    rawDesc === "OPENING BALANCE" ||
+                    (row.pc_number && row.pc_number.toUpperCase() === "OPENING")
                 );
-
                 const debit = isDebit ? amount : 0;
                 const credit = isDebit ? 0 : amount;
-                
+
                 let amountidr = parseFloat(row.amountidr || row.AmountIDR || 0);
                 if (amountidr === 0 && (selectedCurrency?.label === "IDR" || (row.pc_number && row.pc_number.startsWith("CLM")))) {
                     amountidr = amount;
@@ -287,7 +313,7 @@ const PCBookReport = () => {
 
         // 2. Sort
         // Separate Opening Balance to always keep it at the top
-        const openingBalanceRow = items.find(item => 
+        const openingBalanceRow = items.find(item =>
             (item.pc_number && item.pc_number.toUpperCase().includes("OPENING")) ||
             (item.description && item.description.toUpperCase().includes("OPENING BALANCE"))
         );
@@ -297,11 +323,11 @@ const PCBookReport = () => {
             others.sort((a, b) => {
                 let valA = a[sortField];
                 let valB = b[sortField];
-                
+
                 if (sortField === "expdate") {
                     valA = new Date(a.expdate || a.ExpDate).getTime();
                     valB = new Date(b.expdate || b.ExpDate).getTime();
-                    
+
                     if (valA === valB) {
                         const refA = a.pc_number || "";
                         const refB = b.pc_number || "";
@@ -332,9 +358,9 @@ const PCBookReport = () => {
                 pc_number: "OPENING",
                 description: "OPENING BALANCE",
                 expensedescription: "OPENING BALANCE",
-                debit: openingBalanceVal > 0 ? openingBalanceVal : 0,
-                credit: openingBalanceVal < 0 ? Math.abs(openingBalanceVal) : 0,
-                amount: Math.abs(openingBalanceVal),
+                debit: openingBalanceVal,
+                credit: 0,
+                amount: openingBalanceVal,
                 isVirtual: true,
                 category_id: 1, // Treat as Top-up/Receipt for debit logic
                 categoryName: "OPENING BALANCE"
@@ -692,7 +718,7 @@ const PCBookReport = () => {
                                             header="Debit"
                                             body={(r) => (
                                                 <span style={{ color: "green" }}>
-                                                    {r.debit > 0 ? fmtNum(r.debit) : ""}
+                                                    {(r.debit > 0 || (r.isOpening && r.debit === 0 && r.credit === 0)) ? fmtNum(r.debit) : ""}
                                                 </span>
                                             )}
                                             className="text-end"

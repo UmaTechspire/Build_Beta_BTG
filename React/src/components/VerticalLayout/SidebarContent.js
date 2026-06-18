@@ -979,7 +979,7 @@ class SidebarContent extends Component {
 
             const allowedModules = ["Procurement", "Claim", "Claims"];
             if (currentUserIdFilter === 135) {
-                allowedModules.push("Warehouse");
+                // allowedModules.push("Warehouse");
                 allowedModules.push("Finance");
             }
             // Special Case: User 135 gets Masters + New Users 137,168,169,170,184
