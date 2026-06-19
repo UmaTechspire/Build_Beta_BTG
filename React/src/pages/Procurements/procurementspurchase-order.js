@@ -3344,122 +3344,125 @@ const ProcurementsManagePurchaseOrder = () => {
             <Modal isOpen={claimDetailVisible} toggle={() => setClaimDetailVisible(false)} size="xl">
                 <style>{btnCircleStyle}</style>
                 <div style={{ position: 'relative' }}>
-                    {selectedClaimDetail?.header?.ClaimCategoryId === 3 && (
+                    {(selectedClaimDetail?.header?.ClaimCategoryId === 3 || selectedClaimDetail?.Header?.ClaimCategoryId === 3) && (
                         <span style={{ position: 'absolute', top: '15px', right: '50px', fontWeight: 'bold', color: '#333', fontSize: '12px', zIndex: 10 }}>F-BTG-PUR-05 (Rev.03)</span>
                     )}
                     <ModalHeader toggle={() => setClaimDetailVisible(false)}>Claim Details</ModalHeader>
                 </div>
                 <ModalBody>
-                    {selectedClaimDetail && (
-                        <>
-                            <Row className="mb-3">
-                                {[
-                                    ["Category Type", selectedClaimDetail.header?.ClaimCategoryName || "N/A"],
-                                    ["Application Date", formatDate(selectedClaimDetail.header?.ClaimDate || selectedClaimDetail.header?.applicationdate)],
-                                    ["Application No", selectedClaimDetail.header?.ClaimNo || selectedClaimDetail.header?.claim_no],
-                                    ["Department", selectedClaimDetail.header?.DeptName || "N/A"],
-                                    ["Applicant", selectedClaimDetail.header?.Applicant_Name || "N/A"],
-                                    ["Attachment", selectedClaimDetail.header?.AttachmentName ? (
-                                        <button
-                                            key="att-btn"
-                                            type="button"
-                                            className="btn d-flex align-items-center justify-content-between p-0"
-                                            onClick={() => Swal.fire("Info", "Attachment feature coming soon", "info")}
-                                            style={{ height: "20px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "blue", border: "none", background: "none" }}
-                                        >
-                                            <span style={{ flexGrow: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={selectedClaimDetail.header.AttachmentName}>
-                                                {selectedClaimDetail.header.AttachmentName}
+                    {selectedClaimDetail && (() => {
+                        const headerObj = selectedClaimDetail.header || selectedClaimDetail.Header || {};
+                        return (
+                            <>
+                                <Row className="mb-3">
+                                    {[
+                                        ["Category Type", headerObj.claimcategory || headerObj.ClaimCategoryName || "N/A"],
+                                        ["Application Date", headerObj.ApplicationDatevw || formatDate(headerObj.ClaimDate || headerObj.applicationdate)],
+                                        ["Application No", headerObj.ApplicationNo || headerObj.ClaimNo || headerObj.claim_no || "N/A"],
+                                        ["Department", headerObj.departmentname || headerObj.DeptName || "N/A"],
+                                        ["Applicant", headerObj.applicantname || headerObj.Applicant_Name || "N/A"],
+                                        ["Attachment", headerObj.AttachmentName ? (
+                                            <button
+                                                key="att-btn"
+                                                type="button"
+                                                className="btn d-flex align-items-center justify-content-between p-0"
+                                                onClick={() => Swal.fire("Info", "Attachment feature coming soon", "info")}
+                                                style={{ height: "20px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "blue", border: "none", background: "none" }}
+                                            >
+                                                <span style={{ flexGrow: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={headerObj.AttachmentName}>
+                                                    {headerObj.AttachmentName}
+                                                </span>
+                                                <i className="mdi mdi-cloud-download mdi-18px text-primary ms-1"></i>
+                                            </button>
+                                        ) : "No Attachment"],
+                                        ["Trans Currency", headerObj.transactioncurrency || headerObj.curr || "N/A"],
+                                        ["HOD", headerObj.HOD_Name || "N/A"],
+                                        ["Supplier", headerObj.SupplierName || headerObj.suppliername || "N/A"],
+                                        ["Cost Center", headerObj.CostCenter || "N/A"],
+                                        ["Claim Amt in TC", <b key="amt-val">{(headerObj.ClaimAmountInTC ?? headerObj.claimamountintc)?.toLocaleString("en-US", { minimumFractionDigits: 2 }) || "0.00"}</b>],
+                                        ["Payment Mode", headerObj.paymentmethodname || (headerObj.ModeOfPaymentId === 1 ? "Cash" : headerObj.ModeOfPaymentId === 2 ? "Bank Transfer" : "N/A")],
+                                    ].map(([label, val], i) => (
+                                        <Col md="4" key={i} className="mb-2">
+                                            <div className="d-flex">
+                                                <Label className="bold mb-0" style={{ width: "130px", fontSize: '13px' }}>{label}</Label>
+                                                <span style={{ fontSize: '13px' }}>: {val || "N/A"}</span>
+                                            </div>
+                                        </Col>
+                                    ))}
+                                </Row>
+                                <hr />
+                                <DataTable value={selectedClaimDetail.details || []} responsiveLayout="scroll" className="p-datatable-sm">
+                                    <Column header="#" body={(_, { rowIndex }) => rowIndex + 1} headerStyle={{ width: '3rem', textAlign: 'center' }} />
+                                    {(headerObj.ClaimCategoryId === 3) && (
+                                        <Column field="pono" header="PO No" body={(rowData) => (
+                                            <span className="btn btn-link p-0" style={{ cursor: 'pointer', textDecoration: 'none', color: "blue" }} onClick={() => rowData.poid && handleShowDetails(rowData)}>
+                                                {rowData.pono || rowData.poid || "N/A"}
                                             </span>
-                                            <i className="mdi mdi-cloud-download mdi-18px text-primary ms-1"></i>
-                                        </button>
-                                    ) : "No Attachment"],
-                                    ["Trans Currency", selectedClaimDetail.header?.transactioncurrency || selectedClaimDetail.header?.curr],
-                                    ["HOD", selectedClaimDetail.header?.HOD_Name || "N/A"],
-                                    ["Supplier", selectedClaimDetail.header?.SupplierName || selectedClaimDetail.header?.suppliername],
-                                    ["Cost Center", selectedClaimDetail.header?.CostCenter || "N/A"],
-                                    ["Claim Amt in TC", <b key="amt-val">{selectedClaimDetail.header?.ClaimAmountInTC?.toLocaleString("en-US", { minimumFractionDigits: 2 }) || selectedClaimDetail.header?.claimamountintc?.toLocaleString("en-US", { minimumFractionDigits: 2 })}</b>],
-                                    ["Payment Mode", selectedClaimDetail.header?.paymentmethodname || "N/A"],
-                                ].map(([label, val], i) => (
-                                    <Col md="4" key={i} className="mb-2">
-                                        <div className="d-flex">
-                                            <Label className="bold mb-0" style={{ width: "130px", fontSize: '13px' }}>{label}</Label>
-                                            <span style={{ fontSize: '13px' }}>: {val || "N/A"}</span>
-                                        </div>
+                                        )} />
+                                    )}
+                                    {(headerObj.ClaimCategoryId === 3) && (
+                                        <Column field="prnumber" header="PR No" body={(rowData) => (
+                                            <span className="btn btn-link p-0" style={{ cursor: 'pointer', textDecoration: 'none', color: "blue" }} onClick={() => rowData.prid && handlePRClick(rowData.prid)}>
+                                                {rowData.prnumber || rowData.prno || "N/A"}
+                                            </span>
+                                        )} />
+                                    )}
+                                    <Column field="claimtype" header="Claim Type" headerStyle={{ textAlign: 'center' }} />
+                                    <Column field="PaymentDescription" header="Claim & Payment Description" headerStyle={{ textAlign: 'center' }} />
+                                    <Column field="TotalAmount" header="Amount" style={{ textAlign: 'right' }} body={(r) => (r.TotalAmount || r.net_amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })} />
+                                    <Column field="ExpenseDatevw" header="Expense Date" headerStyle={{ textAlign: 'center' }} body={(r) => r.ExpenseDatevw || formatDate(r.ExpenseDatevw || r.expensedate)} />
+                                    <Column field="Purpose" header="Purpose" headerStyle={{ textAlign: 'center' }} />
+                                </DataTable>
+
+                                <Row className="mt-3">
+                                    <Col md="12">
+                                        <Label className="bold">Remarks</Label>
+                                        <Input type="textarea" rows="2" disabled value={headerObj.Remarks || ""} />
                                     </Col>
-                                ))}
-                            </Row>
-                            <hr />
-                            <DataTable value={selectedClaimDetail.details || []} responsiveLayout="scroll" className="p-datatable-sm">
-                                <Column header="#" body={(_, { rowIndex }) => rowIndex + 1} headerStyle={{ width: '3rem', textAlign: 'center' }} />
-                                {(selectedClaimDetail.header?.ClaimCategoryId === 3) && (
-                                    <Column field="pono" header="PO No" body={(rowData) => (
-                                        <span className="btn btn-link p-0" style={{ cursor: 'pointer', textDecoration: 'none', color: "blue" }} onClick={() => rowData.poid && handleShowDetails(rowData)}>
-                                            {rowData.pono || rowData.poid || "N/A"}
-                                        </span>
-                                    )} />
-                                )}
-                                {(selectedClaimDetail.header?.ClaimCategoryId === 3) && (
-                                    <Column field="prnumber" header="PR No" body={(rowData) => (
-                                        <span className="btn btn-link p-0" style={{ cursor: 'pointer', textDecoration: 'none', color: "blue" }} onClick={() => rowData.prid && handlePRClick(rowData.prid)}>
-                                            {rowData.prnumber || rowData.prno || "N/A"}
-                                        </span>
-                                    )} />
-                                )}
-                                <Column field="claimtype" header="Claim Type" headerStyle={{ textAlign: 'center' }} />
-                                <Column field="PaymentDescription" header="Claim & Payment Description" headerStyle={{ textAlign: 'center' }} />
-                                <Column field="TotalAmount" header="Amount" style={{ textAlign: 'right' }} body={(r) => (r.TotalAmount || r.net_amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })} />
-                                <Column field="ExpenseDatevw" header="Expense Date" headerStyle={{ textAlign: 'center' }} body={(r) => r.ExpenseDatevw || formatDate(r.ExpenseDatevw || r.expensedate)} />
-                                <Column field="Purpose" header="Purpose" headerStyle={{ textAlign: 'center' }} />
-                            </DataTable>
+                                </Row>
 
-                            <Row className="mt-3">
-                                <Col md="12">
-                                    <Label className="bold">Remarks</Label>
-                                    <Input type="textarea" rows="2" disabled value={selectedClaimDetail.header?.Remarks || ""} />
-                                </Col>
-                            </Row>
+                                <Row className="mt-4">
+                                    <Col md="9">
+                                        <Table bordered responsive className="text-center font-size-12">
+                                            <thead>
+                                                <tr>
+                                                    <th style={{ backgroundColor: "#B4DBE0" }} colSpan="3">Claim</th>
+                                                    <th style={{ backgroundColor: "#E6E4BC" }} colSpan="2">PPP</th>
+                                                    <th style={{ backgroundColor: "#FFE9F5" }} colSpan="2">Vouchers</th>
+                                                </tr>
+                                                <tr>
+                                                    <th style={{ backgroundColor: "#B4DBE0" }}>HOD</th>
+                                                    <th style={{ backgroundColor: "#B4DBE0" }}>GM</th>
+                                                    <th style={{ backgroundColor: "#B4DBE0" }}>Director</th>
+                                                    <th style={{ backgroundColor: "#E6E4BC" }}>GM</th>
+                                                    <th style={{ backgroundColor: "#E6E4BC" }}>Director</th>
+                                                    <th style={{ backgroundColor: "#FFE9F5" }}>Director</th>
+                                                    <th style={{ backgroundColor: "#FFE9F5" }}>CEO</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td><Button className={`btn-circle ${getSeverity(headerObj.ClmhodStatus)}`} /></td>
+                                                    <td><Button className={`btn-circle ${getSeverity(headerObj.ClmgmStatus)}`} /></td>
+                                                    <td><Button className={`btn-circle ${getSeverity(headerObj.ClmDrStatus)}`} /></td>
+                                                    <td><Button className={`btn-circle ${getSeverity(headerObj.PPPgmStatus)}`} /></td>
+                                                    <td><Button className={`btn-circle ${getSeverity(headerObj.PPPDrStatus)}`} /></td>
+                                                    <td><Button className={`btn-circle ${getSeverity(headerObj.VouCmrStatus)}`} /></td>
+                                                    <td><Button className={`btn-circle ${getSeverity(headerObj.VouDrStatus)}`} /></td>
+                                                </tr>
+                                            </tbody>
+                                        </Table>
+                                    </Col>
+                                </Row>
 
-                            <Row className="mt-4">
-                                <Col md="9">
-                                    <Table bordered responsive className="text-center font-size-12">
-                                        <thead>
-                                            <tr>
-                                                <th style={{ backgroundColor: "#B4DBE0" }} colSpan="3">Claim</th>
-                                                <th style={{ backgroundColor: "#E6E4BC" }} colSpan="2">PPP</th>
-                                                <th style={{ backgroundColor: "#FFE9F5" }} colSpan="2">Vouchers</th>
-                                            </tr>
-                                            <tr>
-                                                <th style={{ backgroundColor: "#B4DBE0" }}>HOD</th>
-                                                <th style={{ backgroundColor: "#B4DBE0" }}>GM</th>
-                                                <th style={{ backgroundColor: "#B4DBE0" }}>Director</th>
-                                                <th style={{ backgroundColor: "#E6E4BC" }}>GM</th>
-                                                <th style={{ backgroundColor: "#E6E4BC" }}>Director</th>
-                                                <th style={{ backgroundColor: "#FFE9F5" }}>Director</th>
-                                                <th style={{ backgroundColor: "#FFE9F5" }}>CEO</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                <td><Button className={`btn-circle ${getSeverity(selectedClaimDetail.header?.ClmhodStatus)}`} /></td>
-                                                <td><Button className={`btn-circle ${getSeverity(selectedClaimDetail.header?.ClmgmStatus)}`} /></td>
-                                                <td><Button className={`btn-circle ${getSeverity(selectedClaimDetail.header?.ClmDrStatus)}`} /></td>
-                                                <td><Button className={`btn-circle ${getSeverity(selectedClaimDetail.header?.PPPgmStatus)}`} /></td>
-                                                <td><Button className={`btn-circle ${getSeverity(selectedClaimDetail.header?.PPPDrStatus)}`} /></td>
-                                                <td><Button className={`btn-circle ${getSeverity(selectedClaimDetail.header?.VouCmrStatus)}`} /></td>
-                                                <td><Button className={`btn-circle ${getSeverity(selectedClaimDetail.header?.VouDrStatus)}`} /></td>
-                                            </tr>
-                                        </tbody>
-                                    </Table>
-                                </Col>
-                            </Row>
-
-                            <div className="d-flex gap-3 mt-2 font-size-12">
-                                <span><Button className="btn-circle btn-success me-1" /> Approved</span>
-                                <span><Button className="btn-circle btn-warning me-1" /> Discussed</span>
-                                <span><Button className="btn-circle btn-secondary me-1" /> Yet to Act</span>
-                            </div>
-                        </>
-                    )}
+                                <div className="d-flex gap-3 mt-2 font-size-12">
+                                    <span><Button className="btn-circle btn-success me-1" /> Approved</span>
+                                    <span><Button className="btn-circle btn-warning me-1" /> Discussed</span>
+                                    <span><Button className="btn-circle btn-secondary me-1" /> Yet to Act</span>
+                                </div>
+                            </>
+                        );
+                    })()}
                 </ModalBody>
                 <ModalFooter>
                     <button type="button" className="btn btn-danger" onClick={() => setClaimDetailVisible(false)}>

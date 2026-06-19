@@ -72,6 +72,9 @@ const getUserDetails = () => {
 
 const AddInvoiceReceipt = () => {
   const formikRef = useRef();
+  const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
+  const isApiSavingRef = useRef(false);
   const today = new Date();
   const defaultFromDate = startOfWeek(today, { weekStartsOn: 1 }); // Monday
   const defaultToDate = new Date(defaultFromDate);
@@ -1256,21 +1259,27 @@ const AddInvoiceReceipt = () => {
   // };
 
   const handleIRNSave = async (values, spcFlag = false) => {
+    if (isApiSavingRef.current) return;
+
+    // 1️⃣ Filter only selected rows
+    const filteredItems = values.items.filter((item) =>
+      selectedItems.includes(item.grnId)
+    );
+
+    if (filteredItems.length === 0) {
+      Swal.fire("Warning", "Please select at least one row to save", "warning");
+      return;
+    }
+
     try {
+      isApiSavingRef.current = true;
+      isSavingRef.current = true;
+      setIsSaving(true);
+
       console.log('values > ', values)
       const userData = getUserDetails();
 
-      // 1️⃣ Filter only selected rows
-      const filteredItems = values.items.filter((item) =>
-        selectedItems.includes(item.grnId)
-      );
-
       console.log('filteredItems > ', filteredItems)
-
-      if (filteredItems.length === 0) {
-        Swal.fire("Warning", "Please select at least one row to save", "warning");
-        return;
-      }
 
       const parseAmount = (value) => {
         if (!value) return 0;
@@ -1321,6 +1330,9 @@ const AddInvoiceReceipt = () => {
 
       if (!res?.status) {
         Swal.fire("Error", res?.message || "Operation failed", "error");
+        isApiSavingRef.current = false;
+        isSavingRef.current = false;
+        setIsSaving(false);
         return;
       }
 
@@ -1351,18 +1363,89 @@ const AddInvoiceReceipt = () => {
       setInitialValues({ items: [] });
       setSelectedItems([]);
 
+      isApiSavingRef.current = false;
+      isSavingRef.current = false;
+      setIsSaving(false);
+
       // Navigate back to Invoice Receipt page
       history.push({ pathname: "/InvoiceReceipt" });
 
     } catch (error) {
       console.error("❌ Error saving IRN:", error);
       Swal.fire("Error", "Something went wrong while saving", "error");
+      isApiSavingRef.current = false;
+      isSavingRef.current = false;
+      setIsSaving(false);
     }
   };
 
 
+  const handleSaveClick = async () => {
+    if (isSaving || isSavingRef.current) return;
+
+    isSavingRef.current = true;
+    setIsSaving(true);
+
+    if (!formikRef.current) {
+      isSavingRef.current = false;
+      setIsSaving(false);
+      return;
+    }
+
+    // Trigger validation manually
+    const errors = await formikRef.current.validateForm();
+
+    // Check if any selected row has validation errors
+    let hasErrors = false;
+    if (errors.items) {
+      selectedItems.forEach((grnId) => {
+        const index = formikRef.current.values.items.findIndex(
+          (item) => item.grnId === grnId
+        );
+        if (index !== -1 && errors.items[index]) {
+          hasErrors = true;
+        }
+      });
+    }
+
+    if (hasErrors) {
+      // Touch fields and submit to show validation errors in the UI
+      formikRef.current.submitForm();
+      isSavingRef.current = false;
+      setIsSaving(false);
+      return;
+    }
+
+    // No errors, show confirmation popup
+    Swal.fire({
+      title: `Are you sure you want to ${isEditMode ? "Update" : "Save"}?`,
+      text: `This will ${isEditMode ? "update" : "save"} the Invoice Receipt Note.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: isEditMode ? "Update" : "Save",
+      cancelButtonText: "Cancel"
+    }).then((result) => {
+      if (result.isConfirmed) {
+        handleIRNSave(formikRef.current.values);
+      } else {
+        isSavingRef.current = false;
+        setIsSaving(false);
+      }
+    });
+  };
+
+
   const handleGenerateSPC = async () => {
-    if (!formikRef.current) return;
+    if (isSaving || isSavingRef.current) return;
+
+    isSavingRef.current = true;
+    setIsSaving(true);
+
+    if (!formikRef.current) {
+      isSavingRef.current = false;
+      setIsSaving(false);
+      return;
+    }
 
     // Trigger validation and wait for it
     await formikRef.current.validateForm();
@@ -1382,16 +1465,33 @@ const AddInvoiceReceipt = () => {
     });
 
     if (hasErrors) {
+      formikRef.current.submitForm();
       Swal.fire(
         "Warning",
         "Please fix validation errors in selected rows before generating SPC",
         "warning"
       );
+      isSavingRef.current = false;
+      setIsSaving(false);
       return;
     }
 
-    // No errors for selected rows, proceed with save
-    handleIRNSave(formikRef.current.values, true);
+    // No errors for selected rows, show confirmation popup
+    Swal.fire({
+      title: "Are you sure you want to Generate SPC?",
+      text: "This will generate the Supplier Payment Claim.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Generate",
+      cancelButtonText: "Cancel"
+    }).then((result) => {
+      if (result.isConfirmed) {
+        handleIRNSave(formikRef.current.values, true);
+      } else {
+        isSavingRef.current = false;
+        setIsSaving(false);
+      }
+    });
   };
 
   const attachmentNameTemplate = (rowData) => {
@@ -1428,16 +1528,16 @@ const AddInvoiceReceipt = () => {
                   <div className="row align-items-center g-3 justify-content-end mb-3">
                     <div className="col-md-12 button-items d-flex gap-2 justify-content-end">
 
-                      <button
+                       <button
                         type="button"
                         className="btn btn-info"
-                        onClick={() => formikRef.current.submitForm()}
-                        disabled={isRestrictedUser}
+                        onClick={handleSaveClick}
+                        disabled={isRestrictedUser || isSaving}
                       >
                         <i className="bx bx-comment-check label-icon font-size-16 align-middle me-2" ></i>{isEditMode ? "Update" : "Save"}
 
                       </button>
-                      <button type="button" className="btn btn-primary me-2" onClick={handleGenerateSPC} title="Generate Supplier Payment Claim" disabled={isRestrictedUser}>
+                      <button type="button" className="btn btn-primary me-2" onClick={handleGenerateSPC} title="Generate Supplier Payment Claim" disabled={isRestrictedUser || isSaving}>
                         <i className="bx bxs-file label-icon font-size-16 align-middle me-2"></i>Generate SPC
                       </button>
                       <button
@@ -1504,8 +1604,26 @@ const AddInvoiceReceipt = () => {
                   validationSchema={validationSchema(selectedItems)}
                   enableReinitialize
                   onSubmit={(values) => {
-                    // 🟢 Formik-managed save
-                    handleIRNSave(values);
+                    if (isSaving || isSavingRef.current) return;
+
+                    isSavingRef.current = true;
+                    setIsSaving(true);
+
+                    Swal.fire({
+                      title: `Are you sure you want to ${isEditMode ? "Update" : "Save"}?`,
+                      text: `This will ${isEditMode ? "update" : "save"} the Invoice Receipt Note.`,
+                      icon: "warning",
+                      showCancelButton: true,
+                      confirmButtonText: isEditMode ? "Update" : "Save",
+                      cancelButtonText: "Cancel"
+                    }).then((result) => {
+                      if (result.isConfirmed) {
+                        handleIRNSave(values);
+                      } else {
+                        isSavingRef.current = false;
+                        setIsSaving(false);
+                      }
+                    });
                   }}
                 >
                   {({ values, errors, touched, setFieldValue, handleSubmit }) => (
