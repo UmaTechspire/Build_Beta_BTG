@@ -186,9 +186,12 @@ claim_hod_isdiscussed= @isdiscussedeight,
 
                 ppp_commissioner_approvalone = @ppp_commissioner_approvalone,
                 
-                claim_comment = @remarks,
-                GmComment = @GmComment
-            WHERE Claim_ID = @claimid AND IFNULL(ppp_IsRejected, 0) = 0;";
+                 claim_comment = @remarks,
+                 GmComment = @GmComment,
+                 PPP_temp_GM_status = CASE WHEN @ppp_gm_approvalone = 1 OR @ppp_gm_discussed = 1 THEN 0 ELSE PPP_temp_GM_status END,
+                 PPP_temp_Director_status = CASE WHEN @ppp_director_approvalone = 1 OR @ppp_director_discussed = 1 THEN 0 ELSE PPP_temp_Director_status END,
+                 PPP_temp_CEO_status = CASE WHEN @ppp_commissioner_approvalone = 1 OR @ppp_commissioner_discussed = 1 THEN 0 ELSE PPP_temp_CEO_status END
+             WHERE Claim_ID = @claimid AND IFNULL(ppp_IsRejected, 0) = 0;";
 
                     foreach (var item in obj.approve)
                     {
@@ -355,9 +358,13 @@ claim_hod_isdiscussed= @isdiscussedeight,
                     {
                         updatedetailsdis += @"update tbl_claimAndpayment_header set LastModifiedBY=@userid ,  PPP_temp_GM_status=1  where   ifnull(Claim_ID,0)=@claimid and ifnull(ppp_gm_approvalone,0)=0;";
                     }
-                    else
+                    else if (obj.isdiscussed == true)
                     {
                         updatedetailsdis += @"update tbl_claimAndpayment_header set LastModifiedBY=@userid , PPP_temp_GM_status=2, claim_comment=@GmComment  where   ifnull(Claim_ID,0)=@claimid  and ifnull(ppp_gm_discussed,0)=0;";
+                    }
+                    else
+                    {
+                        updatedetailsdis += @"update tbl_claimAndpayment_header set LastModifiedBY=@userid , PPP_temp_GM_status=0  where   ifnull(Claim_ID,0)=@claimid;";
                     }
                 }
                 else if (obj.level == 2)
@@ -366,12 +373,14 @@ claim_hod_isdiscussed= @isdiscussedeight,
                     {
                         updatedetailsdis += @"update tbl_claimAndpayment_header set LastModifiedBY=@userid , PPP_temp_Director_status=1  where   ifnull(Claim_ID,0)=@claimid  and ifnull(ppp_director_approvalone,0)=0;";
                     }
-                    else
+                    else if (obj.isdiscussed == true)
                     {
                         updatedetailsdis += @"update tbl_claimAndpayment_header set  LastModifiedBY=@userid ,PPP_temp_Director_status=2, claim_comment=@GmComment  where   ifnull(Claim_ID,0)=@claimid  and ifnull(ppp_director_discussed,0)=0;";
                     }
-
-                     
+                    else
+                    {
+                        updatedetailsdis += @"update tbl_claimAndpayment_header set  LastModifiedBY=@userid ,PPP_temp_Director_status=0  where   ifnull(Claim_ID,0)=@claimid;";
+                    }
                 }
                 else if (obj.level == 3)
                 {
@@ -379,12 +388,14 @@ claim_hod_isdiscussed= @isdiscussedeight,
                     {
                         updatedetailsdis += @"update tbl_claimAndpayment_header set LastModifiedBY=@userid , PPP_temp_CEO_status=1  where   ifnull(Claim_ID,0)=@claimid  and ifnull(ppp_commissioner_approvalone,0)=0;";
                     }
-                    else
+                    else if (obj.isdiscussed == true)
                     {
                         updatedetailsdis += @"update tbl_claimAndpayment_header set LastModifiedBY=@userid , PPP_temp_CEO_status=2, claim_comment=@GmComment  where   ifnull(Claim_ID,0)=@claimid  and ifnull(ppp_commissioner_discussedone,0)=0;";
                     }
-                    
-
+                    else
+                    {
+                        updatedetailsdis += @"update tbl_claimAndpayment_header set LastModifiedBY=@userid , PPP_temp_CEO_status=0  where   ifnull(Claim_ID,0)=@claimid;";
+                    }
                 }
 
 

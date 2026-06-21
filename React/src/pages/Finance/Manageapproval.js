@@ -524,7 +524,11 @@ const ManageApproval = ({ selectedType, setSelectedType }) => {
 
 
     }
-    // Filter claims where any approval action (normal or PPP) was modified in the current session
+    const ApproverThree = roledetails?.[0]?.ApproverThree === 1;
+    const ApproverFour = roledetails?.[0]?.ApproverFour === 1;
+    const ApproverFive = roledetails?.[0]?.ApproverFive === 1;
+
+    // Filter claims where any approval action (normal or PPP) was modified in the current session, or is a draft-saved PPP claim that needs final submission
     const modifiedClaims = claims.filter(
       (claim) => {
 
@@ -535,14 +539,27 @@ const ManageApproval = ({ selectedType, setSelectedType }) => {
           return false;
         }
 
+        if (isPPPClaim) {
+          // If the current user is GM, check if pppAction1 is set and the claim is ready for GM action
+          if (ApproverThree && claim.approvedtwo === 1 && claim.ppp_gm_approvalone === 0) {
+            return pppAction1[claim.id] === "approve" || pppAction1[claim.id] === "discuss";
+          }
+          // If the current user is Director, check if pppAction2 is set and claim is ready for Director action
+          if (ApproverFour && claim.ppp_gm_approvalone === 1 && claim.ppp_director_approvalone === 0) {
+            return pppAction2[claim.id] === "approve" || pppAction2[claim.id] === "discuss";
+          }
+          // If the current user is CEO, check if pppAction3 is set and claim is ready for CEO action
+          if (ApproverFive && claim.ppp_director_approvalone === 1 && claim.ppp_commissioner_approvalone === 0) {
+            return pppAction3[claim.id] === "approve" || pppAction3[claim.id] === "discuss";
+          }
+          return false;
+        }
+
         const init = initialActionsRef.current;
         const isChanged = (
           action1[claim.id] !== init.action1[claim.id] ||
           action2[claim.id] !== init.action2[claim.id] ||
           action3[claim.id] !== init.action3[claim.id] ||
-          pppAction1[claim.id] !== init.pppAction1[claim.id] ||
-          pppAction2[claim.id] !== init.pppAction2[claim.id] ||
-          pppAction3[claim.id] !== init.pppAction3[claim.id] ||
           PPPPVAction1[claim.id] !== init.PPPPVAction1[claim.id] ||
           PPPPVAction2[claim.id] !== init.PPPPVAction2[claim.id]
         );
@@ -688,14 +705,20 @@ const ManageApproval = ({ selectedType, setSelectedType }) => {
         // For PPP approvals (GM)
         if (claim.ppp_gm_approvalone) initialPPPAction1[claim.id] = 'approve';
         else if (claim.ppp_gm_discussed) initialPPPAction1[claim.id] = 'discuss'; // if you have a discussed flag for PPP GM
+        else if (claim.PPP_temp_GM_status === 1) initialPPPAction1[claim.id] = 'approve';
+        else if (claim.PPP_temp_GM_status === 2) initialPPPAction1[claim.id] = 'discuss';
 
         // For PPP approvals (Director)
         if (claim.ppp_director_approvalone) initialPPPAction2[claim.id] = 'approve';
         else if (claim.ppp_director_discussed) initialPPPAction2[claim.id] = 'discuss'; // if exists
+        else if (claim.PPP_temp_Director_status === 1) initialPPPAction2[claim.id] = 'approve';
+        else if (claim.PPP_temp_Director_status === 2) initialPPPAction2[claim.id] = 'discuss';
 
         // For PPP approvals (Commissioner)
         if (claim.ppp_commissioner_approvalone) initialPPPAction3[claim.id] = 'approve';
         else if (claim.ppp_commissioner_discussed) initialPPPAction3[claim.id] = 'discuss'; // if exists
+        else if (claim.PPP_temp_CEO_status === 1) initialPPPAction3[claim.id] = 'approve';
+        else if (claim.PPP_temp_CEO_status === 2) initialPPPAction3[claim.id] = 'discuss';
 
         // For PPP PV approvals (Commissioner)
         if (claim.PPP_PV_Commissioner_approveone) {
@@ -779,13 +802,16 @@ const ManageApproval = ({ selectedType, setSelectedType }) => {
   const handlePPPClick1 = async (action, id, data) => {
 
     if (data.ppp_IsRejected != 1) {
+      const currentAction = pppAction1[id];
+      const nextAction = currentAction === action ? "" : action;
+
       const payload = {
         approve: {
           userId: UserData?.u_id,
           claimid: id,
-          isapproved: action == "approve" ? true : false,
-          isdiscussed: action == "discuss" ? true : false,
-          gmComment: action == "discuss" ? "" : "",
+          isapproved: nextAction == "approve" ? true : false,
+          isdiscussed: nextAction == "discuss" ? true : false,
+          gmComment: nextAction == "discuss" ? "" : "",
           level: 1
 
         },
@@ -793,7 +819,7 @@ const ManageApproval = ({ selectedType, setSelectedType }) => {
       try {
         const res = await AutoApprove(payload);
         if (res.status) {
-          setPPPAction1(prev => ({ ...prev, [id]: action }));
+          setPPPAction1(prev => ({ ...prev, [id]: nextAction }));
         } else {
           Swal.fire("Error", res.message || "Something went wrong", "error");
         }
@@ -808,13 +834,16 @@ const ManageApproval = ({ selectedType, setSelectedType }) => {
 
 
     if (data.ppp_IsRejected != 1) {
+      const currentAction = pppAction2[id];
+      const nextAction = currentAction === action ? "" : action;
+
       const payload = {
         approve: {
           userId: UserData?.u_id,
           claimid: id,
-          isapproved: action == "approve" ? true : false,
-          isdiscussed: action == "discuss" ? true : false,
-          gmComment: action == "discuss" ? "" : "",
+          isapproved: nextAction == "approve" ? true : false,
+          isdiscussed: nextAction == "discuss" ? true : false,
+          gmComment: nextAction == "discuss" ? "" : "",
           level: 2
 
         },
@@ -822,7 +851,7 @@ const ManageApproval = ({ selectedType, setSelectedType }) => {
       try {
         const res = await AutoApprove(payload);
         if (res.status) {
-          setPPPAction2(prev => ({ ...prev, [id]: action }));
+          setPPPAction2(prev => ({ ...prev, [id]: nextAction }));
         } else {
           Swal.fire("Error", res.message || "Something went wrong", "error");
         }
@@ -831,10 +860,6 @@ const ManageApproval = ({ selectedType, setSelectedType }) => {
         Swal.fire("Error", "Failed to save approval data", "error");
       }
     }
-
-    // if (data.ppp_IsRejected != 1) {
-    //   setPPPAction2(prev => ({ ...prev, [id]: action }));
-    // }
 
 
 
@@ -844,13 +869,16 @@ const ManageApproval = ({ selectedType, setSelectedType }) => {
 
 
     if (data.ppp_IsRejected != 1) {
+      const currentAction = pppAction3[id];
+      const nextAction = currentAction === action ? "" : action;
+
       const payload = {
         approve: {
           userId: UserData?.u_id,
           claimid: id,
-          isapproved: action == "approve" ? true : false,
-          isdiscussed: action == "discuss" ? true : false,
-          gmComment: action == "discuss" ? "" : "",
+          isapproved: nextAction == "approve" ? true : false,
+          isdiscussed: nextAction == "discuss" ? true : false,
+          gmComment: nextAction == "discuss" ? "" : "",
           level: 3
 
         },
@@ -858,7 +886,7 @@ const ManageApproval = ({ selectedType, setSelectedType }) => {
       try {
         const res = await AutoApprove(payload);
         if (res.status) {
-          setPPPAction3(prev => ({ ...prev, [id]: action }));
+          setPPPAction3(prev => ({ ...prev, [id]: nextAction }));
         } else {
           Swal.fire("Error", res.message || "Something went wrong", "error");
         }
@@ -867,10 +895,6 @@ const ManageApproval = ({ selectedType, setSelectedType }) => {
         Swal.fire("Error", "Failed to save approval data", "error");
       }
     }
-
-    // if (data.ppp_IsRejected != 1) {
-    //   setPPPAction3(prev => ({ ...prev, [id]: action }));
-    // }
 
   };
 
@@ -1053,16 +1077,20 @@ const ManageApproval = ({ selectedType, setSelectedType }) => {
           // For PPP approvals (GM)
           if (claim.ppp_gm_approvalone) initialPPPAction1[claim.id] = 'approve';
           else if (claim.ppp_gm_discussed) initialPPPAction1[claim.id] = 'discuss'; // if you have a discussed flag for PPP GM
+          else if (claim.PPP_temp_GM_status === 1) initialPPPAction1[claim.id] = 'approve';
+          else if (claim.PPP_temp_GM_status === 2) initialPPPAction1[claim.id] = 'discuss';
 
           // For PPP approvals (Director)
           if (claim.ppp_director_approvalone) initialPPPAction2[claim.id] = 'approve';
           else if (claim.ppp_director_discussed) initialPPPAction2[claim.id] = 'discuss'; // if exists
-
-
+          else if (claim.PPP_temp_Director_status === 1) initialPPPAction2[claim.id] = 'approve';
+          else if (claim.PPP_temp_Director_status === 2) initialPPPAction2[claim.id] = 'discuss';
 
           // For PPP approvals (Commissioner)
           if (claim.ppp_commissioner_approvalone) initialPPPAction3[claim.id] = 'approve';
           else if (claim.ppp_commissioner_discussed) initialPPPAction3[claim.id] = 'discuss'; // if exists
+          else if (claim.PPP_temp_CEO_status === 1) initialPPPAction3[claim.id] = 'approve';
+          else if (claim.PPP_temp_CEO_status === 2) initialPPPAction3[claim.id] = 'discuss';
 
           // For PPP PV approvals (Commissioner)
           if (claim.PPP_PV_Commissioner) initialPPPPVAction1[claim.id] = 'approve';
@@ -3541,7 +3569,7 @@ word-break: break-word;
             onChange={(e) => setRemarks(e.target.value)}
             placeholder="Enter remarks..."
           />
-          {selectedSummaryId?.pv_dis_count == 2 && (
+          {selectedSummaryId?.pv_dis_count == 2 && selectedSummaryId?.type !== 2 && (
             <span style={{ color: "red" }}>Cancel The Transaction</span>
           )}
         </ModalBody>
@@ -4595,14 +4623,14 @@ const ApprovalTable = ({
 
                             <button type="button" data-access="save" className="btn btn-warning" onClick={() => {
 
-                              if (group.pv_dis_count >= 3) {
-                                Swal.fire({
-                                  icon: "warning",
-                                  title: "Discussion Limit Reached",
-                                  text: "Discussion limit reached. Please Approve or Reject the request.",
-                                });
-                                return;
-                              }
+                              // if (group.pv_dis_count >= 3) {
+                              //   Swal.fire({
+                              //     icon: "warning",
+                              //     title: "Discussion Limit Reached",
+                              //     text: "Discussion limit reached. Please Approve or Reject the request.",
+                              //   });
+                              //   return;
+                              // }
 
                               // handlePVSave(summaryId, 2,2);
                               setSelectedSummaryId({ pv_dis_count: group.pv_dis_count, summaryId: summaryId, type: 2, operation: 2 }); // or row.id, depending on your data
