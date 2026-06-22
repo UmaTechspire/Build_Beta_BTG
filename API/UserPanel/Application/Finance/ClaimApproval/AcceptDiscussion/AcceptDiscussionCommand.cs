@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -17,6 +17,7 @@ namespace Application.Finance.ClaimApproval.AcceptDiscussion
         public int Type { get; set; }
       
         public int isclaimant { get; set; }
+        public int logid { get; set; }
 
     }
     

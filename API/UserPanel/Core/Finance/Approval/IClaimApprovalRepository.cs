@@ -1,4 +1,4 @@
-﻿using Core.Finance.PaymentPlan;
+using Core.Finance.PaymentPlan;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,7 +19,7 @@ namespace Core.Finance.Approval
         Task<object> GetPaymentSummarySeqNoAsync(int userid, int branchId, Int32 orgid);
         Task<object> GetRemarksList(int claimid);
         Task<object> GetDiscussionList(int userid, int branchId, Int32 orgid);
-        Task<object> AcceptDiscussion(int claimid, string Comment, int Type, int isclaimant,int userid);
+        Task<object> AcceptDiscussion(int claimid, string Comment, int Type, int isclaimant,int userid, int logid = 0);
         Task<object> PPPApproveAsync(PPPApproval obj);
         Task<object> Getcommenthistory(int claimid);
     }

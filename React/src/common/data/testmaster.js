@@ -3301,9 +3301,9 @@ export const GetDiscussionlist = async (orgId, branchId, userid) => {
 };
 
 // update claim Discussion details
-export const UpdateDiscussion = async (claimid, remarks, Type, isclaimant, userid) => {
+export const UpdateDiscussion = async (claimid, remarks, Type, isclaimant, userid, logid = 0) => {
     try {
-        const res = await put(`/ClaimApproval/AcceptDiscussion?ClaimId=${claimid}&Comment=${remarks}&Type=${Type}&isclaimant=${isclaimant}&userid=${userid}`);
+        const res = await put(`/ClaimApproval/AcceptDiscussion?ClaimId=${claimid}&Comment=${remarks}&Type=${Type}&isclaimant=${isclaimant}&userid=${userid}&logid=${logid}`);
         return res;
     } catch (error) {
         console.error("Failed to fetch claim remarks details", error);

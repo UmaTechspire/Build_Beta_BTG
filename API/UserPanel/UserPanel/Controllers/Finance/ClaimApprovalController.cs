@@ -1,4 +1,4 @@
-﻿using Application.Finance.ClaimAndPayment.Create;
+using Application.Finance.ClaimAndPayment.Create;
 using Application.Finance.ClaimAndPayment.GetSequencesNumber;
 using Application.Finance.ClaimAndPayment.Remarks;
 using Application.Finance.ClaimApproval.AcceptDiscussion;
@@ -99,9 +99,9 @@ namespace UserPanel.Controllers.Finance
             return Ok(result);
         }
         [HttpPut("AcceptDiscussion")]
-        public async Task<IActionResult> AcceptDiscussion(Int32 ClaimId,string Comment, int Type, int isclaimant,int userid)
+        public async Task<IActionResult> AcceptDiscussion(Int32 ClaimId,string Comment, int Type, int isclaimant,int userid, int logid = 0)
         {
-            var result = await _mediator.Send(new AcceptDiscussionCommand() { userid= userid, claimid = ClaimId,Comment= Comment, Type=Type, isclaimant= isclaimant });
+            var result = await _mediator.Send(new AcceptDiscussionCommand() { userid= userid, claimid = ClaimId,Comment= Comment, Type=Type, isclaimant= isclaimant, logid = logid });
             return Ok(result);
         }
 

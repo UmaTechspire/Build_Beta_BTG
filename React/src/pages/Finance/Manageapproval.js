@@ -2445,7 +2445,8 @@ word-break: break-word;
           placeholder="Enter your comment"
         />
         <div className="mt-3 text-end">
-          <Button label="Submit" icon="pi pi-check" onClick={handleSaveCommentPPP} />
+          <Button label="Cancel" className="p-button-secondary" style={{ marginRight: '8px' }} onClick={() => setShowModalPPP(false)} />
+          <Button label="Submit" onClick={handleSaveCommentPPP} />
         </div>
       </Dialog>
       <Modal isOpen={showvoucherModal} toggle={togglevoucherModal} size="xl">

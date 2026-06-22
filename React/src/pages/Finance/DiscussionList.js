@@ -129,7 +129,7 @@ const DiscussionList = () => {
                 updatedBy: UserData?.u_id || 0
             };
 
-            const res = await UpdateDiscussion(selectedRow.paymentplanid, "Clarified : " + remarks, selectedRow.isclaim, selectedRow.type, UserData?.u_id || 0);
+            const res = await UpdateDiscussion(selectedRow.paymentplanid, "Clarified : " + remarks, selectedRow.isclaim, selectedRow.type, UserData?.u_id || 0, selectedRow.logid || 0);
             if (res?.status) {
                 Swal.fire("Success", "Discussion updated successfully.", "success");
                 setAcceptModalOpen(false);
