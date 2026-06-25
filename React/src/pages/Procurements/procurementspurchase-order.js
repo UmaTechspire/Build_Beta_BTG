@@ -1104,7 +1104,8 @@ const ProcurementsManagePurchaseOrder = () => {
                     textDecoration: isCancelled ? "none" : "underline",
                     textAlign: "left",
                     display: "block",
-                    padding: 0
+                    padding: 0,
+                    whiteSpace: "nowrap"
                 }}
                 className={isCancelled ? "" : "btn-rounded btn-link p-0 text-start"}
                 onClick={() => {
@@ -3394,11 +3395,22 @@ const ProcurementsManagePurchaseOrder = () => {
                                 <DataTable value={selectedClaimDetail.details || []} responsiveLayout="scroll" className="p-datatable-sm">
                                     <Column header="#" body={(_, { rowIndex }) => rowIndex + 1} headerStyle={{ width: '3rem', textAlign: 'center' }} />
                                     {(headerObj.ClaimCategoryId === 3) && (
-                                        <Column field="pono" header="PO No" body={(rowData) => (
-                                            <span className="btn btn-link p-0" style={{ cursor: 'pointer', textDecoration: 'none', color: "blue" }} onClick={() => rowData.poid && handleShowDetails(rowData)}>
-                                                {rowData.pono || rowData.poid || "N/A"}
-                                            </span>
-                                        )} />
+                                        <Column field="pono" header="PO No" body={(rowData) => {
+                                            const isBlanketPO = rowData.pono && /-\d+$/.test(String(rowData.pono).trim());
+                                            return (
+                                                <span className="btn btn-link p-0" style={{ cursor: 'pointer', textDecoration: 'none', color: "blue", whiteSpace: "nowrap" }} onClick={() => {
+                                                    if (rowData.poid) {
+                                                        if (isBlanketPO) {
+                                                            handleBlanketPOViewClick(rowData);
+                                                        } else {
+                                                            handleShowDetails(rowData);
+                                                        }
+                                                    }
+                                                }}>
+                                                    {rowData.pono || rowData.poid || "N/A"}
+                                                </span>
+                                            );
+                                        }} />
                                     )}
                                     {(headerObj.ClaimCategoryId === 3) && (
                                         <Column field="prnumber" header="PR No" body={(rowData) => (
@@ -3528,15 +3540,15 @@ const ProcurementsManagePurchaseOrder = () => {
                                                     <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>PR No.</th>
                                                     <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Item Group</th>
                                                     <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Item Name</th>
-                                                    <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Qty</th>
+                                                    <th className="text-end" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Qty</th>
                                                     <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>UOM</th>
                                                     <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Unit Price</th>
                                                     <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Discount</th>
                                                     <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Tax %</th>
-                                                    <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Tax Amt</th>
+                                                    <th className="text-end" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Tax Amt</th>
                                                     <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>VAT %</th>
-                                                    <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>VAT Amt</th>
-                                                    <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Total Amt</th>
+                                                    <th className="text-end" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>VAT Amt</th>
+                                                    <th className="text-end" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Total Amt</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -3546,15 +3558,15 @@ const ProcurementsManagePurchaseOrder = () => {
                                                         <td>{row.prnumber || "N/A"}</td>
                                                         <td>{row.groupname || ""}</td>
                                                         <td>{row.itemname || ""}</td>
-                                                        <td className="text-center">{parseFloat(row.qty || 0).toLocaleString("en-US", { minimumFractionDigits: 3 })}</td>
+                                                        <td className="text-end">{parseFloat(row.qty || 0).toLocaleString("en-US", { minimumFractionDigits: 3 })}</td>
                                                         <td className="text-center">{row.uom || ""}</td>
                                                         <td className="text-center">{parseFloat(row.unitprice || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
                                                         <td className="text-center">{parseFloat(row.discountvalue || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
                                                         <td className="text-center">{row.taxperc ?? 0}</td>
-                                                        <td className="text-center">{parseFloat(row.taxvalue || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                                                        <td className="text-end">{parseFloat(row.taxvalue || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
                                                         <td className="text-center">{row.vatperc ?? 0}</td>
-                                                        <td className="text-center">{parseFloat(row.vatvalue || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
-                                                        <td className="text-center" style={{ color: "#ff5a00", fontWeight: "bold" }}>{parseFloat(row.nettotal || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                                                        <td className="text-end">{parseFloat(row.vatvalue || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                                                        <td className="text-end" style={{ color: "#ff5a00", fontWeight: "bold" }}>{parseFloat(row.nettotal || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
                                                     </tr>
                                                 ))}
                                                 {(blanketPoViewData.originalPO.Requisition || []).length === 0 && (
@@ -3612,15 +3624,15 @@ const ProcurementsManagePurchaseOrder = () => {
                                             <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>GRN No</th>
                                             <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Item Group</th>
                                             <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Item Name</th>
-                                            <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Qty</th>
+                                            <th className="text-end" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Qty</th>
                                             <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Uom</th>
                                             <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Unit Price</th>
                                             <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Discount</th>
                                             <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Tax %</th>
-                                            <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Tax Amt</th>
+                                            <th className="text-end" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Tax Amt</th>
                                             <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>VAT %</th>
-                                            <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>VAT Amt</th>
-                                            <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Total Amt</th>
+                                            <th className="text-end" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>VAT Amt</th>
+                                            <th className="text-end" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Total Amt</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -3630,15 +3642,15 @@ const ProcurementsManagePurchaseOrder = () => {
                                                 <td className="text-center">{row.GRNNo || ""}</td>
                                                 <td>{row.ItemGroup || ""}</td>
                                                 <td>{row.ItemName || ""}</td>
-                                                <td className="text-center">{parseFloat(row.Qty || 0).toLocaleString("en-US", { minimumFractionDigits: 3 })}</td>
+                                                <td className="text-end">{parseFloat(row.Qty || 0).toLocaleString("en-US", { minimumFractionDigits: 3 })}</td>
                                                 <td className="text-center">{row.Uom || ""}</td>
                                                 <td className="text-center">{parseFloat(row.UnitPrice || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
                                                 <td className="text-center">{parseFloat(row.DiscountAmt || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
                                                 <td className="text-center">{row.TaxPerc ?? 0}</td>
-                                                <td className="text-center">{parseFloat(row.TaxAmt || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                                                <td className="text-end">{parseFloat(row.TaxAmt || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
                                                 <td className="text-center">{row.VatPerc ?? 0}</td>
-                                                <td className="text-center">{parseFloat(row.VatAmt || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
-                                                <td className="text-center" style={{ color: "#ff5a00", fontWeight: "bold" }}>{parseFloat(row.NetTotal || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                                                <td className="text-end">{parseFloat(row.VatAmt || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                                                <td className="text-end" style={{ color: "#ff5a00", fontWeight: "bold" }}>{parseFloat(row.NetTotal || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
                                             </tr>
                                         ))}
                                         {(blanketPoViewData.blanketGRNs || []).length === 0 && (
