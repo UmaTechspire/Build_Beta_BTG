@@ -33,8 +33,10 @@ import { Checkbox } from 'primereact/checkbox';
 import { RadioButton } from 'primereact/radiobutton';
 import {
   DownloadFileById, GetPaymentPlandetails, SavePaymentPlan, GetPaymentSummaryseqno, ClaimAndPaymentGetById,
-  GetPRNoBySupplierAndCurrency, GetByIdPurchaseOrder, GetByIdPurchaseRequisition
+  GetPRNoBySupplierAndCurrency, GetByIdPurchaseOrder, GetByIdPurchaseRequisition,
+  GetPONOAutoComplete, GetGRNsByPO
 } from "common/data/mastersapi";
+import { roundByCurrency } from "common/currencyUtils";
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -78,6 +80,11 @@ const Paymentplanapproval = ({ selectedType, setSelectedType }) => {
   const [selectedDetail, setSelectedDetail] = useState({});
   const [selectedRows, setSelectedRows] = useState([]);
   const [selectedPRDetail, setSelectedPRDetail] = useState(null);
+
+  // Blanket PO Details State
+  const [blanketPoViewVisible, setBlanketPoViewVisible] = useState(false);
+  const [blanketPoViewData, setBlanketPoViewData] = useState(null);
+  const [blanketPoLoading, setBlanketPoLoading] = useState(false);
 
 
 
@@ -621,9 +628,113 @@ const Paymentplanapproval = ({ selectedType, setSelectedType }) => {
   };
 
 
+  const handleBlanketPOViewClick = async (rowData) => {
+    setBlanketPoLoading(true);
+    setBlanketPoViewVisible(true);
+    setBlanketPoViewData(null);
+    try {
+      const blanketPono = String(rowData.pono || "").trim();
+      const originalPono = blanketPono.replace(/-\d+$/, "");
+
+      const blanketRes = await GetByIdPurchaseOrder(rowData.poid, orgId, branchId);
+
+      let originalRes = null;
+      let originalPoid = null;
+      const ponoSearch = await GetPONOAutoComplete(orgId, branchId, originalPono);
+      if (ponoSearch?.status && Array.isArray(ponoSearch.data) && ponoSearch.data.length > 0) {
+        const matched = ponoSearch.data.find(p => String(p.pono || p.ponumber || "").trim() === originalPono);
+        const poid = matched?.poid || matched?.id || ponoSearch.data[0]?.poid || ponoSearch.data[0]?.id;
+        if (poid) {
+          originalPoid = poid;
+          originalRes = await GetByIdPurchaseOrder(poid, orgId, branchId);
+        }
+      }
+
+      if (!blanketRes?.status) {
+        Swal.fire("Error", "Could not load Blanket PO details.", "error");
+        setBlanketPoViewVisible(false);
+        return;
+      }
+
+      const blanketGRNsRes = originalPoid ? await GetGRNsByPO(originalPoid) : null;
+      let blanketGRNs = blanketGRNsRes?.status ? blanketGRNsRes.data : [];
+
+      const currencyCode = blanketRes.data?.Header?.currencycode || rowData.CurrencyCode || originalRes?.data?.Header?.currencycode || "IDR";
+
+      blanketGRNs = (blanketGRNs || []).map((row) => {
+        const qty = parseFloat(row.Qty) || 0;
+        const unitPrice = parseFloat(row.UnitPrice) || 0;
+        const discountPerc = parseFloat(row.DiscountPerc) || 0;
+        const originalDiscountValue = parseFloat(row.DiscountValue) || 0;
+        const poQty = parseFloat(row.POQty) || 0;
+        const taxPerc = parseFloat(row.TaxPerc) || 0;
+        const vatPerc = parseFloat(row.VatPerc) || 0;
+
+        const subtotal = qty * unitPrice;
+        
+        let discountValue = 0;
+        if (discountPerc > 0) {
+          discountValue = roundByCurrency((subtotal * discountPerc) / 100, currencyCode);
+        } else if (originalDiscountValue > 0 && poQty > 0) {
+          discountValue = roundByCurrency((qty * originalDiscountValue) / poQty, currencyCode);
+        }
+
+        const lineAfterDiscount = subtotal - discountValue;
+        const taxValue = roundByCurrency((lineAfterDiscount * taxPerc) / 100, currencyCode);
+        const vatValue = roundByCurrency((lineAfterDiscount * vatPerc) / 100, currencyCode);
+
+        const netTotal = roundByCurrency((lineAfterDiscount - taxValue) + vatValue, currencyCode);
+
+        return {
+          ...row,
+          DiscountPerc: discountPerc,
+          DiscountAmt: discountValue,
+          TaxPerc: taxPerc,
+          TaxAmt: taxValue,
+          VatPerc: vatPerc,
+          VatAmt: vatValue,
+          NetTotal: netTotal
+        };
+      });
+
+      const originalCreatedByName = originalRes?.data?.Header?.createdbyName || originalRes?.data?.Header?.requestorname || "N/A";
+      const blanketCreatedByName = rowData?.createdbyName || blanketRes?.data?.Header?.createdbyName || blanketRes?.data?.Header?.requestorname || originalCreatedByName || "N/A";
+
+      setBlanketPoViewData({
+        originalPO: originalRes?.status ? originalRes.data : null,
+        originalPono,
+        originalCreatedByName,
+        blanketPO: blanketRes.data,
+        blanketPono,
+        blanketCreatedByName,
+        blanketGRNs,
+      });
+    } catch (err) {
+      console.error("Error loading Blanket PO view:", err);
+      Swal.fire("Error", "Failed to load Blanket PO details.", "error");
+      setBlanketPoViewVisible(false);
+    } finally {
+      setBlanketPoLoading(false);
+    }
+  };
+
   const actionpoBodyTemplate = (rowData) => {
-    return <span style={{ cursor: "pointer", color: "blue" }} className="btn-rounded btn btn-link"
-      onClick={() => handleShowPODetails(rowData)}>{rowData.pono}</span>;
+    const isBlanketPO = rowData.pono && /-\d+$/.test(String(rowData.pono).trim());
+    return (
+      <span
+        style={{ cursor: "pointer", color: "blue", whiteSpace: "nowrap" }}
+        className="btn-rounded btn btn-link"
+        onClick={() => {
+          if (isBlanketPO) {
+            handleBlanketPOViewClick(rowData);
+          } else {
+            handleShowPODetails(rowData);
+          }
+        }}
+      >
+        {rowData.pono}
+      </span>
+    );
   };
 
   const actionprBodyTemplate = (rowData) => {
@@ -2290,6 +2401,7 @@ word-break: break-word;
                 <Column
                   field="qty"
                   header="Qty"
+                  style={{ textAlign: 'right' }}
                   body={(rowData) =>
                     rowData.qty?.toLocaleString("en-US", { minimumFractionDigits: 3 })
                   }
@@ -2326,10 +2438,11 @@ word-break: break-word;
                   <Column
                     field="taxvalue"
                     header="Tax Amt"
+                    style={{ textAlign: 'right' }}
                     body={(rowData) =>
                       rowData.taxvalue?.toLocaleString("en-US", { minimumFractionDigits: 2 })
                     }
-                    footer={selectedPODetail.Header?.taxvalue?.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    footer={<div style={{ textAlign: 'right' }}>{selectedPODetail.Header?.taxvalue?.toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>}
                   />
                 )}
                 {access.canViewRate && (
@@ -2341,10 +2454,11 @@ word-break: break-word;
                   <Column
                     field="vatvalue"
                     header="VAT Amt"
+                    style={{ textAlign: 'right' }}
                     body={(rowData) =>
                       rowData.vatvalue?.toLocaleString("en-US", { minimumFractionDigits: 2 })
                     }
-                    footer={selectedPODetail.Header?.vatvalue?.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    footer={<div style={{ textAlign: 'right' }}>{selectedPODetail.Header?.vatvalue?.toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>}
                   />
                 )}
                 {access.canViewRate && (
@@ -2352,10 +2466,11 @@ word-break: break-word;
                   <Column
                     field="nettotal"
                     header="Total Amt"
+                    style={{ textAlign: 'right' }}
                     body={(rowData) =>
                       rowData.nettotal?.toLocaleString("en-US", { minimumFractionDigits: 2 })
                     }
-                    footer={<b>{selectedPODetail.Header?.nettotal?.toLocaleString("en-US", { minimumFractionDigits: 2 })}</b>}
+                    footer={<div style={{ textAlign: 'right' }}><b>{selectedPODetail.Header?.nettotal?.toLocaleString("en-US", { minimumFractionDigits: 2 })}</b></div>}
                   />
                 )}
               </DataTable>
@@ -2367,6 +2482,193 @@ word-break: break-word;
         <ModalFooter>
           <button type="button" className="btn btn-danger" onClick={() => setPODetailVisible(false)}>
             <i className="bx bx-export label-icon font-size-16 align-middle me-2"></i> Close
+          </button>
+        </ModalFooter>
+      </Modal>
+
+      {/* ===== Blanket / Short Closure PO History Modal ===== */}
+      <Modal isOpen={blanketPoViewVisible} toggle={() => setBlanketPoViewVisible(false)} size="xl">
+        <ModalHeader toggle={() => setBlanketPoViewVisible(false)}>
+          Purchase Order Details
+        </ModalHeader>
+        <ModalBody style={{ backgroundColor: "#ffffff", padding: "20px 30px" }}>
+          {blanketPoLoading ? (
+            <div className="text-center py-5">
+              <i className="bx bx-loader bx-spin font-size-24 text-primary"></i>
+              <p className="mt-2 text-muted">Loading PO details...</p>
+            </div>
+          ) : blanketPoViewData ? (
+            <>
+              {/* ====== SECTION 1: ORIGINAL PO ====== */}
+              {blanketPoViewData.originalPO ? (
+                <>
+                  <Row className="mb-3">
+                    <Col md={4}>
+                      <div className="d-flex mb-2 align-items-center">
+                        <span style={{ minWidth: "120px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>PO No.</span>
+                        <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {blanketPoViewData.originalPO.Header?.pono || "N/A"}</span>
+                      </div>
+                      <div className="d-flex mb-2 align-items-center">
+                        <span style={{ minWidth: "120px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>PO Value</span>
+                        <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {parseFloat(blanketPoViewData.originalPO.Header?.nettotal || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    </Col>
+                    <Col md={4}>
+                      <div className="d-flex mb-2 align-items-center">
+                        <span style={{ minWidth: "120px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>PO Date</span>
+                        <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {formatpoDate(blanketPoViewData.originalPO.Header?.podate)}</span>
+                      </div>
+                      <div className="d-flex mb-2 align-items-center">
+                        <span style={{ minWidth: "120px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>Created Date</span>
+                        <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {formatpoDate(blanketPoViewData.originalPO.Header?.createddt)}</span>
+                      </div>
+                    </Col>
+                    <Col md={4}>
+                      <div className="d-flex mb-2 align-items-center">
+                        <span style={{ minWidth: "120px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>PO Quantity</span>
+                        <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {(blanketPoViewData.originalPO.Requisition || []).reduce((s, r) => s + (parseFloat(r.qty) || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 0 })}</span>
+                      </div>
+                      <div className="d-flex mb-2 align-items-center">
+                        <span style={{ minWidth: "120px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>Created By</span>
+                        <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {blanketPoViewData.originalCreatedByName}</span>
+                      </div>
+                    </Col>
+                  </Row>
+
+                  <p style={{ fontWeight: "bold", fontSize: "15px", marginTop: "15px", marginBottom: "10px", color: "#333" }}>Purchase Order Details</p>
+                  <div style={{ overflowX: "auto", marginBottom: "25px" }}>
+                    <table className="table table-bordered table-sm mb-0" style={{ fontSize: "12px" }}>
+                      <thead>
+                        <tr>
+                          <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>#</th>
+                          <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>PR No.</th>
+                          <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Item Group</th>
+                          <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Item Name</th>
+                          <th className="text-end" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Qty</th>
+                          <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>UOM</th>
+                          <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Unit Price</th>
+                          <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Discount</th>
+                          <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Tax %</th>
+                          <th className="text-end" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Tax Amt</th>
+                          <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>VAT %</th>
+                          <th className="text-end" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>VAT Amt</th>
+                          <th className="text-end" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Total Amt</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(blanketPoViewData.originalPO.Requisition || []).map((row, idx) => (
+                          <tr key={idx}>
+                            <td className="text-center">{idx + 1}</td>
+                            <td>{row.prnumber || "N/A"}</td>
+                            <td>{row.groupname || ""}</td>
+                            <td>{row.itemname || ""}</td>
+                            <td className="text-end">{parseFloat(row.qty || 0).toLocaleString("en-US", { minimumFractionDigits: 3 })}</td>
+                            <td className="text-center">{row.uom || ""}</td>
+                            <td className="text-center">{parseFloat(row.unitprice || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                            <td className="text-center">{parseFloat(row.discountvalue || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                            <td className="text-center">{row.taxperc ?? 0}</td>
+                            <td className="text-end">{parseFloat(row.taxvalue || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                            <td className="text-center">{row.vatperc ?? 0}</td>
+                            <td className="text-end">{parseFloat(row.vatvalue || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                            <td className="text-end" style={{ color: "#ff5a00", fontWeight: "bold" }}>{parseFloat(row.nettotal || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                          </tr>
+                        ))}
+                        {(blanketPoViewData.originalPO.Requisition || []).length === 0 && (
+                          <tr><td colSpan={13} className="text-center text-muted">No items found</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : (
+                <p className="text-muted mb-3">Original PO (<b>{blanketPoViewData.originalPono}</b>) could not be loaded.</p>
+              )}
+
+              {/* ====== SECTION 2: BLANKET PO ====== */}
+              <p style={{ fontWeight: "bold", fontSize: "15px", marginTop: "20px", marginBottom: "15px", color: "#333" }}>BlanketPO Details</p>
+              <Row className="mb-3">
+                <Col md={4}>
+                  <div className="d-flex mb-2 align-items-center">
+                    <span style={{ minWidth: "140px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>BlanketPO No.</span>
+                    <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {blanketPoViewData.blanketPO.Header?.pono || "N/A"}</span>
+                  </div>
+                  <div className="d-flex mb-2 align-items-center">
+                    <span style={{ minWidth: "140px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>BlanketPO Value</span>
+                    <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {(blanketPoViewData.blanketGRNs || []).reduce((s, r) => s + (parseFloat(r.NetTotal) || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                  </div>
+                </Col>
+                <Col md={4}>
+                  <div className="d-flex mb-2 align-items-center">
+                    <span style={{ minWidth: "140px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>BlanketPO Date</span>
+                    <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {formatpoDate(blanketPoViewData.blanketPO.Header?.podate)}</span>
+                  </div>
+                  <div className="d-flex mb-2 align-items-center">
+                    <span style={{ minWidth: "140px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>Created Date</span>
+                    <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {formatpoDate(blanketPoViewData.blanketPO.Header?.createddt)}</span>
+                  </div>
+                </Col>
+                <Col md={4}>
+                  <div className="d-flex mb-2 align-items-center">
+                    <span style={{ minWidth: "160px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>BlanketPO Quantity</span>
+                    <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {(blanketPoViewData.blanketPO.Requisition || []).reduce((s, r) => s + (parseFloat(r.qty) || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 0 })}</span>
+                  </div>
+                  <div className="d-flex mb-2 align-items-center">
+                    <span style={{ minWidth: "160px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>Created By</span>
+                    <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {blanketPoViewData.blanketCreatedByName}</span>
+                  </div>
+                </Col>
+              </Row>
+
+              <p style={{ fontWeight: "bold", fontSize: "15px", marginTop: "15px", marginBottom: "10px", color: "#333" }}>GRN Details</p>
+              <div style={{ overflowX: "auto" }}>
+                <table className="table table-bordered table-sm mb-0" style={{ fontSize: "12px" }}>
+                  <thead>
+                    <tr>
+                      <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Serial No</th>
+                      <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>GRN No</th>
+                      <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Item Group</th>
+                      <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Item Name</th>
+                      <th className="text-end" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Qty</th>
+                      <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Uom</th>
+                      <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Unit Price</th>
+                      <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Discount</th>
+                      <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Tax %</th>
+                      <th className="text-end" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Tax Amt</th>
+                      <th className="text-center" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>VAT %</th>
+                      <th className="text-end" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>VAT Amt</th>
+                      <th className="text-end" style={{ backgroundColor: "#0066a6", color: "white", borderColor: "#0066a6" }}>Total Amt</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(blanketPoViewData.blanketGRNs || []).map((row, idx) => (
+                      <tr key={idx}>
+                        <td className="text-center">{idx + 1}</td>
+                        <td className="text-center">{row.GRNNo || ""}</td>
+                        <td>{row.ItemGroup || ""}</td>
+                        <td>{row.ItemName || ""}</td>
+                        <td className="text-end">{parseFloat(row.Qty || 0).toLocaleString("en-US", { minimumFractionDigits: 3 })}</td>
+                        <td className="text-center">{row.Uom || ""}</td>
+                        <td className="text-center">{parseFloat(row.UnitPrice || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                        <td className="text-center">{parseFloat(row.DiscountAmt || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                        <td className="text-center">{row.TaxPerc ?? 0}</td>
+                        <td className="text-end">{parseFloat(row.TaxAmt || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                        <td className="text-center">{row.VatPerc ?? 0}</td>
+                        <td className="text-end">{parseFloat(row.VatAmt || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                        <td className="text-end" style={{ color: "#ff5a00", fontWeight: "bold" }}>{parseFloat(row.NetTotal || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                      </tr>
+                    ))}
+                    {(blanketPoViewData.blanketGRNs || []).length === 0 && (
+                      <tr><td colSpan={13} className="text-center text-muted">No items found</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : null}
+        </ModalBody>
+        <ModalFooter>
+          <button type="button" className="btn btn-danger" onClick={() => setBlanketPoViewVisible(false)}>
+            Close
           </button>
         </ModalFooter>
       </Modal>

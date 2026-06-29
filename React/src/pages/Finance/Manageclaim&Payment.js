@@ -535,7 +535,7 @@ const ManageClaimsPayment = () => {
             });
 
             const originalCreatedByName = originalRes?.data?.Header?.createdbyName || originalRes?.data?.Header?.requestorname || "N/A";
-            const blanketCreatedByName = rowData?.createdbyName || blanketRes?.data?.Header?.createdbyName || blanketRes?.data?.Header?.requestorname || "N/A";
+            const blanketCreatedByName = rowData?.createdbyName || blanketRes?.data?.Header?.createdbyName || blanketRes?.data?.Header?.requestorname || originalCreatedByName || "N/A";
 
             setBlanketPoViewData({
                 originalPO: originalRes?.status ? originalRes.data : null,
