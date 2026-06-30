@@ -740,7 +740,13 @@ const ManageClaimsPayment = () => {
         const isFinanceCancelled = rowData?.finance_cancel == 1 || rowData?.finance_cancel === true;
         const cancelRemarks = rowData?.finance_cancel_remarks || "Cancel";
 
-        const canDelete = isCancelled || isFinanceCancelled || rowData?.IsReject === 1 || rowData?.candelete == 1 || (rowData?.Status !== 'Posted' && rowData?.isSubmitted == 0);
+        const canDelete = isCancelled || 
+            isFinanceCancelled || 
+            rowData?.IsReject === 1 || 
+            rowData?.candelete == 1 || 
+            (rowData?.Status !== 'Posted' && rowData?.isSubmitted == 0) || 
+            (rowData?.canedit === 1 && Number(UserData?.u_id) === 158) || 
+            Number(UserData?.u_id) === 133;
 
         return (
             <div className="actions" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
