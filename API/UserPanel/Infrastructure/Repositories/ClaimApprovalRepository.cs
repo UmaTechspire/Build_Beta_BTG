@@ -877,7 +877,25 @@ claim_hod_isdiscussed= @isdiscussedeight,
                 param.Add("@PVPaymentId", 0);
                 param.Add("@claimidlog", 0);
                 var list = await _connection.QueryAsync(ClaimAndPaymentDB.ClaimAndPaymentApproval, param, commandType: CommandType.StoredProcedure);
-                var data = list;
+                
+                var groupedList = list
+                    .Select(row => (IDictionary<string, object>)row)
+                    .GroupBy(row => new {
+                        Type = row.ContainsKey("type") ? row["type"] : null,
+                        Approvallevel = row.ContainsKey("Approvallevel") ? row["Approvallevel"] : null,
+                        Levelapprover = row.ContainsKey("levelapprover") ? row["levelapprover"] : null,
+                        ClaimComment = row.ContainsKey("claim_comment") ? row["claim_comment"] : null,
+                        PaymentPlanId = row.ContainsKey("paymentplanid") ? row["paymentplanid"] : null,
+                        RefNo = row.ContainsKey("refno") ? row["refno"] : null,
+                        IsClaim = row.ContainsKey("isclaim") ? row["isclaim"] : null
+                    })
+                    .Select(g => {
+                        var maxRow = g.OrderByDescending(r => r.ContainsKey("logid") ? Convert.ToInt64(r["logid"]) : 0).First();
+                        return (object)maxRow;
+                    })
+                    .ToList();
+
+                var data = groupedList;
                 return new ResponseModel
                 {
                     Data = data,
@@ -924,11 +942,18 @@ claim_hod_isdiscussed= @isdiscussedeight,
                         }
                         else
                         {
-                            if (logid > 0)
-                            {
-                                // First, resolve the specific comment in log
-                                string updateLogSql = "UPDATE tbl_claimAndpayment_header_log SET claim_comment = CONCAT('[Resolved] ', claim_comment) WHERE LogID = @logid;";
-                                await _connection.ExecuteAsync(updateLogSql, new { logid });
+                             if (logid > 0)
+                             {
+                                 // First, resolve the specific comment and all its duplicates in the log
+                                 string updateLogSql = @"
+                                     UPDATE tbl_claimAndpayment_header_log AS target
+                                     INNER JOIN tbl_claimAndpayment_header_log AS source 
+                                         ON target.summaryid = source.summaryid 
+                                        AND target.claim_comment = source.claim_comment 
+                                        AND target.LastModifiedBY = source.LastModifiedBY
+                                     SET target.claim_comment = CONCAT('[Resolved] ', target.claim_comment)
+                                     WHERE source.LogID = @logid;";
+                                 await _connection.ExecuteAsync(updateLogSql, new { logid });
 
                                 // Check count of remaining unresolved CEO comments
                                 string countUnresolvedSql = @"
