@@ -686,7 +686,7 @@ const ManageClaimsPayment = () => {
 
     const actionAckBodyTemplate = (rowData) => {
         return (
-            <span
+            <span style={{ whiteSpace: "nowrap" }}
             >{rowData.voucherno}</span>
             //    onClick={() => handleVoucherClick(rowData.voucherid)}
 

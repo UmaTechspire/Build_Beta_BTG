@@ -4071,7 +4071,7 @@ const ApprovalTable = ({
   };
   const actionAckBodyTemplate = (rowData) => {
     return (
-      <span style={{ cursor: "pointer", color: "blue" }} className="btn-rounded btn btn-link"
+      <span style={{ cursor: "pointer", color: "blue", whiteSpace: "nowrap" }} className="btn-rounded btn btn-link"
         onClick={() => handleVoucherClick(rowData.voucherid)}>{rowData.voucherno}</span>
     );
   };
