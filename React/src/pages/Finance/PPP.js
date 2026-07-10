@@ -1383,7 +1383,7 @@ const PPP = ({ selectedType, setSelectedType }) => {
         const vatPerc = parseFloat(row.VatPerc) || 0;
 
         const subtotal = qty * unitPrice;
-        
+
         let discountValue = 0;
         if (discountPerc > 0) {
           discountValue = roundByCurrency((subtotal * discountPerc) / 100, currencyCode);
@@ -3594,6 +3594,26 @@ const ApprovalTable = ({
 
 
   const actionAckBodyTemplate = (rowData) => {
+
+    const isCV = rowData.voucherno && String(rowData.voucherno).trim().startsWith("CV");
+
+    if (isCV) {
+      return (
+        <span
+          className="btn-rounded btn btn-link"
+          style={{
+            whiteSpace: "nowrap",
+            color: "blue",
+            cursor: "default",
+            padding: 0,
+            textDecoration: "none"
+          }}
+        >
+          {rowData.voucherno}
+        </span>
+      );
+    }
+
     const disabled = !access.canViewDetails;
 
     return (
