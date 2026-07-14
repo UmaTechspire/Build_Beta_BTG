@@ -136,8 +136,14 @@ END;
             UPDATE tbl_claimAndpayment_header
             SET 
                  LastModifiedBY=@userid ,  
+                 
+                 IsSubmitted = CASE
+                     WHEN @isdiscussedone = 1 AND IFNULL(DepartmentId, 0) != 9 THEN 0
+                     WHEN @isdiscussedeight = 1 AND IFNULL(DepartmentId, 0) = 9 THEN 0
+                     ELSE IsSubmitted
+                 END,
 
-  Claim_Discussed_Count = CASE 
+   Claim_Discussed_Count = CASE 
         WHEN (@isdiscussedeight = 1 AND IFNULL(claim_hod_isdiscussed, 0) = 0) or (@isdiscussedone = 1 AND IFNULL(claim_gm_isdiscussed, 0) = 0)
           OR (@isdiscussedtwo = 1 AND IFNULL(claim_director_isdiscussed, 0) = 0)
         THEN IFNULL(Claim_Discussed_Count, 0) + 1 

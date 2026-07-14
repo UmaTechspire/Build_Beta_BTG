@@ -229,7 +229,7 @@ const ManageClaimsPayment = () => {
             const dataWithTimestamp = rawData.map(item => {
                 let currentStatus = item.Status;
                 // Force "Saved" status if discussion limit reached
-                if (item.is_delete_required === 1 || item.hod_discussed_count >= 3 || item.gm_discussed_count >= 3 || item.director_discussed_count >= 3) {
+                if (item.is_delete_required === 1 || item.hod_discussed_count > 3 || item.gm_discussed_count > 3 || item.director_discussed_count > 3) {
                     currentStatus = "Saved";
                 }
                 return {
@@ -752,8 +752,8 @@ const ManageClaimsPayment = () => {
             <div className="actions" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 {/* Edit Button */}
                 {
-                    // Super Admin (user ID 158) or user ID 133 can edit if canedit === 1 (even Posted claims)
-                    (rowData.canedit === 1 && Number(UserData?.u_id) === 158) || Number(UserData?.u_id) === 133 ? (
+                    // Super Admin (user ID 158) or user ID 133 can edit if ppp_gm_approvalone is 0 (even Posted claims)
+                    (Number(rowData.ppp_gm_approvalone || 0) === 0 && Number(UserData?.u_id) === 158) || Number(UserData?.u_id) === 133 ? (
                         <span
                             onClick={() => editRow(rowData)}
                             title="Edit"
@@ -762,8 +762,11 @@ const ManageClaimsPayment = () => {
                             <i className="mdi mdi-square-edit-outline" style={{ fontSize: '1.5rem' }}></i>
                         </span>
                     ) :
-                        // Regular user can edit only if status is NOT 'Posted' and not cancelled
-                        !isCancelled && !isFinanceCancelled && rowData.Status !== 'Posted' ? (
+                        // Regular user can edit only if status is NOT 'Posted', not cancelled, and discussion limit is not exceeded
+                        !isCancelled && !isFinanceCancelled && rowData.Status !== 'Posted' &&
+                        (Number(rowData.hod_discussed_count || 0) <= 3) &&
+                        (Number(rowData.gm_discussed_count || 0) <= 3) &&
+                        (Number(rowData.director_discussed_count || 0) <= 3) ? (
                             <span
                                 onClick={() => editRow(rowData)}
                                 title="Edit"
