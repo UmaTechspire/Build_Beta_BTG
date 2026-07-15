@@ -1,4 +1,4 @@
-﻿using Application.Finance.ClaimAndPayment.Update;
+using Application.Finance.ClaimAndPayment.Update;
 using Application.Procurement.Purchase_Memo.CreatePurchaseMemoItem;
 using Application.Procurement.Purchase_Memo.GetAllPurchaseMemoItems;
 using Application.Procurement.Purchase_Memo.GetPurchaseMemoItem;
@@ -214,6 +214,16 @@ namespace UserPanel.Controllers.Procurement
                     Message = "Upload failed due to server error."
                 });
             }
+        }
+
+        [HttpPost("save-copied-attachments")]
+        public async Task<IActionResult> SaveCopiedAttachments([FromBody] List<RequisitionAttachment> attachmentList)
+        {
+            if (attachmentList == null || attachmentList.Count == 0)
+                return Ok(new ResponseModel { Status = true, Message = "No attachments to copy." });
+
+            var result = await _mediator.Send(new RequisitionUploadDocumentCommand { attachmentList = attachmentList });
+            return Ok(result);
         }
 
 

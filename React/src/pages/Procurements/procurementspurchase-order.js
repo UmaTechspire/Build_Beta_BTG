@@ -3507,19 +3507,11 @@ const ProcurementsManagePurchaseOrder = () => {
                                                 <span style={{ minWidth: "120px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>PO No.</span>
                                                 <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {blanketPoViewData.originalPO.Header?.pono || "N/A"}</span>
                                             </div>
-                                            <div className="d-flex mb-2 align-items-center">
-                                                <span style={{ minWidth: "120px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>PO Value</span>
-                                                <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {parseFloat(blanketPoViewData.originalPO.Header?.nettotal || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
-                                            </div>
                                         </Col>
                                         <Col md={4}>
                                             <div className="d-flex mb-2 align-items-center">
                                                 <span style={{ minWidth: "120px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>PO Date</span>
                                                 <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {formatDate(blanketPoViewData.originalPO.Header?.podate)}</span>
-                                            </div>
-                                            <div className="d-flex mb-2 align-items-center">
-                                                <span style={{ minWidth: "120px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>Created Date</span>
-                                                <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {formatDate(blanketPoViewData.originalPO.Header?.createddt)}</span>
                                             </div>
                                         </Col>
                                         <Col md={4}>
@@ -3527,6 +3519,32 @@ const ProcurementsManagePurchaseOrder = () => {
                                                 <span style={{ minWidth: "120px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>PO Quantity</span>
                                                 <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {(blanketPoViewData.originalPO.Requisition || []).reduce((s, r) => s + (parseFloat(r.qty) || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 0 })}</span>
                                             </div>
+                                        </Col>
+                                        <Col md={4}>
+                                            <div className="d-flex mb-2 align-items-center">
+                                                <span style={{ minWidth: "120px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>PO Value</span>
+                                                <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {parseFloat(blanketPoViewData.originalPO.Header?.nettotal || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                                            </div>
+                                        </Col>
+                                        <Col md={4}>
+                                            <div className="d-flex mb-2 align-items-center">
+                                                <span style={{ minWidth: "120px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>Currency</span>
+                                                <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: <span style={{ color: "green", fontWeight: "bold" }}>{blanketPoViewData.originalPO.Header?.currencycode || "N/A"}</span></span>
+                                            </div>
+                                        </Col>
+                                        <Col md={4}>
+                                            <div className="d-flex mb-2 align-items-center">
+                                                <span style={{ minWidth: "120px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>Supplier</span>
+                                                <span className="text-uppercase" style={{ fontSize: "14px", color: "#333", fontWeight: "normal", whiteSpace: "nowrap" }}>: <span style={{ fontWeight: "bold", color: "#495057" }}>{blanketPoViewData.originalPO.Header?.suppliername || "N/A"}</span></span>
+                                            </div>
+                                        </Col>
+                                        <Col md={4}>
+                                            <div className="d-flex mb-2 align-items-center">
+                                                <span style={{ minWidth: "120px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>Created Date</span>
+                                                <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {formatDate(blanketPoViewData.originalPO.Header?.createddt)}</span>
+                                            </div>
+                                        </Col>
+                                        <Col md={4}>
                                             <div className="d-flex mb-2 align-items-center">
                                                 <span style={{ minWidth: "120px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>Created By</span>
                                                 <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {blanketPoViewData.originalCreatedByName}</span>
@@ -3588,22 +3606,14 @@ const ProcurementsManagePurchaseOrder = () => {
                             <Row className="mb-3">
                                 <Col md={4}>
                                     <div className="d-flex mb-2 align-items-center">
-                                        <span style={{ minWidth: "140px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>BlanketPO No.</span>
+                                        <span style={{ minWidth: "160px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>BlanketPO No.</span>
                                         <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {blanketPoViewData.blanketPO.Header?.pono || "N/A"}</span>
-                                    </div>
-                                    <div className="d-flex mb-2 align-items-center">
-                                        <span style={{ minWidth: "140px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>BlanketPO Value</span>
-                                        <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {(blanketPoViewData.blanketGRNs || []).reduce((s, r) => s + (parseFloat(r.NetTotal) || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
                                     </div>
                                 </Col>
                                 <Col md={4}>
                                     <div className="d-flex mb-2 align-items-center">
-                                        <span style={{ minWidth: "140px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>BlanketPO Date</span>
+                                        <span style={{ minWidth: "160px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>BlanketPO Date</span>
                                         <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {formatDate(blanketPoViewData.blanketPO.Header?.podate)}</span>
-                                    </div>
-                                    <div className="d-flex mb-2 align-items-center">
-                                        <span style={{ minWidth: "140px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>Created Date</span>
-                                        <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {formatDate(blanketPoViewData.blanketPO.Header?.createddt)}</span>
                                     </div>
                                 </Col>
                                 <Col md={4}>
@@ -3611,6 +3621,32 @@ const ProcurementsManagePurchaseOrder = () => {
                                         <span style={{ minWidth: "160px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>BlanketPO Quantity</span>
                                         <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {(blanketPoViewData.blanketPO.Requisition || []).reduce((s, r) => s + (parseFloat(r.qty) || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 0 })}</span>
                                     </div>
+                                </Col>
+                                <Col md={4}>
+                                    <div className="d-flex mb-2 align-items-center">
+                                        <span style={{ minWidth: "160px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>BlanketPO Value</span>
+                                        <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {(blanketPoViewData.blanketGRNs || []).reduce((s, r) => s + (parseFloat(r.NetTotal) || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                </Col>
+                                <Col md={4}>
+                                    <div className="d-flex mb-2 align-items-center">
+                                        <span style={{ minWidth: "160px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>Currency</span>
+                                        <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: <span style={{ color: "green", fontWeight: "bold" }}>{blanketPoViewData.blanketPO.Header?.currencycode || "N/A"}</span></span>
+                                    </div>
+                                </Col>
+                                <Col md={4}>
+                                    <div className="d-flex mb-2 align-items-center">
+                                        <span style={{ minWidth: "120px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>Supplier</span>
+                                        <span className="text-uppercase" style={{ fontSize: "14px", color: "#333", fontWeight: "normal", whiteSpace: "nowrap" }}>: <span style={{ fontWeight: "bold", color: "#495057" }}>{blanketPoViewData.blanketPO.Header?.suppliername || "N/A"}</span></span>
+                                    </div>
+                                </Col>
+                                <Col md={4}>
+                                    <div className="d-flex mb-2 align-items-center">
+                                        <span style={{ minWidth: "160px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>Created Date</span>
+                                        <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {formatDate(blanketPoViewData.blanketPO.Header?.createddt)}</span>
+                                    </div>
+                                </Col>
+                                <Col md={4}>
                                     <div className="d-flex mb-2 align-items-center">
                                         <span style={{ minWidth: "160px", fontSize: "14px", color: "#333", fontWeight: "normal" }}>Created By</span>
                                         <span style={{ fontSize: "14px", color: "#333", fontWeight: "normal" }}>: {blanketPoViewData.blanketCreatedByName}</span>

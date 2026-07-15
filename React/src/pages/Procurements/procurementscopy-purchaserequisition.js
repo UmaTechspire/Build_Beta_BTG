@@ -29,7 +29,8 @@ import {
     DownloadMemoFileById,
     DownloadPurchaseRequisitionFileById,
     GetPurchaseRequisitionSupplierList,
-    GetSupplierTaxList, GetSupplierVATList, GetAllPO
+    GetSupplierTaxList, GetSupplierVATList, GetAllPO,
+    CopyPurchaseRequisitionAttachments
 } from "common/data/mastersapi";
 import { roundByCurrency, roundIDR } from "common/currencyUtils";
 import Swal from 'sweetalert2';
@@ -910,6 +911,34 @@ const CopyPurchaseRequisition = () => {
 
                 let fileUploadSuccess = true;
 
+                // Copy existing attachments if any
+                const existingAttachmentsToCopy = attachments
+                    .filter((att) => att.type === "existing")
+                    .map((att) => ({
+                        prattachId: 0,
+                        userId: UserData?.u_id || 1,
+                        fileName: att.name,
+                        filePath: att.filepath,
+                        prId: PRId,
+                        orgId: orgId,
+                        branchId: branchId,
+                        createdip: "",
+                        modifiedip: ""
+                    }));
+
+                if (existingAttachmentsToCopy.length > 0) {
+                    try {
+                        const copyRes = await CopyPurchaseRequisitionAttachments(existingAttachmentsToCopy);
+                        if (!copyRes.status) {
+                            console.error("Failed to copy existing attachments:", copyRes.message);
+                            fileUploadSuccess = false;
+                        }
+                    } catch (error) {
+                        console.error("Failed to copy existing attachments:", error);
+                        fileUploadSuccess = false;
+                    }
+                }
+
                 // Filter new files only
                 const newFilesToUpload = attachments
                     .filter((att) => att.type === "new")
@@ -1241,7 +1270,7 @@ const CopyPurchaseRequisition = () => {
         return (
             <span
                 onClick={() => removeAttachment(rowIndex, "existing")}
-                style={{ cursor: "pointer", display: "flex", alignItems: "center" }}
+                style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
                 title="Remove"
             >
                 <i className="mdi mdi-trash-can-outline" style={{ fontSize: "1.5rem" }}></i>
@@ -1938,11 +1967,11 @@ const CopyPurchaseRequisition = () => {
                                                                                         header="Attachment"
                                                                                         body={attachmentNameTemplate}
                                                                                     />
-                                                                                    {/* <Column
+                                                                                    <Column
                                                                                             header="Action"
                                                                                             body={actionTemplate}
-                                                                                            style={{ width: "80px", textAlign: "center" }}
-                                                                                        /> */}
+                                                                                            style={{ width: "60px", textAlign: "center" }}
+                                                                                        />
                                                                                 </DataTable>
                                                                             </div>
                                                                         )}

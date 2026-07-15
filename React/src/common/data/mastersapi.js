@@ -5517,6 +5517,18 @@ export const DeletePrAttachment = async (prattachid) => {
         throw error;
     }
 };
+
+//#region CopyPurchaseRequisitionAttachments
+export const CopyPurchaseRequisitionAttachments = async (attachments) => {
+    try {
+        const response = await post('/PurchaseRequisition/save-copied-attachments', attachments);
+        return response;
+    } catch (error) {
+        console.error("Failed to copy attachments:", error);
+        return { status: false, message: error.message };
+    }
+};
+
 //#region Claim Discussion Logic
 export const SaveHodDiscussion = async (payload) => {
     try {
