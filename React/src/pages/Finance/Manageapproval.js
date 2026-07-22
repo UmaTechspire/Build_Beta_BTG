@@ -2986,7 +2986,56 @@ word-break: break-word;
                     >
                       <div className="d-flex justify-content-between align-items-center mb-1">
                         <small className="fw-bold me-3" style={{ opacity: 0.9 }}>{senderName || "Unknown"}</small>
-                        <small style={{ fontSize: '0.75rem', opacity: 0.8 }}>{logDate} {logTime}</small>
+                        <small style={{ fontSize: '0.75rem', opacity: 0.8 }}>
+                          {(() => {
+                              let displayDateTime = "";
+                              let dateStr = (logDate || "").trim();
+                              let timeStr = (logTime || "").trim();
+                              
+                              if (dateStr) {
+                                  displayDateTime = dateStr;
+                                  if (timeStr && !dateStr.includes(timeStr) && !dateStr.includes(':')) {
+                                      displayDateTime += " " + timeStr;
+                                  }
+                              } else if (timeStr) {
+                                  displayDateTime = timeStr;
+                              }
+                              if (displayDateTime) {
+                                  try {
+                                      let parseStr = displayDateTime;
+                                      // If it doesn't have a timezone, assume it's UTC from the database
+                                      if (!parseStr.includes('Z') && !parseStr.includes('UTC') && !parseStr.match(/[+-]\d{2}:\d{2}/)) {
+                                          parseStr += ' UTC';
+                                      }
+                                      const d = new Date(parseStr);
+                                      if (!isNaN(d.getTime())) {
+                                          // Format to Asia/Jakarta
+                                          let formatted = d.toLocaleString('en-GB', {
+                                              timeZone: 'Asia/Jakarta',
+                                              day: '2-digit',
+                                              month: 'short',
+                                              year: 'numeric',
+                                              hour: '2-digit',
+                                              minute: '2-digit',
+                                              second: '2-digit',
+                                              hour12: false
+                                          }).replace(',', '');
+                                          
+                                          // Replace space with hyphen for the date part to match "20-Jul-2026"
+                                          const parts = formatted.split(' ');
+                                          if (parts.length >= 4) {
+                                              return `${parts[0]}-${parts[1]}-${parts[2]} ${parts[3]}`;
+                                          }
+                                          return formatted;
+                                      }
+                                  } catch (e) {
+                                      // Fallback on error
+                                  }
+                              }
+                              
+                              return displayDateTime;
+                          })()}
+                        </small>
                       </div>
                       <p className="mb-0" style={{ whiteSpace: 'pre-wrap', fontFamily: 'Inter, sans-serif', fontSize: '14px' }}>
                         {comment || "(No comment)"}

@@ -1872,7 +1872,7 @@ const AddCashBook = () => {
                                                 <th style={{ width: '3%', backgroundColor: '#f2f2f2', color: '#000', fontWeight: 'bold', border: '1px solid #000', padding: '6px 8px' }} className="text-center">No</th>
                                                 <th style={{ width: '10%', backgroundColor: '#f2f2f2', color: '#000', fontWeight: 'bold', border: '1px solid #000', padding: '6px 8px' }} className="text-center">Claim No</th>
                                                 <th style={{ width: '62%', backgroundColor: '#f2f2f2', color: '#000', fontWeight: 'bold', border: '1px solid #000', padding: '6px 8px' }} className="text-center">Purpose</th>
-                                                <th style={{ width: '25%', backgroundColor: '#f2f2f2', color: '#000', fontWeight: 'bold', border: '1px solid #000', padding: '6px 8px' }} className="text-center">Amount IDR</th>
+                                                <th style={{ width: '25%', backgroundColor: '#f2f2f2', color: '#000', fontWeight: 'bold', border: '1px solid #000', padding: '6px 8px' }} className="text-center">Amount {printRecord?.currency_code || printRecord?.currency || printRecord?.currencyCode || printRecord?.CurrencyCode || printRecord?.Currency || filterCurrency?.label || selectedCurrency?.label || 'IDR'}</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -1902,7 +1902,7 @@ const AddCashBook = () => {
                                     </Table>
 
                                     <div style={{ fontSize: '11.5px', marginTop: '20px', fontStyle: 'italic' }}>
-                                        <strong>Amount in Words :</strong> {numberToWords(Math.abs(parseFloat(printRecord?.cash_amount || 0)))} Rupiah Only
+                                        <strong>Amount in Words :</strong> {numberToWords(Math.abs(parseFloat(printRecord?.cash_amount || 0)))} {(() => { const c = printRecord?.currency_code || printRecord?.currency || printRecord?.currencyCode || printRecord?.CurrencyCode || printRecord?.Currency || filterCurrency?.label || selectedCurrency?.label || 'IDR'; return c === 'IDR' ? 'Rupiah' : c; })()} Only
                                     </div>
 
                                     <div style={{ display: "flex", justifyContent: "space-between", marginTop: "40px" }}>
@@ -1937,7 +1937,7 @@ const AddCashBook = () => {
                                         <div className="colon" style={{ fontWeight: 'bold', color: '#1a2c5b', fontSize: '11px', textAlign: 'center' }}>:</div>
                                         <div className="slanted-box" style={{ border: '1px solid #1a2c5b', transform: 'skewX(-20deg)', padding: '4px 6px', background: '#fff' }}>
                                             <div style={{ transform: 'skewX(20deg)', fontWeight: 'bold', fontSize: '11px' }}>
-                                                {numberToWords(parseFloat(printRecord?.cash_amount || 0))} Rupiah Only
+                                                {numberToWords(parseFloat(printRecord?.cash_amount || 0))} {(() => { const c = printRecord?.currency_code || printRecord?.currency || printRecord?.currencyCode || printRecord?.CurrencyCode || printRecord?.Currency || filterCurrency?.label || selectedCurrency?.label || 'IDR'; return c === 'IDR' ? 'Rupiah' : c; })()} Only
                                             </div>
                                         </div>
 

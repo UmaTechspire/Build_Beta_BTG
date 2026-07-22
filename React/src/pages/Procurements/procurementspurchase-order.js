@@ -2846,6 +2846,14 @@ const ProcurementsManagePurchaseOrder = () => {
                                                         ? Number(val).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                                                         : "";
 
+                                                const formatNetto = (val) => {
+                                                    if (val === undefined || val === null || isNaN(val)) return "";
+                                                    if (currency === "IDR") {
+                                                        return Math.round(Number(val)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                                    }
+                                                    return Number(val).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                                };
+
                                                 return (
                                                     <div style={{ width: "100%", marginLeft: "auto" }}>
                                                         <div style={{ display: "flex", width: "100%" }}>
@@ -2891,7 +2899,7 @@ const ProcurementsManagePurchaseOrder = () => {
                                                             <div style={{ width: "40%", textAlign: "right" }}>TOTAL NETTO</div>
                                                             <div style={{ width: "10%", textAlign: "center" }}>{currency || ""}</div>
                                                             <div style={{ width: "50%", textAlign: "right" }}>
-                                                                {formatDecimal(total)}
+                                                                {formatNetto(total)}
                                                             </div>
                                                         </div>
                                                     </div>
