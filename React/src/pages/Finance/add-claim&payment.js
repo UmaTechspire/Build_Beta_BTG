@@ -795,8 +795,9 @@ const Addclaimpayment = () => {
 
                 let fileUploadSuccess = true;
 
-                // Check if not in edit mode and file exists before uploading
-                if (!isEditMode && values.attachment?.length > 0) {
+                // Check if file exists before uploading (both add and edit modes)
+                // Only upload if it's a new file (not the existing string file name)
+                if (values.attachment?.length > 0 && typeof values.attachment !== 'string') {
                     fileUploadSuccess = await uploadFileToServer({
                         file: values.attachment[0],
                         claimPaymentId,

@@ -1141,21 +1141,17 @@ const PurchaseRequisitionApproval = ({ selectedType, setSelectedType }) => {
           newFullComment = sorted[sorted.length - 1].pr_comment;
         }
 
-        // 2. Update local state with the CORRECT full comment (not just the partial reply)
-        // This ensures the "Valid Chain Check" prefix logic passes.
-        setclaims(prev => prev.map(item =>
-          item.id === pr_id ? { ...item, comment: newFullComment } : item
-        ));
+        // 2. Remove the PR from the list because adding a comment returns it to the applicant (Saved status)
+        setclaims(prev => prev.filter(item => item.id !== pr_id));
 
-        // 3. Update selectedClaim so the open modal sees the new header
-        setSelectedClaim(prev => ({ ...prev, comment: newFullComment }));
-
-        // 4. Set action to 'discuss' so the icon turns orange
-        handleClick1('discuss', pr_id);
+        // 3. Clean up action states
+        setAction1(prev => { const n = { ...prev }; delete n[pr_id]; return n; });
+        setAction2(prev => { const n = { ...prev }; delete n[pr_id]; return n; });
 
         setGmReply("");
-        // Toggle removed so modal stays open
-        // toggleRemarkModal(); 
+        
+        // 4. Close the modal since the PR is no longer actionable by the GM
+        toggleRemarkModal();
       } else {
         Swal.fire("Error", res.message || "Failed to send reply", "error");
       }

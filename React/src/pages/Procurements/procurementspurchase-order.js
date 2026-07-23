@@ -1196,6 +1196,74 @@ const ProcurementsManagePurchaseOrder = () => {
             } catch (err) {
                 console.error("Failed to fetch PR Payment Term for Print", err);
             }
+            // Check if it is a Blanket PO and recalculate item totals exactly like Blanket PO Grid
+            const pono = response.data?.header?.[0]?.pono;
+            if (pono && pono.match(/-[0-9]+$/)) {
+                try {
+                    const originalPono = pono.split('-')[0];
+                    const ponoSearch = await GetPONOAutoComplete(1, 1, originalPono);
+                    let originalPoid = null;
+                    if (ponoSearch?.status && Array.isArray(ponoSearch.data) && ponoSearch.data.length > 0) {
+                        const matched = ponoSearch.data.find(p => String(p.pono || p.ponumber || "").trim() === originalPono);
+                        if (matched) originalPoid = matched.poid;
+                    }
+                    if (originalPoid) {
+                        const blanketGRNsRes = await GetGRNsByPO(originalPoid);
+                        let blanketGRNs = blanketGRNsRes?.status ? blanketGRNsRes.data : [];
+                        
+                        const currencyCode = response.data.items?.[0]?.currencycode || "IDR";
+                        
+                        blanketGRNs = blanketGRNs.map((row) => {
+                            const qty = parseFloat(row.Qty) || 0;
+                            const unitPrice = parseFloat(row.UnitPrice) || 0;
+                            const discountPerc = parseFloat(row.DiscountPerc) || 0;
+                            const originalDiscountValue = parseFloat(row.DiscountValue) || 0;
+                            const poQty = parseFloat(row.POQty) || 0;
+                            const taxPerc = parseFloat(row.TaxPerc) || 0;
+                            const vatPerc = parseFloat(row.VatPerc) || 0;
+
+                            const subtotal = qty * unitPrice;
+                            let discountValue = 0;
+                            if (discountPerc > 0) {
+                                discountValue = roundByCurrency((subtotal * discountPerc) / 100, currencyCode);
+                            } else if (originalDiscountValue > 0 && poQty > 0) {
+                                discountValue = roundByCurrency((qty * originalDiscountValue) / poQty, currencyCode);
+                            }
+
+                            const lineAfterDiscount = subtotal - discountValue;
+                            const taxValue = roundByCurrency((lineAfterDiscount * taxPerc) / 100, currencyCode);
+                            const vatValue = roundByCurrency((lineAfterDiscount * vatPerc) / 100, currencyCode);
+                            const netTotal = roundByCurrency((lineAfterDiscount - taxValue) + vatValue, currencyCode);
+
+                            return { ...row, NetTotal: netTotal };
+                        });
+
+                        const grnSums = {};
+                        blanketGRNs.forEach(grn => {
+                            const itemName = (grn.ItemName || "").trim().toLowerCase();
+                            const unitPrice = parseFloat(grn.UnitPrice) || 0;
+                            const key = itemName + "_" + unitPrice;
+                            if (!grnSums[key]) grnSums[key] = 0;
+                            grnSums[key] += grn.NetTotal;
+                        });
+
+                        response.data.items.forEach(item => {
+                            const matchName = (item.itemname || "").trim().toLowerCase();
+                            const matchPrice = parseFloat(item.unitprice) || 0;
+                            const key = matchName + "_" + matchPrice;
+                            
+                            if (grnSums[key] !== undefined) {
+                                item.totalvalue = grnSums[key];
+                                item.nettotal = grnSums[key];
+                                item.subtotal = grnSums[key];
+                                item.totalamount = grnSums[key];
+                            }
+                        });
+                    }
+                } catch (err) {
+                    console.error("Error fixing blanket PO items for print", err);
+                }
+            }
 
             setPoData(response.data); // store API response
             setPoModalVisible(true);  // open modal
