@@ -1,4 +1,4 @@
-﻿using Application.Master.Users.GetAllSalesPerson;
+using Application.Master.Users.GetAllSalesPerson;
 using Core.Models;
 using DocumentFormat.OpenXml.Spreadsheet;
 using MediatR;
@@ -19,14 +19,16 @@ namespace UserPanel.Controllers.Master
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IMediator _mediator;
         private readonly IConfiguration _configuration;
+        private readonly ApplicationDbContext _dbContext;
 
         public MasterUsersController(IMediator mediator, IConfiguration configuration, UserManager<ApplicationUser> userManager,
-            RoleManager<IdentityRole> roleManager)
+            RoleManager<IdentityRole> roleManager, ApplicationDbContext dbContext)
         {
             _mediator = mediator;
             _configuration = configuration;
             _userManager = userManager;
             _roleManager = roleManager;
+            _dbContext = dbContext;
         }
 
         //#region Sales Person Retrieval
@@ -81,14 +83,23 @@ namespace UserPanel.Controllers.Master
                         // Add new password
                         var pwd_result = await _userManager.AddPasswordAsync(userExists, createUser.Password);
 
-                        var userRoles = await _userManager.GetRolesAsync(userExists);                       
-
-                        if (userRoles.Count>0)
+                        var existingUserRoles = _dbContext.UserRoles.Where(ur => ur.UserId == userExists.Id).ToList();
+                        if (existingUserRoles.Any())
                         {
-                            await _userManager.RemoveFromRoleAsync(userExists, createUser.RoleName);
+                            _dbContext.UserRoles.RemoveRange(existingUserRoles);
                         }
 
-                        var roleInsert = await _userManager.AddToRoleAsync(userExists, createUser.RoleName);
+                        var normalizedRoleName = createUser.RoleName.ToUpper();
+                        var role = _dbContext.Roles.FirstOrDefault(r => r.NormalizedName == normalizedRoleName);
+                        bool roleAssigned = false;
+                        if (role != null)
+                        {
+                            _dbContext.UserRoles.Add(new IdentityUserRole<string> { UserId = userExists.Id, RoleId = role.Id });
+                            roleAssigned = true;
+                        }
+                        
+                        await _dbContext.SaveChangesAsync();
+                        var roleInsert = roleAssigned ? IdentityResult.Success : IdentityResult.Failed(new IdentityError { Description = "Role not found." });
 
                         if (!updateResult.Succeeded && !roleInsert.Succeeded)
                         {
@@ -111,7 +122,18 @@ namespace UserPanel.Controllers.Master
                         };
 
                         var createResult = await _userManager.CreateAsync(user, createUser.Password);
-                        var roleInsert = await _userManager.AddToRoleAsync(user, createUser.RoleName);                     
+                        
+                        var normalizedRoleName = createUser.RoleName.ToUpper();
+                        var role = _dbContext.Roles.FirstOrDefault(r => r.NormalizedName == normalizedRoleName);
+                        bool roleAssigned = false;
+                        if (role != null)
+                        {
+                            _dbContext.UserRoles.Add(new IdentityUserRole<string> { UserId = user.Id, RoleId = role.Id });
+                            await _dbContext.SaveChangesAsync();
+                            roleAssigned = true;
+                        }
+
+                        var roleInsert = roleAssigned ? IdentityResult.Success : IdentityResult.Failed(new IdentityError { Description = "Role not found." });
 
 
                         if (!createResult.Succeeded && !roleInsert.Succeeded)
