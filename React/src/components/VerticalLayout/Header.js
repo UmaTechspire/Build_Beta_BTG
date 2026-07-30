@@ -10,7 +10,7 @@ import { Link } from "react-router-dom";
 
 // Reactstrap
 import { Dropdown, DropdownToggle, DropdownMenu } from "reactstrap";
-import { GetUserById, GetDepartmentById, GetApprovalDiscussionList } from "../../common/data/mastersapi";
+import { GetUserById, GetDepartmentById, GetApprovalDiscussionList, GetCEODiscussionNotification } from "../../common/data/mastersapi";
 // Import menuDropdown
 import LanguageDropdown from "../CommonForBoth/TopbarDropdown/LanguageDropdown";
 import NotificationDropdown from "../CommonForBoth/TopbarDropdown/NotificationDropdown";
@@ -47,6 +47,16 @@ class Header extends Component {
       modalMode: "change",
 
       isSalesDepartment: true, // NEW STATE
+
+      // Existing discussions notification (approver → claimant)
+      discussionCount: 0,
+      discussionList: [],
+      discussionDropdownOpen: false,
+
+      // CEO notification: claimant replied back to CEO
+      ceoDiscussionCount: 0,
+      ceoDiscussionList: [],
+      ceoDropdownOpen: false,
     };
 
     this.toggleMenu = this.toggleMenu.bind(this);
@@ -136,6 +146,15 @@ class Header extends Component {
           discussionList: res.data,
         });
       }
+
+      // Load CEO discussion notifications (claimant replied back to CEO)
+      const ceoRes = await GetCEODiscussionNotification(1, 1, user?.u_id);
+      if (ceoRes?.status) {
+        this.setState({
+          ceoDiscussionCount: ceoRes.data.length,
+          ceoDiscussionList: ceoRes.data,
+        });
+      }
     } catch (err) {
       console.error("Failed:", err);
     }
@@ -206,10 +225,10 @@ class Header extends Component {
                   <span className="blink-text">Discussions</span>
                   <div className="dropdown d-inline-block">
                     <Dropdown
-                      isOpen={this.state.dropdownOpen}
+                      isOpen={this.state.discussionDropdownOpen}
                       toggle={() =>
                         this.setState({
-                          dropdownOpen: !this.state.dropdownOpen,
+                          discussionDropdownOpen: !this.state.discussionDropdownOpen,
                         })
                       }
                     >
@@ -227,6 +246,36 @@ class Header extends Component {
                             {this.state.discussionCount}
                           </span>
                         </Link>
+                      </DropdownToggle>
+                    </Dropdown>
+                  </div>
+                </>
+              )}
+
+              {/* CEO REPLY NOTIFICATION — icon + count only, no navigation link */}
+              {this.state.ceoDiscussionCount > 0 && (
+                <>
+                  <span className="blink-text">Replied</span>
+                  <div className="dropdown d-inline-block">
+                    <Dropdown
+                      isOpen={this.state.ceoDropdownOpen}
+                      toggle={() =>
+                        this.setState({
+                          ceoDropdownOpen: !this.state.ceoDropdownOpen,
+                        })
+                      }
+                    >
+                      <DropdownToggle
+                        className="btn header-item noti-icon"
+                        tag="button"
+                      >
+                        <i className="bx bx-message-dots"></i>
+                        <span
+                          className="badge bg-danger rounded-pill"
+                          style={{ cursor: "default" }}
+                        >
+                          {this.state.ceoDiscussionCount}
+                        </span>
                       </DropdownToggle>
                     </Dropdown>
                   </div>

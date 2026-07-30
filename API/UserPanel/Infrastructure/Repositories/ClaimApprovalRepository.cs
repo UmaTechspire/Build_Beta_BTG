@@ -186,6 +186,7 @@ claim_hod_isdiscussed= @isdiscussedeight,
         WHEN IFNULL(voucherid,0) > 0 THEN @ppp_commissioner_discussed
         ELSE @ppp_commissioner_discussed
     END,
+                 isclaimant_replied = CASE WHEN @ppp_commissioner_discussed = 1 THEN 0 ELSE isclaimant_replied END,
                 
 
                 ppp_director_discussed =@ppp_director_discussed,
@@ -271,7 +272,7 @@ claim_hod_isdiscussed= @isdiscussedeight,
                         {
                             updateSql = @"
                 UPDATE tbl_claimAndpayment_header
-                SET ppp_pv_Director_discussed = 1  ,claim_comment= @remarks,pv_dis_count=ifnull(pv_dis_count,0)+1,  LastModifiedBY=@userid  
+                SET ppp_pv_Director_discussed = 1  ,claim_comment= @remarks,pv_dis_count=ifnull(pv_dis_count,0)+1,  LastModifiedBY=@userid, isclaimant_replied = 0
                 WHERE SummaryId = @SummaryId
                   AND IFNULL(PPP_PV_Director_approve, 0) = 0 and ifnull(ppp_IsRejected,0)=0 and ifnull(ppp_pv_IsRejected,0)=0;";
                         }
@@ -290,7 +291,7 @@ claim_hod_isdiscussed= @isdiscussedeight,
                         {
                              updateSql = @"
                 UPDATE tbl_claimAndpayment_header
-                SET ppp_pv_Commissioner_discussedone = 1 ,claim_comment= @remarks,  LastModifiedBY=@userid 
+                SET ppp_pv_Commissioner_discussedone = 1 ,claim_comment= @remarks,  LastModifiedBY=@userid, isclaimant_replied = 0
                 WHERE SummaryId = @SummaryId 
                   AND IFNULL(PPP_PV_Commissioner_approveone, 0) = 0 and ifnull(ppp_IsRejected,0)=0 and ifnull(ppp_pv_IsRejected,0)=0;";
                         }
@@ -921,6 +922,56 @@ claim_hod_isdiscussed= @isdiscussedeight,
 
         }
 
+        public async Task<object> GetCEODiscussionList(int userid, int branchId, Int32 orgid)
+        {
+            try
+            {
+                // Direct SQL — bypasses proc_claimapprove entirely.
+                // Returns records where the logged-in user is the Level 7 (CEO) approver
+                // AND isclaimant_replied = 1 (claimant has replied back).
+                string sql = @"
+                    SELECT ch.SummaryId AS paymentplanid,
+                           ph.PaymentNo AS refno,
+                           MAX(ch.claim_comment) AS claim_comment
+                    FROM tbl_claimAndpayment_header AS ch
+                    INNER JOIN tbl_PaymentSummary_header AS ph
+                        ON ph.SummaryId = ch.SummaryId
+                    WHERE IFNULL(ch.isclaimant_replied, 0) = 1
+                      AND IFNULL(ch.ppp_IsRejected, 0) = 0
+                      AND IFNULL(ch.ppp_pv_IsRejected, 0) = 0
+                      AND IFNULL(ch.PPP_PV_Commissioner_approveone, 0) = 0 -- Important: CEO hasn't approved yet
+                      AND IFNULL(ch.PPP_PV_Director_approve, 0) = 1 -- Important: Must have passed the previous level (Director)
+                      AND ch.isactive = 1
+                      AND ch.branchid = @branchid
+                      AND EXISTS (
+                          SELECT 1 FROM ApprovalRequests AS ar 
+                          WHERE ar.branchid = @branchid 
+                            AND ar.screenid = 27 
+                            AND ar.level = 7 
+                            AND ar.LevelApprover = @userid
+                      )
+                    GROUP BY ch.SummaryId, ph.PaymentNo;";
+
+                var list = await _connection.QueryAsync(sql, new { userid, branchid = branchId });
+
+                return new ResponseModel
+                {
+                    Data = list.ToList(),
+                    Message = "Success",
+                    Status = true
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ResponseModel
+                {
+                    Data = null,
+                    Message = "Error retrieving CEO discussion notifications: " + ex.Message,
+                    Status = false
+                };
+            }
+        }
+
         public async Task<object> AcceptDiscussion(int claimid,string Comment,int Type,int isclaimant,int userid, int logid = 0)
         {
             try
@@ -930,7 +981,8 @@ claim_hod_isdiscussed= @isdiscussedeight,
                     if (isclaimant == 1)
                     {
 
-                        string updatedetails = @"update tbl_claimAndpayment_header set isclaimant_discussed=0,IsSubmitted=0,claim_comment='" + Comment + "', isdiscussionaccepted=" + 0 + "  where Claim_ID=@claimid and isdiscussionaccepted=1;";
+                        // Set isclaimant_replied=1 so the CEO's header badge lights up
+                        string updatedetails = @"update tbl_claimAndpayment_header set isclaimant_discussed=0,IsSubmitted=0,claim_comment='" + Comment + "', isdiscussionaccepted=" + 0 + ", isclaimant_replied=1  where Claim_ID=@claimid and isdiscussionaccepted=1;";
                          
                         await _connection.ExecuteAsync(updatedetails, new { Comment, ClaimId = claimid });
                          
@@ -978,27 +1030,28 @@ claim_hod_isdiscussed= @isdiscussedeight,
 
                                 int unresolvedCount = await _connection.QueryFirstOrDefaultAsync<int>(countUnresolvedSql, new { claimid });
 
-                                if (unresolvedCount == 0)
-                                {
-                                    // If no unresolved comments remain, clear all flags (same as original code)
-                                    string updatedetails = @"update tbl_claimAndpayment_header set LastModifiedBY=@userid ,claim_comment=@Comment, isdiscussionaccepted=" + 0 + "  where summaryid=@claimid;";
+                                 if (unresolvedCount == 0)
+                                 {
+                                     // If no unresolved comments remain, clear all flags and flag that claimant replied
+                                     string updatedetails = @"update tbl_claimAndpayment_header set LastModifiedBY=@userid ,claim_comment=@Comment, isdiscussionaccepted=" + 0 + ", isclaimant_replied=1  where summaryid=@claimid;";
 
-                                    updatedetails += @"update tbl_claimAndpayment_header set  LastModifiedBY=@userid ,claim_comment=@Comment, ppp_commissioner_discussedone=" + 0 + "  where summaryid=@claimid and ifnull(ppp_commissioner_discussedone,0)=1;";
+                                     updatedetails += @"update tbl_claimAndpayment_header set  LastModifiedBY=@userid ,claim_comment=@Comment, ppp_commissioner_discussedone=" + 0 + "  where summaryid=@claimid and ifnull(ppp_commissioner_discussedone,0)=1;";
 
-                                    updatedetails += @"update tbl_claimAndpayment_header set  LastModifiedBY=@userid ,claim_comment=@Comment, ppp_gm_discussed=" + 0 + "  where summaryid=@claimid and ifnull(ppp_gm_discussed,0)=1;";
-                                    updatedetails += @"update tbl_claimAndpayment_header set  LastModifiedBY=@userid ,claim_comment=@Comment, ppp_director_discussed=" + 0 + "  where summaryid=@claimid and ifnull(ppp_director_discussed,0)=1;";
+                                     updatedetails += @"update tbl_claimAndpayment_header set  LastModifiedBY=@userid ,claim_comment=@Comment, ppp_gm_discussed=" + 0 + "  where summaryid=@claimid and ifnull(ppp_gm_discussed,0)=1;";
+                                     updatedetails += @"update tbl_claimAndpayment_header set  LastModifiedBY=@userid ,claim_comment=@Comment, ppp_director_discussed=" + 0 + "  where summaryid=@claimid and ifnull(ppp_director_discussed,0)=1;";
 
-                                    updatedetails += @"update tbl_claimAndpayment_header set  LastModifiedBY=@userid ,claim_comment=@Comment, ppp_pv_Commissioner_discussedone=" + 0 + "  where summaryid=@claimid and ifnull(ppp_pv_Commissioner_discussedone,0)=1;";
-                                    updatedetails += @"update tbl_claimAndpayment_header set  LastModifiedBY=@userid ,claim_comment=@Comment, ppp_pv_Director_discussed=" + 0 + "  where summaryid=@claimid and ifnull(ppp_pv_Director_discussed,0)=1;";
-                                    await _connection.ExecuteAsync(updatedetails, new { Comment, ClaimId = claimid, userid });
-                                }
-                                else
-                                {
-                                    // If unresolved comments remain, update the comment in the header to log Mery's response,
-                                    // but keep isdiscussionaccepted = 1 and ppp_pv_Commissioner_discussedone = 1.
-                                    string updatedetails = @"update tbl_claimAndpayment_header set LastModifiedBY=@userid ,claim_comment=@Comment where summaryid=@claimid;";
-                                    await _connection.ExecuteAsync(updatedetails, new { Comment, ClaimId = claimid, userid });
-                                }
+                                     updatedetails += @"update tbl_claimAndpayment_header set  LastModifiedBY=@userid ,claim_comment=@Comment, ppp_pv_Commissioner_discussedone=" + 0 + "  where summaryid=@claimid and ifnull(ppp_pv_Commissioner_discussedone,0)=1;";
+                                     updatedetails += @"update tbl_claimAndpayment_header set  LastModifiedBY=@userid ,claim_comment=@Comment, ppp_pv_Director_discussed=" + 0 + "  where summaryid=@claimid and ifnull(ppp_pv_Director_discussed,0)=1;";
+                                     await _connection.ExecuteAsync(updatedetails, new { Comment, ClaimId = claimid, userid });
+                                 }  
+                                 else
+                                 {
+                                     // If unresolved comments remain, update the comment in the header to log Mery's response,
+                                     // but keep isdiscussionaccepted = 1 and ppp_pv_Commissioner_discussedone = 1.
+                                     // Still set isclaimant_replied=1 so the CEO sees the notification badge.
+                                     string updatedetails = @"update tbl_claimAndpayment_header set LastModifiedBY=@userid ,claim_comment=@Comment, isclaimant_replied=1 where summaryid=@claimid;";
+                                     await _connection.ExecuteAsync(updatedetails, new { Comment, ClaimId = claimid, userid });
+                                 }  
                             }
                             else
                             {

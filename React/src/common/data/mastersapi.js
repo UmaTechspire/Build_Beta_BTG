@@ -5619,6 +5619,22 @@ export const GetApprovalDiscussionList = async (orgId, branchId, userId) => {
     }
 };
 
+//#region GetCEODiscussionNotification
+export const GetCEODiscussionNotification = async (orgId, branchId, userId) => {
+    try {
+        const response = await get(`/ClaimApproval/GetCEODiscussion?orgid=${orgId}&BranchId=${branchId}&UserId=${userId}`);
+        if (response?.status) {
+            return response;
+        } else {
+            // If api returns status:false (e.g. no replies), return empty structure rather than throwing
+            return { status: true, data: [] };
+        }
+    } catch (error) {
+        console.log("Error in GetCEODiscussionNotification:", error); // Log silently, don't break app
+        return { status: false, data: [] };
+    }
+};
+
 export const getAllCreditNotes = async () => {
     try {
         const response = await get(`${PYTHON_API_URL}/dn_cn/get-all-credit-notes`);

@@ -5,6 +5,7 @@ using Application.Finance.ClaimApproval.AcceptDiscussion;
 using Application.Finance.ClaimApproval.Approval;
 using Application.Finance.ClaimApproval.AutoApproval;
 using Application.Finance.ClaimApproval.GetAll;
+using Application.Finance.ClaimApproval.GetCEODiscussion;
 using Application.Finance.ClaimApproval.GetHistory;
 using Application.Finance.ClaimApproval.GetPVHistory;
 using Application.Finance.ClaimApproval.Reject;
@@ -98,6 +99,18 @@ namespace UserPanel.Controllers.Finance
             var result = await _mediator.Send(new GetDiscussionCommand() { BranchId = BranchId, OrgId = orgid, userid = UserId });
             return Ok(result);
         }
+
+        /// <summary>
+        /// Get CEO discussion notifications — returns records where the claimant has replied (isclaimant_replied=1).
+        /// Used for the header badge on the CEO's screen.
+        /// </summary>
+        [HttpGet("GetCEODiscussion")]
+        public async Task<IActionResult> GetCEODiscussion(Int32 UserId, Int32 BranchId, Int32 orgid)
+        {
+            var result = await _mediator.Send(new GetCEODiscussionCommand() { BranchId = BranchId, OrgId = orgid, userid = UserId });
+            return Ok(result);
+        }
+
         [HttpPut("AcceptDiscussion")]
         public async Task<IActionResult> AcceptDiscussion(Int32 ClaimId,string Comment, int Type, int isclaimant,int userid, int logid = 0)
         {
